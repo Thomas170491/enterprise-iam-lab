@@ -1,6 +1,22 @@
+#Environment Variables
+
 .env
 *.log
+
+#Pyhon Cache
+
 __pycache__/
 .pytest_cache/
+
+#IDE/editor
+
 .vscode/
 .idea/
+
+#Virtual Enironment
+
+.venv/
+venv/
+
+#Flask
+
