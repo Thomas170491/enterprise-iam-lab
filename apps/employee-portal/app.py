@@ -20,7 +20,7 @@ def create_app():
     #Grab configuration from config.py here
     app.config.from_object(Config)
 
-    #Initialize sessionsand OAuth
+    #Initialize sessions and OAuth
     sess.init_app(app)
     oauth.init_app(app)
 
