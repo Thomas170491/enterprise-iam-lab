@@ -5,15 +5,22 @@ Home | NovaSecure Employee Portal
 {% endblock %}
 
 {% block content %}
-<section>
-    <h1>NovaSecure Employee Portal</h1>
 
-    <p>
-        Secure access to your NovaSecure employee resources.
-    </p>
+<h1>NovaSecure Employee Portal</h1>
 
-    <a href="#">
+{% if user %}
+
+    <p>Welcome, {{ user.name }}.</p>
+    <p>Signed in as {{ user.username }}</p>
+
+{% else %}
+
+    <p>Secure access to your NovaSecure employee resources.</p>
+
+    <a href="{{ url_for('auth.login') }}">
         Sign in with NovaSecure
     </a>
-</section>
+
+{% endif %}
+
 {% endblock %}
