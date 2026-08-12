@@ -1,4 +1,4 @@
-from flask import Blueprint, url_for
+from flask import Blueprint, url_for, session,redirect
 
 from auth import oauth
 
@@ -8,7 +8,15 @@ bp_auth = Blueprint("auth", __name__)
 
 @bp_auth.route("/auth/callback")
 def callback():
-    return None
+    token = oauth.keycloak.authorize_access_token()
+    userinfo = token['userinfo']
+    session["user"] = {
+    "sub": userinfo["sub"],
+    "username": userinfo["preferred_username"],
+    "name": userinfo["name"],
+    "email": userinfo["email"],
+}
+    return redirect(url_for("portal.home"))
 
 
 @bp_auth.route("/login")
