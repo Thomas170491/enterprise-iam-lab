@@ -11,8 +11,9 @@ def home():
         "home.html",
         user = user
         )
-@login_required
+
 @bp_portal.route("/profile")
+@login_required
 def profile():
     return render_template(
         "profile.html",
