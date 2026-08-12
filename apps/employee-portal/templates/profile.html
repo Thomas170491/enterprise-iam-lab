@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}
+Profile | NovaSecure Employee Portal
+{% endblock %}
+
+{% block content %}
+<h1>My Profile</h1>
+
+<p><strong>Name:</strong> {{ user.name }}</p>
+<p><strong>Username:</strong> {{ user.username }}</p>
+<p><strong>Email:</strong> {{ user.email }}</p>
+<p><strong>OIDC Subject:</strong> {{ user.id }}</p>
+{% endblock %}

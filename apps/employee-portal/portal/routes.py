@@ -1,4 +1,5 @@
 from flask import Blueprint,render_template,session
+from flask_login import login_required, current_user
 
 
 bp_portal = Blueprint("portal", __name__)
@@ -10,3 +11,9 @@ def home():
         "home.html",
         user = user
         )
+@login_required
+def profile():
+    return render_template(
+        "profile.html",
+         user = current_user                  
+ )
