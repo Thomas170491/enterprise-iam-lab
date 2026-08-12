@@ -1,11 +1,8 @@
-
-
-
 from flask import Flask 
 from config import Config
 from flask_session import Session
 from portal.routes import bp_portal 
-from auth import oauth
+from auth import oauth,login_manager
 from auth.routes import bp_auth
 
 
@@ -20,9 +17,11 @@ def create_app():
     #Grab configuration from config.py here
     app.config.from_object(Config)
 
-    #Initialize sessions and OAuth
+    #Initialisations
+
     sess.init_app(app)
     oauth.init_app(app)
+    login_manager.init_app(app)
 
     #OAuth registration
     oauth.register(
