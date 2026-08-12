@@ -5,7 +5,8 @@ from flask import Flask
 from config import Config
 from flask_session import Session
 from portal.routes import bp_portal 
-from auth.__init__ import oauth
+from auth import oauth
+from auth.routes import bp_auth
 
 
 sess = Session()
@@ -38,6 +39,7 @@ def create_app():
 
     #Register blueprints
     app.register_blueprint(bp_portal)
+    app.register_blueprint(bp_auth)
 
     return app
 
