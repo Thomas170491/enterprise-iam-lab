@@ -27,4 +27,6 @@ def load_user(user_id):
         username=user_data["username"],
         name=user_data["name"],
         email=user_data["email"],
+        realm_roles=user_data.get("realm_roles", []),
+        client_roles=user_data.get("client_roles", [])
     )
