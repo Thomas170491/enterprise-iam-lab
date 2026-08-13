@@ -2,7 +2,8 @@ from flask import Blueprint, url_for, session,redirect,render_template,current_a
 from flask_login import login_user,logout_user, login_required
 from auth import oauth, User
 from urllib.parse import urlencode
-
+import requests
+from authlib.jose import JsonWebToken
 
 
 bp_auth = Blueprint("auth", __name__)
@@ -10,29 +11,91 @@ bp_auth = Blueprint("auth", __name__)
 
 @bp_auth.route("/auth/callback")
 def callback():
+
+    #Get identity information
+
     token = oauth.keycloak.authorize_access_token()
     userinfo = token["userinfo"]
+
+    # 2. Extract/validate roles from access token   
+
+    jwks_url = (
+        f"{current_app.config['KEYCLOAK_SERVER_URL']}"
+        f"/realms/{current_app.config['KEYCLOAK_REALM']}"
+        f"/protocol/openid-connect/certs"
+        )
+
+    
+    response = requests.get(jwks_url, timeout=5)
+    response.raise_for_status()
+    jwks = response.json()
+    
+    jwt=JsonWebToken(["RS256"])
+
+    claims = jwt.decode(
+        token["access_token"],
+        jwks,
+        claims_options={
+            "iss" : {
+                "essential" : True,
+                "value" : (
+                       f"{current_app.config['KEYCLOAK_SERVER_URL']}"
+                       f"/realms/{current_app.config['KEYCLOAK_REALM']}"
+                )
+            }
+        }
+    )
+
+    claims.validate()
+
+    realm_roles=(
+        claims
+        .get("realm_access", {})
+        .get("roles", [])
+    )
+
+    client_roles = (
+    claims
+    .get("resource_access", {})
+    .get(current_app.config["KEYCLOAK_CLIENT_ID"], {})
+    .get("roles", [])
+    )
+    # 3. Create User object
 
     user = User(
         sub=userinfo["sub"],
         username=userinfo["preferred_username"],
         name=userinfo["name"],
         email=userinfo["email"],
+        realm_roles = user.realm_roles,
+        client_roles = user.client_roles
+        
     )
 
-    # Keep identity data in the server-side session
-    # so user_loader() can reconstruct the User later.
+    # 4. Store user + roles in session
+
     session["user"] = {
         "sub": user.id,
         "username": user.username,
         "name": user.name,
         "email": user.email,
+        "realm_roles": user.realm_roles,
+        "client_roles": user.client_roles,
     }
+
+    # 5. login_user(user)
+
+    login_user(user)
+
+
+    # Keep identity data in the server-side session
+    # so user_loader() can reconstruct the User later.
+
 
     session["id_token"] = token["id_token"]
 
 
-    login_user(user)
+    # 6. Redirect home
 
     return redirect(url_for("portal.home"))
 
