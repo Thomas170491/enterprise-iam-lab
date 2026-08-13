@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}
+Logged Out | NovaSecure Employee Portal
+{% endblock %}
+
+{% block content %}
+<section>
+    <h1>You have been signed out</h1>
+
+    <p>
+        Your NovaSecure session has been closed successfully.
+    </p>
+
+    <a href="{{ url_for('auth.login') }}">
+        Sign in again
+    </a>
+</section>
+{% endblock %}
