@@ -29,6 +29,9 @@ def callback():
         "email": user.email,
     }
 
+    session["id_token"] = token["id_token"]
+
+
     login_user(user)
 
     return redirect(url_for("portal.home"))
