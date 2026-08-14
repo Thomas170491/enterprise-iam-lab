@@ -5,6 +5,31 @@ Manager Dashboard | NovaSecure Employee Portal
 {% endblock %}
 
 {% block content %}
-<h1>Manager Dashboard</h1>
-<p>Access granted.</p>
+<section>
+    <h1>Manager Dashboard</h1>
+
+    <p>
+        Welcome, {{ current_user.name }}.
+        Your manager role has been successfully authorized.
+    </p>
+
+    <div class="manager-dashboard">
+
+        <div class="manager-card">
+            <h3>Team Overview</h3>
+            <p>View information related to your team.</p>
+        </div>
+
+        <div class="manager-card">
+            <h3>Access Overview</h3>
+            <p>Review access information relevant to your management role.</p>
+        </div>
+
+        <div class="manager-card">
+            <h3>Approvals</h3>
+            <p>Future access requests and approval workflows will appear here.</p>
+        </div>
+
+    </div>
+</section>
 {% endblock %}

@@ -5,10 +5,21 @@ Profile | NovaSecure Employee Portal
 {% endblock %}
 
 {% block content %}
-<h1>My Profile</h1>
+<section>
+    <h1>My Profile</h1>
 
-<p><strong>Name:</strong> {{ user.name }}</p>
-<p><strong>Username:</strong> {{ user.username }}</p>
-<p><strong>Email:</strong> {{ user.email }}</p>
-<p><strong>OIDC Subject:</strong> {{ user.id }}</p>
+    <dl class="profile-details">
+        <dt>Name</dt>
+        <dd>{{ user.name }}</dd>
+
+        <dt>Username</dt>
+        <dd>{{ user.username }}</dd>
+
+        <dt>Email</dt>
+        <dd>{{ user.email }}</dd>
+
+        <dt>OIDC Subject</dt>
+        <dd>{{ user.id }}</dd>
+    </dl>
+</section>
 {% endblock %}

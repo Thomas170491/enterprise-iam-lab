@@ -2,7 +2,7 @@ from pathlib import Path
 import os
 
 from dotenv import load_dotenv;
-
+from cachelib.file import FileSystemCache
 
 # Locate and load the .env file from the employee-portal directory
 BASE_DIR = Path(__file__).resolve().parent
@@ -35,6 +35,11 @@ class Config:
     # Flask-Session
     SESSION_TYPE = "cachelib"
 
+    SESSION_CACHELIB = FileSystemCache(
+        cache_dir=str(BASE_DIR / ".flask_session"),
+        threshold=500,
+    )
+
 
 # Validate required configuration
 required_config = {
@@ -44,6 +49,8 @@ required_config = {
     "KEYCLOAK_CLIENT_ID": Config.KEYCLOAK_CLIENT_ID,
     "KEYCLOAK_CLIENT_SECRET": Config.KEYCLOAK_CLIENT_SECRET,
 }
+
+
 
 for name, value in required_config.items():
     if not value:

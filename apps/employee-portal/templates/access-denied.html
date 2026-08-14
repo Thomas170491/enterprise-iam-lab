@@ -5,16 +5,23 @@ Access Denied | NovaSecure Employee Portal
 {% endblock %}
 
 {% block content %}
-<section>
+<section class="access-denied">
+
     <h1>Access Denied</h1>
 
     <p>
-        You are authenticated, but you do not have permission
-        to access this resource.
+        You are authenticated, but your current access rights
+        do not permit you to view this resource.
+    </p>
+
+    <p>
+        If you believe you require access, contact your manager
+        or the IAM team.
     </p>
 
     <a href="{{ url_for('portal.home') }}">
-        Return to home
+        Return to Home
     </a>
+
 </section>
 {% endblock %}
