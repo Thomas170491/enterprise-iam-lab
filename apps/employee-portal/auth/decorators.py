@@ -8,8 +8,7 @@ def realm_roles_required(required_role):
         @wraps(view_function)
         def wrapped_view(*args, **kwargs):
             if required_role not in current_user.realm_roles :
-                return abort(403)
-
+                 abort(403)
             return view_function(*args,**kwargs)
         return wrapped_view
     return decorator
