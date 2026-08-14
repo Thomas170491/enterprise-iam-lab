@@ -15,5 +15,14 @@ Department | NovaSecure Employee Portal
     <p>
         Signed in as {{ current_user.name }}.
     </p>
+
+
+ <h2>Department Resources</h2>
+
+<ul>
+    {% for resource in resources %}
+        <li>{{ resource }}</li>
+    {% endfor %}
+</ul>
 </section>
 {% endblock %}
