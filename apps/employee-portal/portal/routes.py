@@ -1,17 +1,15 @@
-from flask import Blueprint,render_template,session,abort
+from flask import Blueprint,render_template,abort
 from flask_login import login_required, current_user
 from auth.decorators import client_role_required
-from department_data import DEPARTMENT_ROLES, DEPARTMENT_RESOURCES
+from portal.department_data import DEPARTMENT_ROLES, DEPARTMENT_RESOURCES
 
 
 bp_portal = Blueprint("portal", __name__)
 @bp_portal.route("/")
 def home():
-    user = session.get("user")
-
+  
     return render_template(
         "home.html",
-        user = user
         )
 
 @bp_portal.route("/profile")

@@ -108,7 +108,7 @@ def login():
         redirect_url
     )
 
-@bp_auth.route("/logout")
+@bp_auth.route("/logout", methods=['POST'])
 @login_required
 def logout():
     # Get this BEFORE clearing the local login/session data

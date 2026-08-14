@@ -16,13 +16,16 @@ Department | NovaSecure Employee Portal
         Signed in as {{ current_user.name }}.
     </p>
 
+    <h2>Department Resources</h2>
 
- <h2>Department Resources</h2>
-
-<ul>
-    {% for resource in resources %}
-        <li>{{ resource }}</li>
-    {% endfor %}
-</ul>
+    {% if resources %}
+        <ul>
+            {% for resource in resources %}
+                <li>{{ resource }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No department resources are currently available.</p>
+    {% endif %}
 </section>
 {% endblock %}

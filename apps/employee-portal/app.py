@@ -4,9 +4,11 @@ from flask_session import Session
 from portal.routes import bp_portal 
 from auth import oauth,login_manager
 from auth.routes import bp_auth
+from flask_wtf.csrf import CSRFProtect
 
 
 sess = Session()
+csrf = CSRFProtect()
 
 
 def create_app():
@@ -22,6 +24,7 @@ def create_app():
     sess.init_app(app)
     oauth.init_app(app)
     login_manager.init_app(app)
+    csrf.init_app(app)
 
     #OAuth registration
     oauth.register(
