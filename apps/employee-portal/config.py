@@ -3,15 +3,36 @@ import os
 
 from dotenv import load_dotenv;
 from cachelib.file import FileSystemCache
+from sqlalchemy import URL 
 
-# Locate and load the .env file from the employee-portal directory
+
+
 BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / ".env")
+PROJECT_ROOT = BASE_DIR.parent.parent
 
+# Infrastructure configuration
+load_dotenv(PROJECT_ROOT / ".env")
+
+# Employee Portal-specific configuration
+load_dotenv(BASE_DIR / ".env")
 
 class Config:
     # Flask
     SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
+
+    #Database
+    PORTAL_DB = os.getenv("PORTAL_DB")
+    PORTAL_DB_USER = os.getenv("PORTAL_DB_USER")
+    PORTAL_DB_PASSWORD = os.getenv("PORTAL_DB_PASSWORD")
+
+    SQLALCHEMY_DATABASE_URI = URL.create(
+        "postgresql+psycopg",
+        username=PORTAL_DB_USER,
+        password=PORTAL_DB_PASSWORD,
+        host="localhost",
+        port=5433,
+        database=PORTAL_DB,
+    )
 
     # Keycloak / OIDC
     KEYCLOAK_SERVER_URL = os.getenv("KEYCLOAK_SERVER_URL")
@@ -48,6 +69,9 @@ required_config = {
     "KEYCLOAK_REALM": Config.KEYCLOAK_REALM,
     "KEYCLOAK_CLIENT_ID": Config.KEYCLOAK_CLIENT_ID,
     "KEYCLOAK_CLIENT_SECRET": Config.KEYCLOAK_CLIENT_SECRET,
+    "PORTAL_DB": Config.PORTAL_DB,
+    "PORTAL_DB_USER": Config.PORTAL_DB_USER,
+    "PORTAL_DB_PASSWORD": Config.PORTAL_DB_PASSWORD,
 }
 
 
