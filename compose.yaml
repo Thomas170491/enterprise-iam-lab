@@ -24,6 +24,35 @@ services:
 
     restart: unless-stopped
 
+  portal-postgres:
+    image: postgres:17-alpine
+    container_name: employee-portal-postgres
+    
+    environment:
+      POSTGRES_DB: ${PORTAL_DB}
+      POSTGRES_USER: ${PORTAL_DB_USER}
+      POSTGRES_PASSWORD: ${PORTAL_DB_PASSWORD}
+
+    ports:
+      - "127.0.0.1:5433:5432"
+
+    volumes:
+      - portal_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${PORTAL_DB_USER} -d ${PORTAL_DB}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    restart: unless-stopped
+
+  
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.0
     container_name: iam-keycloak
@@ -55,3 +84,6 @@ services:
 volumes:
   postgres_data:
     name: enterprise_iam_postgres_data
+
+  portal_postgres_data:
+    name: employee_portal_postgres_data
