@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}
+Department | NovaSecure Employee Portal
+{% endblock %}
+
+{% block content %}
+<section>
+    <h1>{{ department }}</h1>
+
+    <p>
+        You are authorized to access this department's resources.
+    </p>
+
+    <p>
+        Signed in as {{ current_user.name }}.
+    </p>
+</section>
+{% endblock %}

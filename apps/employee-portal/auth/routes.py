@@ -67,8 +67,8 @@ def callback():
         username=userinfo["preferred_username"],
         name=userinfo["name"],
         email=userinfo["email"],
-        realm_roles = user.realm_roles,
-        client_roles = user.client_roles
+        realm_roles = realm_roles,
+        client_roles = client_roles
         
     )
 

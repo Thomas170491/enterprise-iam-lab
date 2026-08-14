@@ -1,4 +1,4 @@
-from flask import Flask 
+from flask import Flask,render_template
 from config import Config
 from flask_session import Session
 from portal.routes import bp_portal 
@@ -44,4 +44,6 @@ def create_app():
 
 app=create_app()
 
- 
+@app.errorhandler(403)
+def forbidden(error):
+    return render_template("access-denied.html"), 403
