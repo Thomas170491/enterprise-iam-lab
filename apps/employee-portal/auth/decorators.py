@@ -3,7 +3,7 @@ from functools import wraps
 from flask import abort
 from flask_login import current_user
 
-def realm_roles_required(required_role):
+def realm_role_required(required_role):
     def decorator(view_function):
         @wraps(view_function)
         def wrapped_view(*args, **kwargs):
@@ -13,7 +13,7 @@ def realm_roles_required(required_role):
         return wrapped_view
     return decorator
 
-def client_roles_required(required_role):
+def client_role_required(required_role):
     def decorator(view_function):
         @wraps(view_function) 
         def wrapped_view(*args,**kwargs):
