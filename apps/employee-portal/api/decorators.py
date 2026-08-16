@@ -3,8 +3,7 @@ from functools import wraps
 import requests
 from flask import current_app, g, request
 from flask_login import current_user
-from joserfc.errors import JoseError
-
+from services.exceptions import TokenValidationError
 from api.errors import api_error
 from auth import User
 from services.token_service import (
@@ -55,13 +54,18 @@ def api_login_required(view):
                 audience=current_app.config["KEYCLOAK_API_AUDIENCE"],
             )
 
-        except JoseError:
+        except TokenValidationError as exc:
+            current_app.logger.warning(
+            "Bearer token validation failed: %s",
+            exc.reason,   
+            )
+            # Externally, return a generic error so we do not reveal
+            # exactly why token validation failed.
             return api_error(
                 "invalid_access_token",
                 "The access token is invalid or expired.",
                 401,
-            )
-
+    )
         except requests.RequestException:
             return api_error(
                 "identity_provider_unavailable",
