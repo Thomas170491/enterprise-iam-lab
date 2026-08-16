@@ -48,4 +48,3 @@ def department():
     resources=department_data["resources"]
 )
 
-
