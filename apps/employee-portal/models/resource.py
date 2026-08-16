@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from extensions import db
@@ -13,6 +13,15 @@ if TYPE_CHECKING:
 
 class DepartmentResource(db.Model):
     __tablename__ = "department_resources"
+
+
+    __table_args__ = (
+        UniqueConstraint(
+            "department_id",
+            "name",
+            name="uq_department_resource_name",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
