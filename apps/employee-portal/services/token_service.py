@@ -3,7 +3,7 @@ import requests
 from joserfc import jwt 
 from joserfc.jwk import KeySet
 
-def validate_access_token(access_token, server_url,realm ):
+def validate_access_token(access_token, server_url,realm, audience=None ):
     issuer= f"{server_url}/realms/{realm}"
 
     jwks_url = (
@@ -27,20 +27,30 @@ def validate_access_token(access_token, server_url,realm ):
         algorithms=["RS256"]
     )
 
-    claims_registery = jwt.JWTClaimsRegistry(
-        iss={
+    claims_options = {
+        "iss": {
             "essential": True,
             "value": issuer,
         },
-        exp={
+        "exp": {
             "essential": True,
         },
-        sub={
+        "sub": {
             "essential": True,
         },
+    }
+
+    if audience is not None:
+        claims_options["aud"] = {
+            "essential": True,
+            "value": audience,
+    }
+
+    claims_registry = jwt.JWTClaimsRegistry(
+        **claims_options
     )
-    claims_registery.validate(
-        token.claims
+    claims_registry.validate(
+            token.claims
 
     )
 

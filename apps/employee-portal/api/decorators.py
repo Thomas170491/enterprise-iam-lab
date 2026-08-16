@@ -52,6 +52,7 @@ def api_login_required(view):
                 access_token,
                 current_app.config["KEYCLOAK_SERVER_URL"],
                 current_app.config["KEYCLOAK_REALM"],
+                audience=current_app.config["KEYCLOAK_API_AUDIENCE"],
             )
 
         except JoseError:

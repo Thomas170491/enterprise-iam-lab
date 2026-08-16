@@ -24,6 +24,7 @@ class Config:
     PORTAL_DB = os.getenv("PORTAL_DB")
     PORTAL_DB_USER = os.getenv("PORTAL_DB_USER")
     PORTAL_DB_PASSWORD = os.getenv("PORTAL_DB_PASSWORD")
+    KEYCLOAK_API_AUDIENCE = os.getenv("KEYCLOAK_API_AUDIENCE")
 
     SQLALCHEMY_DATABASE_URI = URL.create(
         "postgresql+psycopg",
@@ -72,6 +73,7 @@ required_config = {
     "PORTAL_DB": Config.PORTAL_DB,
     "PORTAL_DB_USER": Config.PORTAL_DB_USER,
     "PORTAL_DB_PASSWORD": Config.PORTAL_DB_PASSWORD,
+    "KEYCLOAK_API_AUDIENCE": Config.KEYCLOAK_API_AUDIENCE,
 }
 
 
