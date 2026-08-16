@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from auth.decorators import client_role_required
 from services.access_service import get_department_resources
 from services.identity_service import get_identity
+from services.exceptions import DepartmentAccessConflict
 
 bp_portal = Blueprint("portal", __name__)
 @bp_portal.route("/")
@@ -32,7 +33,7 @@ def manager():
 def department():
     try:
         department_data = get_department_resources(current_user)
-    except ValueError:
+    except DepartmentAccessConflict:
         abort(
             409,
             description = "Conflicting department access detected",

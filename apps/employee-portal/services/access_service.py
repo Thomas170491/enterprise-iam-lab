@@ -1,5 +1,6 @@
 from extensions import db
 from models import Department
+from services.exceptions import DepartmentAccessConflict
 
 
 def get_department(user):
@@ -13,10 +14,9 @@ def get_department(user):
         return  None 
 
     if len(departments) > 1 :
-        raise ValueError(
-            "User has access roles for multiple departments"
+        raise DepartmentAccessConflict(
+            department.client_role for department in departments 
         )
-        
 
     return departments[0]
 
