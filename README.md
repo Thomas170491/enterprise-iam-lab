@@ -1,21 +1,22 @@
 # Enterprise IAM & Access Governance Lab
 
-A hands-on enterprise Identity and Access Management lab built around **Keycloak, OpenID Connect, Flask, RBAC, passkeys, and secure session management**.
+A hands-on enterprise Identity and Access Management lab built around **Keycloak, OpenID Connect, Flask, PostgreSQL, RBAC, passkeys, REST API security, and access governance**.
 
-The project models the IAM environment of the fictional organization **NovaSecure SA** and is designed to progressively demonstrate authentication, authorization, identity governance, lifecycle automation, segregation of duties, access reviews, and IAM security monitoring.
+The project models the IAM environment of the fictional organization **NovaSecure SA** and is designed to progressively demonstrate authentication, authorization, identity governance, lifecycle automation, segregation of duties, access reviews, privileged-access controls, and IAM security monitoring.
 
-The first major milestone — the **NovaSecure Employee Portal MVP** — implements end-to-end authentication and role-based access control using Keycloak and Flask.
+The first major application milestone — the **NovaSecure Employee Portal** — is now functionally complete. It implements browser-based OIDC authentication, role-based authorization, database-backed department resources, a protected REST API, stateless Bearer-token authentication, and hardened JWT validation.
 
 ---
 
 ## Current Status
 
-### Employee Portal MVP
+### Employee Portal — Complete
 
 Implemented:
 
 * Keycloak identity provider
 * PostgreSQL-backed Keycloak deployment
+* Dedicated PostgreSQL database for the Employee Portal
 * NovaSecure realm
 * Department and governance group hierarchy
 * Realm roles
@@ -35,15 +36,33 @@ Implemented:
 * POST-based logout
 * CSRF protection
 * Secure cookie configuration
+* SQLAlchemy data model
+* Flask-Migrate database migrations
+* Reproducible department/resource seed data
+* Service layer for identity and access logic
+* REST API under `/api/v1`
+* Consistent JSON API error handling
+* Browser-session API authentication
+* Stateless Bearer-token API authentication
+* `joserfc` JWT signature and claim validation
+* RS256 algorithm restriction
+* Explicit issuer validation
+* Expiration validation
+* Subject validation
+* Dedicated `employee-portal-api` audience validation
+* JWKS caching
+* JWKS refresh path for Keycloak signing-key rotation
+* Granular internal token-validation failure classification
+* Bearer API integration test script
 * Responsive Employee Portal interface
 
-Future phases will add the IAM Governance Portal, REST APIs, LDAP, Joiner-Mover-Leaver automation, access reviews, segregation-of-duties enforcement, and SIEM monitoring.
+The next major phase is the **IAM Governance Portal**, followed by OpenLDAP integration, Joiner-Mover-Leaver automation, access reviews, segregation-of-duties controls, privileged-access workflows, and ELK/Wazuh monitoring.
 
 ---
 
 # Architecture
 
-## Current Employee Portal Authentication Flow
+## Employee Portal Browser Authentication Flow
 
 ```text
 Employee Browser
@@ -68,12 +87,21 @@ OIDC Authorization Code
 /auth/callback
         |
         v
-Authlib Token Validation
+Authlib Token Exchange
+        |
+        v
+Access Token Validation
+        |
+        +--> RS256 Signature
+        +--> Issuer
+        +--> Expiration
+        +--> Subject
+        |
+        v
+Identity + Role Extraction
         |
         +--> Identity Claims
-        |
         +--> Realm Roles
-        |
         +--> Client Roles
         |
         v
@@ -85,6 +113,70 @@ Application RBAC
         +--> /profile
         +--> /department
         +--> /manager
+```
+
+## Employee Portal REST API Authentication Flow
+
+The REST API accepts either an existing authenticated browser session or a stateless Bearer token.
+
+```text
+                    API Request
+                        |
+             +----------+----------+
+             |                     |
+             v                     v
+      Flask Session          Bearer Access Token
+             |                     |
+             |                     v
+             |              JWT Signature Check
+             |                     |
+             |              Keycloak JWKS Cache
+             |                     |
+             |              Claim Validation
+             |                     |
+             |             +-------+-------+
+             |             |       |       |
+             |            iss     exp     sub
+             |                     |
+             |                    aud
+             |                     |
+             +----------+----------+
+                        |
+                        v
+                    g.api_user
+                        |
+                        v
+                  Service Layer
+                        |
+             +----------+----------+
+             |          |          |
+             v          v          v
+        /api/v1/me  /api/v1/access /api/v1/department
+```
+
+Bearer authentication is stateless: the API does **not** call `login_user()` for Bearer requests and does not create a Flask login session from the token.
+
+## Current Data Flow
+
+```text
+Keycloak
+   |
+   | identity + roles
+   v
+Employee Portal
+   |
+   +--> HTML routes
+   |
+   +--> REST API
+   |
+   v
+Service Layer
+   |
+   v
+Employee Portal PostgreSQL
+   |
+   +--> Departments
+   +--> Department Resources
 ```
 
 ## Target Architecture
@@ -121,13 +213,16 @@ Employee Portal         IAM Governance Portal
 
 ## Identity and Authentication
 
-* **Keycloak**
+* **Keycloak 26.7.0**
 * OpenID Connect
 * OAuth 2.0 Authorization Code Flow
 * WebAuthn / Passkeys
 * Realm roles
 * Client roles
 * Group-based access assignment
+* JWKS
+* RS256 JWT signatures
+* `joserfc`
 
 ## Application
 
@@ -139,20 +234,33 @@ Employee Portal         IAM Governance Portal
 * Flask-WTF
 * CacheLib
 * Jinja2
+* Requests
+
+## Data Layer
+
+* PostgreSQL 17
+* Flask-SQLAlchemy
+* SQLAlchemy
+* Flask-Migrate
+* Psycopg 3
 
 ## Infrastructure
 
 * Docker
 * Docker Compose
-* PostgreSQL
+* Dedicated Keycloak PostgreSQL database
+* Dedicated Employee Portal PostgreSQL database
 
 ## Planned
 
+* IAM Governance Portal
 * OpenLDAP
 * Keycloak Admin REST API
-* REST APIs
-* ELK / Wazuh
+* HR identity source
 * Automated JML workflows
+* Access reviews
+* Segregation-of-duties workflows
+* ELK / Wazuh
 
 ---
 
@@ -235,12 +343,11 @@ The Keycloak client:
 employee-portal
 ```
 
-defines the following client roles:
+defines client roles for portal access, profile access, manager access, and department-scoped data access.
 
 ```text
 portal-user
 profile-viewer
-department-viewer
 manager-dashboard
 
 hr-data-viewer
@@ -249,6 +356,8 @@ it-data-viewer
 operations-data-viewer
 security-data-viewer
 ```
+
+The current Keycloak lab also contains the department-viewer entitlement used during the Employee Portal authorization build.
 
 Example:
 
@@ -262,7 +371,7 @@ Example:
         +--> hr-data-viewer
 ```
 
-Users therefore inherit access through organizational group membership.
+Users therefore inherit application access through organizational group membership.
 
 ---
 
@@ -270,7 +379,7 @@ Users therefore inherit access through organizational group membership.
 
 The Employee Portal is a Flask application secured by Keycloak using OpenID Connect.
 
-Current protected routes:
+Protected HTML routes include:
 
 ```text
 /profile
@@ -291,11 +400,13 @@ Email
 OIDC Subject Identifier
 ```
 
+The stable OIDC `sub` claim is used as the primary authenticated identity identifier inside the application.
+
 ---
 
 ## Department Resources
 
-Department access is determined from the user's Keycloak client roles.
+Department access is determined from Keycloak client roles and resolved through the service layer against the Employee Portal database.
 
 ```text
 hr-data-viewer
@@ -314,9 +425,23 @@ security-data-viewer
         -> Security
 ```
 
-The current Employee Portal contains example department resources used to validate authorization behavior.
+Department resources are no longer hardcoded in the portal route layer. They are stored in PostgreSQL and queried through SQLAlchemy models and the access service.
 
-These resources will later be moved into a service layer and exposed through the REST API.
+The data model contains:
+
+```text
+Department
+    |
+    +--> code
+    +--> name
+    +--> client_role
+    |
+    +--> DepartmentResource[]
+```
+
+A user with no recognized department role receives an authorization failure.
+
+A user with roles for multiple departments triggers a domain-level `DepartmentAccessConflict`, which is returned as an API `409 Conflict` and is retained as a future IAM/SIEM detection scenario.
 
 ---
 
@@ -348,13 +473,83 @@ Alice Martin
 
 ---
 
+# Employee Portal REST API
+
+The Employee Portal exposes a versioned REST API:
+
+```text
+/api/v1
+```
+
+Implemented endpoints:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/v1/me` | Return the authenticated identity |
+| `GET /api/v1/access` | Return realm and Employee Portal client roles |
+| `GET /api/v1/department` | Return the authorized department and database-backed resources |
+
+The route layer delegates identity and access logic to reusable services rather than duplicating authorization logic in each endpoint.
+
+## API Authentication Modes
+
+The API supports two authentication modes:
+
+```text
+Authenticated Flask session
+            OR
+Authorization: Bearer <access_token>
+```
+
+For session-authenticated API requests, `g.api_user` references the authenticated Flask-Login user.
+
+For Bearer requests, the API validates the token, creates a request-local user object, stores it in `g.api_user`, and discards it when the request ends.
+
+This preserves stateless Bearer authentication.
+
+## API Error Model
+
+API errors are returned as JSON rather than HTML redirects.
+
+Examples:
+
+```json
+{
+  "error": "authentication_required",
+  "message": "Authentication is required."
+}
+```
+
+```json
+{
+  "error": "invalid_access_token",
+  "message": "The access token is invalid or expired."
+}
+```
+
+Application-level API handlers provide JSON responses for common API errors such as:
+
+```text
+401 Authentication Required
+403 Forbidden
+404 Not Found
+405 Method Not Allowed
+```
+
+Domain-specific authorization failures remain more precise, including:
+
+```text
+403 department_access_not_found
+409 access_conflict
+```
+
+---
+
 # Authentication
 
-Authentication is delegated entirely to Keycloak.
+Authentication is delegated to Keycloak.
 
-The Flask application never receives or verifies the user's password or passkey directly.
-
-The flow is:
+The Flask application never receives or verifies the user's password or passkey directly during the browser OIDC flow.
 
 ```text
 /login
@@ -378,17 +573,17 @@ Token Exchange
 Validated Identity
 ```
 
-Authlib processes the OIDC response and Flask-Login manages the authenticated application session.
+Authlib performs the OIDC protocol exchange and Flask-Login manages the authenticated browser session.
+
+The Employee Portal additionally validates access-token signatures and security-relevant claims with `joserfc` before extracting roles.
 
 ---
 
 # Passkeys / WebAuthn
 
-The NovaSecure realm supports WebAuthn passwordless credentials.
+The NovaSecure realm supports WebAuthn/passkey credentials.
 
-A privileged test identity is used as the passkey pilot account.
-
-The passkey authentication process remains entirely within Keycloak:
+A privileged fictional test identity is used as the passkey pilot account.
 
 ```text
 Employee Portal
@@ -406,7 +601,7 @@ Successful OIDC Authentication
 Employee Portal
 ```
 
-No WebAuthn private key material is handled by Flask.
+No WebAuthn private-key material is handled by Flask.
 
 ---
 
@@ -420,7 +615,6 @@ Authentication
        |
        v
 Keycloak + OIDC
-
 
 Authorization
 "What can this identity access?"
@@ -436,9 +630,9 @@ realm_access
 resource_access
 ```
 
-from the Keycloak access token.
+from validated Keycloak access tokens.
 
-Custom decorators are then used to enforce authorization.
+Custom decorators and service-layer checks enforce authorization.
 
 Conceptually:
 
@@ -455,21 +649,92 @@ An authenticated user without the required role receives:
 403 Forbidden
 ```
 
+The access service also detects inconsistent department authorization, including multiple department-scoped roles on one identity.
+
+---
+
+# JWT and Bearer-Token Security
+
+Bearer-token authentication is validated independently of Flask sessions.
+
+## Signature Verification
+
+The token service:
+
+* restricts accepted JWT algorithms to `RS256`;
+* retrieves trusted Keycloak public signing keys from the realm JWKS endpoint;
+* verifies the JWT signature before trusting its claims.
+
+## Claim Validation
+
+Bearer API tokens are validated for:
+
+```text
+iss  -> expected NovaSecure Keycloak realm
+exp  -> token must not be expired
+sub  -> token must identify a subject
+aud  -> token must be intended for employee-portal-api
+```
+
+The dedicated API audience is:
+
+```text
+employee-portal-api
+```
+
+This prevents the API from accepting a valid Keycloak token that was issued for another resource server.
+
+## JWKS Caching
+
+Keycloak public signing keys are cached in memory to avoid contacting the JWKS endpoint for every Bearer request.
+
+The cache currently uses a five-minute default TTL:
+
+```text
+300 seconds
+```
+
+The JWKS service also contains a forced-refresh path intended for signing-key rotation scenarios where the cached key set does not contain the token's key ID (`kid`).
+
+## Internal Validation Reasons
+
+Detailed JWT validation failures are classified internally so they can later become structured security telemetry.
+
+Examples include:
+
+```text
+malformed_token
+bad_signature
+invalid_algorithm
+invalid_key_id
+token_decode_failed
+expired_token
+missing_expiration
+invalid_expiration
+missing_subject
+missing_issuer
+invalid_issuer
+missing_audience
+invalid_audience
+```
+
+The API does **not** expose those detailed reasons to callers. External clients receive a generic `401` response while the application retains the internal reason for logging and future SIEM integration.
+
+Raw access tokens must not be written to application logs.
+
 ---
 
 # Security Controls
-
-The Employee Portal currently implements several security controls.
 
 ## OIDC Security
 
 * Authorization Code Flow
 * OIDC `state` validation
-* ID/access-token validation
+* ID/access-token processing
 * Explicit Keycloak issuer validation
 * Exact callback URI
 * Exact post-logout redirect URI
-* Confidential OIDC client
+* Confidential browser OIDC client
 * Client secret stored outside source control
 
 ## Session Security
@@ -493,13 +758,30 @@ Production over HTTPS:
 SESSION_COOKIE_SECURE = True
 ```
 
+## API Security
+
+* JSON authentication failures instead of browser redirects
+* Stateless Bearer authentication
+* RS256 restriction
+* JWKS-based signature verification
+* Issuer validation
+* Expiration validation
+* Subject validation
+* Dedicated API audience validation
+* Generic external token errors
+* Granular internal token-error classification
+* No raw JWT logging
+* `GET`-only read endpoints for the current API surface
+
 ## Authorization Security
 
 * Backend role enforcement
 * Realm-role support
 * Client-role support
 * Custom reusable RBAC decorators
+* Service-layer authorization logic
 * `403 Forbidden` handling
+* `409 Conflict` handling for inconsistent department entitlements
 * Navigation visibility separated from actual authorization
 
 ## Logout Security
@@ -513,8 +795,6 @@ POST /logout
 rather than a state-changing GET request.
 
 The POST request requires a CSRF token.
-
-The logout process:
 
 ```text
 Flask-Login logout
@@ -534,55 +814,84 @@ Validated post-logout redirect
 
 ---
 
+# Database Model
+
+The Employee Portal has its own PostgreSQL database, separate from the Keycloak database.
+
+Docker exposes the Employee Portal database locally on:
+
+```text
+localhost:5433
+```
+
+Current application tables include:
+
+```text
+departments
+department_resources
+```
+
+The relationship is:
+
+```text
+Department 1 ---- * DepartmentResource
+```
+
+Department role mapping is stored with the department record through its `client_role` value.
+
+Database schema changes are managed through Flask-Migrate/Alembic.
+
+Initial department/resource data can be recreated with the seed command:
+
+```bash
+flask --app app seed-db
+```
+
+---
+
 # Test Identities
 
 All accounts and identity data are fictional.
 
-| Username | User         | Department             | Special role                   |
-| -------- | ------------ | ---------------------- | ------------------------------ |
-| `e1001`  | Alice Martin | Human Resources        | —                              |
-| `e1002`  | Marc Dubois  | Finance                | Manager                        |
-| `e1003`  | Nadia Rossi  | Security               | Security Analyst               |
-| `e1004`  | Leo Bernard  | Information Technology | IAM Operator / Privileged User |
-| `e1005`  | Emma Keller  | Security               | IAM Auditor                    |
+| Username | User | Department | Special role |
+| --- | --- | --- | --- |
+| `e1001` | Alice Martin | Human Resources | — |
+| `e1002` | Marc Dubois | Finance | Manager |
+| `e1003` | Nadia Rossi | Security | Security Analyst |
+| `e1004` | Leo Bernard | Information Technology | IAM Operator / Privileged User |
+| `e1005` | Emma Keller | Security | IAM Auditor |
 
 Passwords are intentionally excluded from source control and documentation.
 
 ---
 
-# Authorization Acceptance Tests
+# Acceptance and Integration Tests
 
-## Department access
+## Department Access
 
-| User         | Expected department    |
-| ------------ | ---------------------- |
-| Alice Martin | Human Resources        |
-| Marc Dubois  | Finance                |
-| Nadia Rossi  | Security               |
-| Leo Bernard  | Information Technology |
-| Emma Keller  | Security               |
+| User | Expected department |
+| --- | --- |
+| Alice Martin | Human Resources |
+| Marc Dubois | Finance |
+| Nadia Rossi | Security |
+| Leo Bernard | Information Technology |
+| Emma Keller | Security |
 
-## Manager access
+## Manager Access
 
-| User         | `/manager`      |
-| ------------ | --------------- |
+| User | `/manager` |
+| --- | --- |
 | Alice Martin | `403 Forbidden` |
-| Marc Dubois  | Allowed         |
-| Nadia Rossi  | `403 Forbidden` |
-| Leo Bernard  | `403 Forbidden` |
-| Emma Keller  | `403 Forbidden` |
+| Marc Dubois | Allowed |
+| Nadia Rossi | `403 Forbidden` |
+| Leo Bernard | `403 Forbidden` |
+| Emma Keller | `403 Forbidden` |
 
-## Authentication state
+## Authentication State
 
-Unauthenticated access to:
+Unauthenticated access to protected HTML routes requires authentication.
 
-```text
-/profile
-/department
-/manager
-```
-
-requires authentication.
+Unauthenticated REST requests return JSON `401` responses instead of redirecting to the login page.
 
 ## Passkey
 
@@ -619,6 +928,41 @@ POST /logout
 -> rejected
 ```
 
+## Bearer API Integration Test
+
+The repository includes:
+
+```text
+apps/employee-portal/scripts/test-bearer-api.py
+```
+
+The integration test obtains a real Keycloak access token for the fictional Finance manager identity and validates both successful and failed API authentication paths.
+
+Current successful test set:
+
+```text
+PASS: /me -> HTTP 200
+PASS: /access -> HTTP 200
+PASS: /department -> HTTP 200
+PASS: Missing authentication -> HTTP 401
+PASS: Malformed Bearer header -> HTTP 401
+PASS: Invalid Bearer token -> HTTP 401
+
+Result: 6/6 tests passed
+```
+
+A separate negative test also confirmed that a correctly signed Keycloak token without the required `employee-portal-api` audience is rejected with `401 Unauthorized`.
+
+### Test-Only Keycloak Client
+
+Bearer integration testing uses a local test-only client:
+
+```text
+employee-portal-cli-test
+```
+
+Direct Access Grants are used only to simplify automated local integration testing. This client is **not** part of the intended production architecture and should be disabled or removed when the integration test is not required.
+
 ---
 
 # Project Structure
@@ -627,9 +971,14 @@ POST /logout
 enterprise-iam-lab/
 ├── apps/
 │   └── employee-portal/
+│       ├── .env.example
 │       ├── app.py
 │       ├── config.py
+│       ├── extensions.py
 │       ├── requirements.txt
+│       ├── seed.py
+│       │
+│       ├── migrations/
 │       │
 │       ├── auth/
 │       │   ├── __init__.py
@@ -639,8 +988,28 @@ enterprise-iam-lab/
 │       │
 │       ├── portal/
 │       │   ├── __init__.py
-│       │   ├── routes.py
-│       │   └── department_data.py
+│       │   └── routes.py
+│       │
+│       ├── api/
+│       │   ├── __init__.py
+│       │   ├── decorators.py
+│       │   ├── errors.py
+│       │   └── routes.py
+│       │
+│       ├── models/
+│       │   ├── __init__.py
+│       │   └── ...
+│       │
+│       ├── services/
+│       │   ├── __init__.py
+│       │   ├── identity_service.py
+│       │   ├── access_service.py
+│       │   ├── exceptions.py
+│       │   ├── jwks_service.py
+│       │   └── token_service.py
+│       │
+│       ├── scripts/
+│       │   └── test-bearer-api.py
 │       │
 │       ├── templates/
 │       │   ├── base.html
@@ -683,7 +1052,7 @@ You will need:
 
 ---
 
-## 1. Clone the repository
+## 1. Clone the Repository
 
 ```bash
 git clone <repository-url>
@@ -692,28 +1061,30 @@ cd enterprise-iam-lab
 
 ---
 
-## 2. Configure environment variables
+## 2. Configure Infrastructure Environment Variables
 
-Copy the provided example:
+Copy the root example:
 
 ```bash
 cp .env.example .env
 ```
 
-Configure the required development values.
+The root environment configures the Keycloak and Employee Portal PostgreSQL containers.
 
-Never commit real secrets.
-
-The Employee Portal also requires application-specific environment variables such as:
+Example variable names:
 
 ```text
-FLASK_SECRET_KEY
-KEYCLOAK_SERVER_URL
-KEYCLOAK_REALM
-KEYCLOAK_CLIENT_ID
-KEYCLOAK_CLIENT_SECRET
-FLASK_ENV
+POSTGRES_DB
+POSTGRES_USER
+POSTGRES_PASSWORD
+KEYCLOAK_ADMIN
+KEYCLOAK_ADMIN_PASSWORD
+PORTAL_DB
+PORTAL_DB_USER
+PORTAL_DB_PASSWORD
 ```
+
+Never commit real secrets.
 
 ---
 
@@ -723,23 +1094,28 @@ FLASK_ENV
 docker compose up -d
 ```
 
-Keycloak is currently used locally at:
+The compose stack currently starts:
 
 ```text
-http://localhost:8080
+iam-postgres
+employee-portal-postgres
+iam-keycloak
 ```
 
-The NovaSecure realm and RBAC configuration are documented in:
+Local endpoints:
 
 ```text
-docs/identity-model.md
+Keycloak:                 http://localhost:8080
+Employee Portal database: localhost:5433
 ```
 
-Current realm provisioning is documented but not yet fully automated.
+The Keycloak database and Employee Portal database use separate Docker volumes.
+
+Avoid destructive volume removal unless intentionally resetting the lab.
 
 ---
 
-## 4. Create the Employee Portal virtual environment
+## 4. Create the Employee Portal Virtual Environment
 
 ```bash
 cd apps/employee-portal
@@ -750,7 +1126,37 @@ source .venv/bin/activate
 
 ---
 
-## 5. Install dependencies
+## 5. Configure Employee Portal Environment Variables
+
+Copy the application example:
+
+```bash
+cp .env.example .env
+```
+
+Application-specific variables include:
+
+```text
+FLASK_SECRET_KEY
+FLASK_ENV
+KEYCLOAK_SERVER_URL
+KEYCLOAK_REALM
+KEYCLOAK_CLIENT_ID
+KEYCLOAK_CLIENT_SECRET
+KEYCLOAK_API_AUDIENCE
+```
+
+The expected API audience is:
+
+```text
+employee-portal-api
+```
+
+Database credentials are loaded from the project-level environment file.
+
+---
+
+## 6. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -758,7 +1164,23 @@ pip install -r requirements.txt
 
 ---
 
-## 6. Start the Employee Portal
+## 7. Apply Database Migrations
+
+```bash
+flask --app app db upgrade
+```
+
+---
+
+## 8. Seed Department Resources
+
+```bash
+flask --app app seed-db
+```
+
+---
+
+## 9. Start the Employee Portal
 
 ```bash
 flask --app app run --port 5000
@@ -771,6 +1193,18 @@ http://localhost:5000
 ```
 
 For OIDC testing, consistently use `localhost` rather than mixing `localhost` and `127.0.0.1`.
+
+---
+
+## 10. Run the Bearer API Integration Test
+
+With the Employee Portal and Keycloak running and the test-only Keycloak client configured:
+
+```bash
+python3 scripts/test-bearer-api.py
+```
+
+The script prompts for the fictional test user's Keycloak password without printing it and does not print the raw access token.
 
 ---
 
@@ -797,6 +1231,8 @@ A production-style deployment would require:
 * Secure secrets management
 * Persistent production-grade session storage
 * Appropriate network segmentation
+* Production-grade database controls
+* Centralized security logging and monitoring
 
 The Flask development server must not be used as a production deployment.
 
@@ -806,7 +1242,7 @@ The Flask development server must not be used as a production deployment.
 
 Secrets are stored outside source control.
 
-The repository ignores:
+The repository ignores runtime secret files and local development artifacts such as:
 
 ```text
 .env
@@ -817,12 +1253,9 @@ __pycache__/
 *.pyc
 ```
 
-The repository has been checked to confirm that the current Flask secret and Keycloak client secret are absent from both:
+The root and Employee Portal `.env.example` files contain placeholders or non-secret identifiers only.
 
-* currently tracked files;
-* Git commit history.
-
-`.env.example` contains configuration placeholders only.
+Raw passwords, Flask secret keys, Keycloak client secrets, and Bearer tokens must not be committed or logged.
 
 ---
 
@@ -858,15 +1291,26 @@ portfolio/
 * [x] Secure logout
 * [x] CSRF protection
 * [x] Responsive interface
+* [x] Dedicated Employee Portal PostgreSQL database
+* [x] SQLAlchemy data model
+* [x] Database migrations
+* [x] Reproducible resource seed data
 
 ## Phase 2 — Employee Portal API
 
-* [ ] `/api/v1/me`
-* [ ] `/api/v1/access`
-* [ ] `/api/v1/department`
-* [ ] Service layer
-* [ ] JSON error handling
-* [ ] Bearer-token API authentication
+* [x] `/api/v1/me`
+* [x] `/api/v1/access`
+* [x] `/api/v1/department`
+* [x] Service layer
+* [x] JSON error handling
+* [x] Browser-session API authentication
+* [x] Bearer-token API authentication
+* [x] JWT audience validation
+* [x] `joserfc` token validation
+* [x] JWKS caching
+* [x] Signing-key refresh path
+* [x] Granular internal JWT validation errors
+* [x] Bearer API integration tests
 
 ## Phase 3 — IAM Governance Portal
 
@@ -890,10 +1334,12 @@ portfolio/
 ## Phase 5 — Security Monitoring
 
 * [ ] Keycloak audit pipeline
+* [ ] Employee Portal structured security events
 * [ ] ELK / Wazuh integration
 * [ ] IAM detection rules
 * [ ] Privileged-role monitoring
 * [ ] Authentication anomaly detection
+* [ ] JWT validation failure monitoring
 * [ ] IAM investigation scenario
 
 ---
@@ -929,6 +1375,28 @@ An IAM auditor should not automatically receive the ability to modify identities
 
 ---
 
+# Planned Security Monitoring Scenarios
+
+The Employee Portal already detects several conditions that will later be converted into structured IAM security events.
+
+Examples include:
+
+```text
+iam.multiple_department_roles
+iam.stale_access_after_department_transfer
+iam.sod_violation
+iam.privileged_role_assigned
+api.authorization_denied
+oidc.token_validation_failed
+oidc.invalid_audience
+oidc.jwks_fetch_failed
+iam.session_identity_mismatch
+```
+
+A flagship future investigation scenario is a mover event where a Finance employee transfers to Security but accidentally retains the Finance entitlement. The portal detects the conflicting department roles, the event is forwarded to the SIEM, and an analyst correlates the access conflict with the identity lifecycle change before revoking the obsolete entitlement.
+
+---
+
 # Project Goals
 
 The final lab is intended to demonstrate practical experience across:
@@ -940,10 +1408,13 @@ OAuth 2.0
 Keycloak
 RBAC
 WebAuthn / Passkeys
+REST API Security
+JWT Validation
+JWKS
 Access Governance
 Segregation of Duties
 Joiner-Mover-Leaver Processes
-REST API Security
+Privileged Access
 IAM Monitoring
 Incident Investigation
 ```
