@@ -40,4 +40,4 @@ def department():
             }
         )
 
-    return jsonify(department_data)
+    return jsonify(department_data), 200
