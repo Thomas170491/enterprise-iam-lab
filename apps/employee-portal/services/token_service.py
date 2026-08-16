@@ -32,6 +32,11 @@ def _decode_token(
             key_set,
             algorithms=["RS256"],
         )
+    
+    except InvalidKeyIdError:
+        # Let validate_access_token() refresh JWKS
+        # and retry verification once.
+        raise
 
     except BadSignatureError as exc:
         raise TokenValidationError(
