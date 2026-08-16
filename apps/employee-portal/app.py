@@ -6,7 +6,6 @@ from auth import oauth,login_manager
 from auth.routes import bp_auth
 from flask_wtf.csrf import CSRFProtect
 from extensions import db, migrate
-from models import Department, DepartmentResource
 from seed import seed_departments
 from api import bp_api
 from api.errors import register_api_error_handlers
