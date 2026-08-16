@@ -1,5 +1,5 @@
-from flask import Blueprint, jsonify
-from flask_login import current_user
+from flask import Blueprint, jsonify, g
+
 
 from api.decorators import api_login_required
 from api.errors import api_error
@@ -23,7 +23,7 @@ bp_api = Blueprint(
 @api_login_required
 def me():
     return jsonify(
-        get_identity(current_user)
+        get_identity(g.api_user)
     )
 
 
@@ -31,7 +31,7 @@ def me():
 @api_login_required
 def access():
     return jsonify(
-        get_access(current_user)
+        get_access(g.api_user)
     )
 
 
@@ -39,7 +39,7 @@ def access():
 @api_login_required
 def department():
     try:
-        department_data = get_department_resources(current_user)
+        department_data = get_department_resources(g.api_user)
 
     except DepartmentAccessConflict:
         return api_error(
