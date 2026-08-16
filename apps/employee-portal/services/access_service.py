@@ -1,12 +1,13 @@
-from portal.department_data import DEPARTMENT_RESOURCES, DEPARTMENT_ROLES
+from extensions import db
+from models import Department
 
 
 def get_department(user):
-    for role in user.client_roles:
-        if role in DEPARTMENT_ROLES:
-            return DEPARTMENT_ROLES[role]
+    stmt = db.select(Department).where(
+        Department.client_role.in_(user.client_roles)
+    )
 
-    return None
+    return db.session.execute(stmt).scalars().first()
 
 
 def get_department_resources(user):
@@ -16,8 +17,11 @@ def get_department_resources(user):
         return None
 
     return {
-        "department": department,
-        "resources": DEPARTMENT_RESOURCES.get(department, []),
+        "department": department.name,
+        "resources": [
+            resource.name
+            for resource in department.resources
+        ],
     }
 
 
