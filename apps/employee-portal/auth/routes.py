@@ -2,8 +2,10 @@ from flask import Blueprint, url_for, session,redirect,render_template,current_a
 from flask_login import login_user,logout_user, login_required
 from auth import oauth, User
 from urllib.parse import urlencode
-import requests
-from authlib.jose import JsonWebToken
+from services.token_service import (
+    validate_access_token,
+    extract_roles,
+)
 
 
 bp_auth = Blueprint("auth", __name__)
@@ -19,47 +21,15 @@ def callback():
 
     # 2. Extract/validate roles from access token   
 
-    jwks_url = (
-        f"{current_app.config['KEYCLOAK_SERVER_URL']}"
-        f"/realms/{current_app.config['KEYCLOAK_REALM']}"
-        f"/protocol/openid-connect/certs"
-        )
-
-    
-    response = requests.get(jwks_url, timeout=5)
-    response.raise_for_status()
-    jwks = response.json()
-    
-    jwt=JsonWebToken(["RS256"])
-
-    claims = jwt.decode(
-        token["access_token"],
-        jwks,
-        claims_options={
-            "iss" : {
-                "essential" : True,
-                "value" : (
-                       f"{current_app.config['KEYCLOAK_SERVER_URL']}"
-                       f"/realms/{current_app.config['KEYCLOAK_REALM']}"
-                )
-            }
-        }
-    )
-
-    claims.validate()
-
-    realm_roles=(
-        claims
-        .get("realm_access", {})
-        .get("roles", [])
-    )
-
-    client_roles = (
-    claims
-    .get("resource_access", {})
-    .get(current_app.config["KEYCLOAK_CLIENT_ID"], {})
-    .get("roles", [])
-    )
+    claims = validate_access_token(
+    token["access_token"],
+    current_app.config["KEYCLOAK_SERVER_URL"],
+    current_app.config["KEYCLOAK_REALM"],
+)
+    realm_roles, client_roles = extract_roles(
+    claims,
+    current_app.config["KEYCLOAK_CLIENT_ID"],
+)
     # 3. Create User object
 
     user = User(
