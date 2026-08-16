@@ -7,6 +7,7 @@ from auth.routes import bp_auth
 from flask_wtf.csrf import CSRFProtect
 from extensions import db, migrate
 from models import Department, DepartmentResource
+from seed import seed_departments
 
 sess = Session()
 csrf = CSRFProtect()
@@ -40,6 +41,10 @@ def create_app():
         }
     )
 
+    @app.cli.command("seed-db")
+    def seed_db() :
+        seed_departments()
+        print('Employee portal database seeded')
 
 
     #Register blueprints
