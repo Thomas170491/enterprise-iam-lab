@@ -9,6 +9,8 @@ from extensions import db, migrate
 from models import Department, DepartmentResource
 from seed import seed_departments
 from api import bp_api
+from api.errors import register_api_error_handlers
+
 
 sess = Session()
 csrf = CSRFProtect()
@@ -53,6 +55,9 @@ def create_app():
     app.register_blueprint(bp_auth)
     app.register_blueprint(bp_api)
 
+    #Register API error handlers
+    register_api_error_handlers(app)
+
     return app
 
 app=create_app()
@@ -60,3 +65,4 @@ app=create_app()
 @app.errorhandler(403)
 def forbidden(error):
     return render_template("access-denied.html"), 403
+

@@ -2,6 +2,7 @@ from functools import wraps
 from flask_login import current_user
 from api.errors import api_error
 
+
 def api_login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs) :
@@ -13,4 +14,8 @@ def api_login_required(view):
             )
         return view(*args,**kwargs)
     return wrapped
+
+
+
+
 
