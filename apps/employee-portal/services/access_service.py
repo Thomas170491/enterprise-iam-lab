@@ -7,7 +7,18 @@ def get_department(user):
         Department.client_role.in_(user.client_roles)
     )
 
-    return db.session.execute(stmt).scalars().first()
+    departments = db.session.execute(stmt).scalars().all()
+
+    if not departments  :
+        return  None 
+
+    if len(departments) > 1 :
+        raise ValueError(
+            "User has access roles for multiple departments"
+        )
+        
+
+    return departments[0]
 
 
 def get_department_resources(user):
