@@ -1,8 +1,8 @@
 from flask import Blueprint,render_template,abort
 from flask_login import login_required, current_user
 from auth.decorators import client_role_required
-from portal.department_data import DEPARTMENT_ROLES, DEPARTMENT_RESOURCES
-
+from services.access_service import get_department_resources
+from services.identity_service import get_identity
 
 bp_portal = Blueprint("portal", __name__)
 @bp_portal.route("/")
@@ -15,9 +15,10 @@ def home():
 @bp_portal.route("/profile")
 @login_required
 def profile():
+    user = get_identity(current_user)
     return render_template(
         "profile.html",
-         user = current_user                  
+         user = user                  
  )
 
 @bp_portal.route("/manager")
@@ -29,25 +30,22 @@ def manager():
 @bp_portal.route("/department")
 @login_required
 def department():
+    try:
+        department_data = get_department_resources(current_user)
+    except ValueError:
+        abort(
+            409,
+            description = "Conflicting department access detected",
+        )
 
+    if not department_data:
+        abort(403)
 
-    department_name = None
-
-    for role in current_user.client_roles:
-        if role in DEPARTMENT_ROLES:
-            department_name = DEPARTMENT_ROLES[role]
-            break
-    if department_name is None:
-      abort(403)
-
-    resources = DEPARTMENT_RESOURCES.get(
-    department_name,
-    [])
 
     return render_template(
     "department.html",
-    department=department_name,
-    resources=resources
+    department=department_data["department"],
+    resources=department_data["resources"]
 )
 
 
