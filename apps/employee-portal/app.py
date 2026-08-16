@@ -8,6 +8,7 @@ from flask_wtf.csrf import CSRFProtect
 from extensions import db, migrate
 from models import Department, DepartmentResource
 from seed import seed_departments
+from api import bp_api
 
 sess = Session()
 csrf = CSRFProtect()
@@ -50,6 +51,7 @@ def create_app():
     #Register blueprints
     app.register_blueprint(bp_portal)
     app.register_blueprint(bp_auth)
+    app.register_blueprint(bp_api)
 
     return app
 
