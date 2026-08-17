@@ -18,6 +18,8 @@ __pycache__/
 .venv/
 venv/
 
+
+
 #Flask session server side data
 flask_session
 .flask_session/
