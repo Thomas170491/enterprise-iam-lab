@@ -2,49 +2,37 @@ from flask import Flask
 
 from api import blp_health
 from config import Config
-from extensions import api
+from extensions import (
+    api,
+    login_manager,
+    oauth,
+    session_manager,
+)
 from governance import bp_governance
+import auth 
 
 
 def create_app():
-    """
-    Create and configure the IAM Governance Portal.
-    """
-
     app = Flask(__name__)
+    app.config.from_object(Config)
 
-    # --------------------------------------------------------
-    # Configuration
-    # --------------------------------------------------------
-
-    app.config.from_object(
-        Config
-    )
-
-    # --------------------------------------------------------
-    # Extensions
-    # --------------------------------------------------------
-
-    # Initialize Flask-Smorest.
+    # REST API / OpenAPI
     api.init_app(app)
 
-    # --------------------------------------------------------
-    # HTML frontend
-    # --------------------------------------------------------
+    # OIDC
+    oauth.init_app(app)
 
-    app.register_blueprint(
-        bp_governance
-    )
+    # Flask-Login
+    login_manager.init_app(app)
 
-    # --------------------------------------------------------
-    # REST API
-    # --------------------------------------------------------
+    # Server-side session storage
+    session_manager.init_app(app)
 
-    # Flask-Smorest blueprints are registered through the
-    # Api extension rather than app.register_blueprint().
-    api.register_blueprint(
-        blp_health
-    )
+    # Application routes
+    app.register_blueprint(bp_governance)
+
+    # REST API blueprints
+    api.register_blueprint(blp_health)
 
     return app
 

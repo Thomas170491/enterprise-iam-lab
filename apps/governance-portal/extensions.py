@@ -1,4 +1,7 @@
 from flask_smorest import Api
+from flask_login import LoginManager
+from authlib.integrations.flask_client import OAuth
+from flask_session import Session 
 
 
 # Flask-Smorest API extension.
@@ -7,3 +10,12 @@ from flask_smorest import Api
 # to a Flask application. app.py will initialize it
 # inside the application factory.
 api = Api()
+
+# OIDC client used to communicate with Keycloak
+oauth = OAuth()
+
+# Browser authentication session management
+login_manager = LoginManager()
+
+# Server-side Flask sessions
+session_manager = Session()
