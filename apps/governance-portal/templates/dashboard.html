@@ -19,4 +19,21 @@ IAM Governance Portal
         Governance Portal scaffold operational.
     </p>
 </section>
-{%endblock%}
+
+{% if current_user.is_authenticated %}
+<section>
+    <h2>Authenticated Session</h2>
+
+    <p>
+        Welcome, {{ current_user.name or current_user.username }}.
+    </p>
+
+    <p>
+        Authenticated as:
+        <strong>{{ current_user.username }}</strong>
+    </p>
+</section>
+{% endif %}
+
+{% endblock %}
+

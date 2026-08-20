@@ -24,6 +24,8 @@ class Config :
     # This becomes True when we move the application to HTTPS.
     SESSION_COOKIE_SECURE = False
 
+    SESSION_COOKIE_NAME = "novasecure_governance_session"
+
     
 
 

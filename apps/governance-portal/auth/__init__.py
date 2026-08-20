@@ -19,10 +19,14 @@ def load_user(user_id):
 
     return User(
         sub = user_data["sub"],
+        name= user_data.get("name"),
         username= user_data["username"],
         email= user_data["email"],
         client_roles= user_data.get("client_roles", []),
         realm_roles= user_data.get("realm_roles",[])
 
     )
+
+
+from auth.routes import bp_auth
 

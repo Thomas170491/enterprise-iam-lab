@@ -12,6 +12,7 @@ from governance import bp_governance
 import auth 
 
 
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
@@ -21,6 +22,15 @@ def create_app():
 
     # OIDC
     oauth.init_app(app)
+    oauth.register(
+    name="keycloak",
+    client_id=app.config["KEYCLOAK_CLIENT_ID"],
+    client_secret=app.config["KEYCLOAK_CLIENT_SECRET"],
+    server_metadata_url=app.config["KEYCLOAK_METADATA_URL"],
+    client_kwargs={
+        "scope": "openid profile email",
+    },
+)
 
     # Flask-Login
     login_manager.init_app(app)
@@ -33,6 +43,9 @@ def create_app():
 
     # REST API blueprints
     api.register_blueprint(blp_health)
+
+    #Auth blueprints
+    app.register_blueprint(auth.bp_auth)
 
     return app
 
