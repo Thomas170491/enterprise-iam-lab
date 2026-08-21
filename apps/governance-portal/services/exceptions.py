@@ -1,4 +1,4 @@
-class ValidationTokenError(Exception):
+class TokenValidationError(Exception):
 
     """
     Internal application exception for failed JWT validation.
