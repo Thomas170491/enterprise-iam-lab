@@ -3,12 +3,19 @@ from flask import (
     redirect,
     session,
     url_for,
+    current_app
 )
 from flask_login import login_user
 
 from auth.user import User
 from extensions import oauth
 
+from services.token_service import    (
+    extract_roles,
+    validate_access_token,
+)
+
+from services.exceptions import TokenValidationError
 
 bp_auth = Blueprint(
     "auth",
@@ -40,7 +47,14 @@ def callback():
 
     # Exchange the authorization code for tokens.
     token = oauth.keycloak.authorize_access_token()
-   
+
+    claims = validate_access_token(
+        access_token=token["access_token"],
+        server_url= current_app.config["KEYCLOAK_SERVER_URL"],
+        realm= current_app.config["KEYCLOAK_REALM"],
+    )
+
+    realm_roles,client_roles = extract_roles(claims, current_app.config["KEYCLOAK_CLIENT_ID"])
 
     # Authlib normally extracts OIDC userinfo from
     # the validated ID token.
@@ -50,6 +64,11 @@ def callback():
         userinfo = oauth.keycloak.userinfo(
             token=token
         )
+
+    if userinfo.get("sub") != claims.get("sub"):
+     raise TokenValidationError(
+        "subject_mismatch"
+    )
 
     
 
@@ -62,8 +81,8 @@ def callback():
         email=userinfo.get("email"),
 
         # Role extraction comes in the next step.
-        client_roles=[],
-        realm_roles=[],
+        client_roles=client_roles,
+        realm_roles=realm_roles,
     )
 
     session["user"] = {
@@ -71,8 +90,8 @@ def callback():
         "name": user.name,
         "username": user.username,
         "email": user.email,
-        "client_roles": [],
-        "realm_roles": [],
+        "client_roles": client_roles,
+        "realm_roles": realm_roles,
     }
 
     login_user(user)

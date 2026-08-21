@@ -32,6 +32,16 @@ IAM Governance Portal
         Authenticated as:
         <strong>{{ current_user.username }}</strong>
     </p>
+
+    <p>
+    Client roles:
+    {{ current_user.client_roles }}
+</p>
+
+<p>
+    Realm roles:
+    {{ current_user.realm_roles }}
+</p>
 </section>
 {% endif %}
 

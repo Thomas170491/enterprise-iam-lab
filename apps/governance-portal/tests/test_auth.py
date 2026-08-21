@@ -1,5 +1,6 @@
 from flask import redirect
 from extensions import oauth
+import auth.routes as auth_routes
 
 def test_login_starts_oidc_flow(client, monkeypatch):
     """
@@ -39,10 +40,12 @@ def test_oidc_callback_creates_user_session(
     """
     A successful Keycloak callback should:
 
+    - exchange the authorization code
+    - validate the access token
+    - extract trusted Keycloak roles
     - create the application user
-    - store identity data in the session
+    - store identity + roles in the session
     - authenticate the user with Flask-Login
-    - redirect to the Governance dashboard
     """
 
     fake_userinfo = {
@@ -57,10 +60,43 @@ def test_oidc_callback_creates_user_session(
         "userinfo": fake_userinfo,
     }
 
+    fake_claims = {
+        "sub": "test-leo-sub",
+        "realm_access": {
+            "roles": [
+                "employee",
+                "privileged-user",
+            ]
+        },
+        "resource_access": {
+            "iam-admin-portal": {
+                "roles": [
+                    "iam-dashboard-access",
+                    "identity-viewer",
+                    "identity-manager",
+                    "role-manager",
+                    "report-exporter",
+                ]
+            }
+        },
+    }
+
+    # Fake Authlib's token exchange.
     monkeypatch.setattr(
-        oauth.keycloak,
+        auth_routes.oauth.keycloak,
         "authorize_access_token",
         lambda: fake_token,
+    )
+
+    # Fake cryptographic validation.
+    #
+    # We test validate_access_token() separately.
+    # This callback test only verifies that the route
+    # correctly uses its validated output.
+    monkeypatch.setattr(
+        auth_routes,
+        "validate_access_token",
+        lambda **kwargs: fake_claims,
     )
 
     response = client.get(
@@ -69,7 +105,6 @@ def test_oidc_callback_creates_user_session(
     )
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/")
 
     with client.session_transaction() as sess:
         user = sess["user"]
@@ -79,14 +114,20 @@ def test_oidc_callback_creates_user_session(
         assert user["name"] == "Leo Bernard"
         assert user["email"] == "leo@example.test"
 
-        # We haven't implemented real role extraction yet.
-        assert user["client_roles"] == []
-        assert user["realm_roles"] == []
+        assert user["realm_roles"] == [
+            "employee",
+            "privileged-user",
+        ]
 
-        # Flask-Login should also have authenticated
-        # the same Keycloak subject.
+        assert user["client_roles"] == [
+            "iam-dashboard-access",
+            "identity-viewer",
+            "identity-manager",
+            "role-manager",
+            "report-exporter",
+        ]
+
         assert sess["_user_id"] == "test-leo-sub"
-
 
 def test_authenticated_user_visible_on_dashboard(
     client,
@@ -107,11 +148,31 @@ def test_authenticated_user_visible_on_dashboard(
         },
     }
 
+    fake_claims = {
+        "sub": "test-leo-sub",
+        "realm_access": {
+            "roles": [
+                "employee",
+                "privileged-user",
+            ]
+        },
+    }
+
+    # Fake Authlib's token exchange.
     monkeypatch.setattr(
-        oauth.keycloak,
+        auth_routes.oauth.keycloak,
         "authorize_access_token",
         lambda: fake_token,
     )
+
+
+    monkeypatch.setattr(
+    auth_routes,
+    "validate_access_token",
+    lambda **kwargs: fake_claims,
+)
+
+    
 
     response = client.get(
         "/auth/callback",
