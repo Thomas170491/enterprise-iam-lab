@@ -62,6 +62,8 @@ class Config:
         threshold=500,
     )
 
+    SESSION_COOKIE_NAME = "novasecure_employee_session"
+
 
 # Validate required configuration
 required_config = {

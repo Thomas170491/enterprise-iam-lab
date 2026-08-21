@@ -40,6 +40,7 @@ def callback():
 
     # Exchange the authorization code for tokens.
     token = oauth.keycloak.authorize_access_token()
+   
 
     # Authlib normally extracts OIDC userinfo from
     # the validated ID token.
@@ -50,7 +51,7 @@ def callback():
             token=token
         )
 
-    print(userinfo)
+    
 
     user = User(
         sub=userinfo['sub'],
