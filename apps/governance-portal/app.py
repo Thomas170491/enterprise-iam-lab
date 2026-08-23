@@ -34,6 +34,7 @@ def create_app():
 
     # Flask-Login
     login_manager.init_app(app)
+    login_manager.login_view = "auth.login"
 
     # Server-side session storage
     session_manager.init_app(app)

@@ -154,8 +154,20 @@ def test_authenticated_user_visible_on_dashboard(
             "roles": [
                 "employee",
                 "privileged-user",
+                "iam-dashboard-access"
             ]
         },
+        "resource_access": {
+        "iam-admin-portal": {
+            "roles": [
+                "iam-dashboard-access",
+                "identity-viewer",
+                "identity-manager",
+                "role-manager",
+                "report-exporter",
+            ]
+        }
+        }
     }
 
     # Fake Authlib's token exchange.

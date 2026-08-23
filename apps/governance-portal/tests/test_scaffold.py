@@ -1,14 +1,3 @@
-def test_dashboard_available(client):
-    """
-    The Governance Portal root page should render.
-    """
-
-    response = client.get("/")
-
-    assert response.status_code == 200
-    assert b"IAM Governance Portal" in response.data
-
-
 def test_health_endpoint(client) :
     """
     The REST health endpoint should return the 
