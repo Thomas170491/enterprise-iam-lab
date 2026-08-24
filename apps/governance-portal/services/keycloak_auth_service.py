@@ -1,12 +1,6 @@
 import requests 
 
-class KeycloakServiceAuthenticationError(Exception):
-        """
-    Raised when the Governance backend cannot authenticate
-    its service account with Keycloak.
-    """
-        pass
-
+from services.exceptions import KeycloakServiceAuthenticationError
 
 def get_service_access_token(
     token_url,

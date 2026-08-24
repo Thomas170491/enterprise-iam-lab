@@ -86,6 +86,10 @@ class Config :
     f"/realms/{KEYCLOAK_REALM}"
     f"/protocol/openid-connect/token"
 )
+    KEYCLOAK_ADMIN_API_URL = (
+    f"{KEYCLOAK_SERVER_URL}"
+    f"/admin/realms/{KEYCLOAK_REALM}"
+)
 
 #Fail immediately if required configuration is missing
 if not Config.SECRET_KEY :
