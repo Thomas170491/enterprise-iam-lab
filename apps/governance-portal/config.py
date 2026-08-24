@@ -74,6 +74,19 @@ class Config :
         "/.well-known/openid-configuration"
     )
 
+    KEYCLOAK_SERVICE_CLIENT_ID = os.environ.get(
+    "KEYCLOAK_SERVICE_CLIENT_ID"
+)
+
+    KEYCLOAK_SERVICE_CLIENT_SECRET = os.environ.get(
+    "KEYCLOAK_SERVICE_CLIENT_SECRET"
+)
+    KEYCLOAK_TOKEN_URL = (
+    f"{KEYCLOAK_SERVER_URL}"
+    f"/realms/{KEYCLOAK_REALM}"
+    f"/protocol/openid-connect/token"
+)
+
 #Fail immediately if required configuration is missing
 if not Config.SECRET_KEY :
     raise RuntimeError("FLASK_SECRET_KEY cannot be empty")
