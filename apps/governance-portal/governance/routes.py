@@ -12,7 +12,7 @@ bp_governance = Blueprint(
 
 @bp_governance.get("/")
 @login_required
-@client_role_required(IAM_DASHBOARD_ACCESS))
+@client_role_required(IAM_DASHBOARD_ACCESS)
 def dashboard():
     """
     Render the Governance Portal dashboard.
