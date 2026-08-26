@@ -1,6 +1,10 @@
+from pytest import MonkeyPatch
+
 import governance.routes as governance_routes
 from unittest.mock import Mock,ANY
 from auth.permissions import IDENTITY_VIEWER
+from services.exceptions import KeycloakAdminAPIError
+import services.identity_service as identity_service 
 
 
 def _login_user(
@@ -237,3 +241,116 @@ def test_identity_detail_route_access(
     assert b"IAM Operators" in response.data
     assert b"employee" in response.data
     assert b"identity-viewer" in response.data
+
+def test_identity_detail_handles_keycloak_failure(
+    client,
+    monkeypatch,
+):
+    _login_user(
+        client,
+        client_roles=[IDENTITY_VIEWER],
+    )
+
+    def fake_get_identity_access(**kwargs):
+        raise KeycloakAdminAPIError(
+            "User retrieval failed"
+        )
+
+    monkeypatch.setattr(
+        governance_routes,
+        "get_identity_access",
+        fake_get_identity_access,
+    )
+
+    response = client.get(
+        "/identities/user-123"
+    )
+
+    assert response.status_code == 502
+
+    assert (
+        b"Identity Access Unavailable"
+        in response.data
+    )
+
+def test_get_identity_access(
+     monkeypatch: MonkeyPatch
+):
+    monkeypatch.setattr(
+        identity_service,
+        "get_user",
+        lambda **kwargs: {
+            "id": "user-123",
+            "username": "e1004",
+            "firstName": "Leo",
+            "lastName": "Bernard",
+            "email": "leo.bernard@novasecure.test",
+            "enabled": True,
+            "attributes": {
+                "employee_id": ["e1004"],
+                "employment_status": ["active"],
+                "job_title": ["IAM Operator"],
+                "risk_level": ["low"],
+            },
+        },
+    )
+
+    monkeypatch.setattr(
+        identity_service,
+        "get_user_groups",
+        lambda **kwargs: [
+            {
+                "id": "group-123",
+                "name": "IAM Operators",
+            }
+        ],
+    )
+
+    monkeypatch.setattr(
+        identity_service,
+        "get_effective_realm_roles",
+        lambda **kwargs: [
+            {
+                "name": "employee",
+            }
+        ],
+    )
+
+    monkeypatch.setattr(
+        identity_service,
+        "get_effective_client_roles",
+        lambda **kwargs: [
+            {
+                "name": "identity-viewer",
+            }
+        ],
+    )
+
+    access = identity_service.get_identity_access(
+        admin_api_url=(
+            "https://keycloak.test/admin/realms/novasecure"
+        ),
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+        target_client_name="iam-admin-portal",
+    )
+
+    assert access["identity"]["username"] == "e1004"
+
+    assert access["identity"]["job_title"] == (
+        "IAM Operator"
+    )
+
+    assert access["groups"][0]["name"] == (
+        "IAM Operators"
+    )
+
+    assert access["realm_roles"][0]["name"] == (
+        "employee"
+    )
+
+    assert access["client_roles"][0]["name"] == (
+        "identity-viewer"
+    )

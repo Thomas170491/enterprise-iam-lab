@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="identity-detail">
+
+    <h1>Identity Access Unavailable</h1>
+
+    <p>
+        The Governance Portal could not retrieve
+        this identity's access information.
+    </p>
+
+    <p>
+        Please try again later.
+    </p>
+
+    <p>
+        <a href="{{ url_for('governance.identities') }}">
+            Return to identity search
+        </a>
+    </p>
+
+</div>
+
+{% endblock %}
