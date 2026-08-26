@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section>
+    <h1>Identity Search</h1>
+
+    <form method="get" action="{{ url_for('governance.identities') }}">
+        <label for="search">
+            Search identities
+        </label>
+
+        <input
+            id="search"
+            name="search"
+            type="search"
+            value="{{ search }}"
+            placeholder="Username, name, or email"
+        >
+
+        <button type="submit">
+            Search
+        </button>
+    </form>
+</section>
+
+
+<section>
+    <h2>Identities</h2>
+
+    {% if identities %}
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Username</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Job title</th>
+                    <th>Status</th>
+                    <th>Risk</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for identity in identities %}
+
+                    <tr>
+                        <td>
+                            {{ identity.employee_id or "-" }}
+                        </td>
+
+                        <td>
+                            {{ identity.username }}
+                        </td>
+
+                        <td>
+                            {{ identity.first_name or "" }}
+                            {{ identity.last_name or "" }}
+                        </td>
+
+                        <td>
+                            {{ identity.email or "-" }}
+                        </td>
+
+                        <td>
+                            {{ identity.job_title or "-" }}
+                        </td>
+
+                        <td>
+                            {% if identity.enabled %}
+                                Enabled
+                            {% else %}
+                                Disabled
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {{ identity.risk_level or "-" }}
+                        </td>
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+        </table>
+
+    {% elif search %}
+
+        <p>No identities found.</p>
+
+    {%else%}
+
+        <p>Enter a username, name, or email to search identities.</p>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}

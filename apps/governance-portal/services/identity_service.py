@@ -71,5 +71,5 @@ def search_identities(
 
         identities.append(identity)
 
-        return identities
+    return identities
 

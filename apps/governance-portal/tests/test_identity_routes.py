@@ -1,0 +1,167 @@
+import governance.routes as governance_routes
+from unittest.mock import Mock
+from auth.permissions import IDENTITY_VIEWER
+
+
+def _login_user(
+    client,
+    client_roles,
+):
+    with client.session_transaction() as sess:
+        sess["user"] = {
+            "sub": "test-subject",
+            "username": "test-user",
+            "name": "Test User",
+            "email": "test@example.test",
+            "client_roles": client_roles,
+            "realm_roles": [],
+        }
+
+        sess["_user_id"] = "test-subject"
+        sess["_fresh"] = True
+def test_identity_route_access(
+    client,
+    monkeypatch,
+):
+    _login_user(
+        client,
+        [IDENTITY_VIEWER],
+    )
+
+    fake_identities = [
+        {
+            "id": "user-123",
+            "username": "e1004",
+            "first_name": "Leo",
+            "last_name": "Bernard",
+            "email": "leo@example.test",
+            "employee_id": "E1004",
+            "employment_status": "active",
+            "job_title": "IAM Operator",
+            "risk_level": "high",
+            "enabled": True,
+        }
+    ]
+
+    fake_search = Mock(
+        return_value=fake_identities
+    )
+
+    monkeypatch.setattr(
+        governance_routes,
+        "search_identities",
+        fake_search,
+    )
+
+    response = client.get("/identities?search=e1004")
+
+    assert response.status_code == 200
+
+    fake_search.assert_called_once()
+
+    assert b"Leo" in response.data
+    assert b"Bernard" in response.data
+    assert b"e1004" in response.data
+
+def test_identity_route_access_denied(client):
+    _login_user(client, [])
+
+    response = client.get("/identities")
+    assert response.status_code == 403
+   
+def test_identity_search_requires_login(
+    client,
+):
+    response = client.get(
+        "/identities",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+def test_identity_page_does_not_search_without_query(
+    client,
+    monkeypatch,
+):
+    _login_user(
+        client,
+        [IDENTITY_VIEWER],
+    )
+
+    def fail_if_called(**kwargs):
+        raise AssertionError(
+            "search_identities should not be called"
+        )
+
+    monkeypatch.setattr(
+        governance_routes,
+        "search_identities",
+        fail_if_called,
+    )
+
+    response = client.get("/identities")
+
+    assert response.status_code == 200
+    assert b"Enter a username" in response.data
+
+def test_identity_page_does_not_search_automatically(
+    client,
+    monkeypatch,
+):
+    _login_user(
+        client,
+        [IDENTITY_VIEWER],
+    )
+
+    fake_search = Mock()
+
+    monkeypatch.setattr(
+        governance_routes,
+        "search_identities",
+        fake_search,
+    )
+
+    response = client.get("/identities")
+
+    assert response.status_code == 200
+    fake_search.assert_not_called()
+
+    assert b"Enter a username" in response.data
+
+def test_empty_search_returns_all_identities(
+    client,
+    monkeypatch,
+):
+    _login_user(
+        client,
+        [IDENTITY_VIEWER],
+    )
+
+    fake_identities = [
+        {"username": "e1001"},
+        {"username": "e1002"},
+        {"username": "e1003"},
+        {"username": "e1004"},
+        {"username": "e1005"},
+    ]
+
+    fake_search = Mock(
+        return_value=fake_identities
+    )
+
+    monkeypatch.setattr(
+        governance_routes,
+        "search_identities",
+        fake_search,
+    )
+
+    response = client.get(
+        "/identities?search="
+    )
+
+    assert response.status_code == 200
+    fake_search.assert_called_once()
+
+    assert b"e1001" in response.data
+    assert b"e1005" in response.data
