@@ -2,7 +2,7 @@ from flask import Blueprint, render_template,current_app,request
 from flask_login import login_required
 from auth.decorators import client_role_required
 from auth.permissions import IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER
-from services.identity_service import search_identities 
+from services.identity_service import search_identities, get_identity_access
 
 bp_governance = Blueprint(
     "governance",
@@ -57,4 +57,22 @@ def identities():
         "identities.html",
         search=search,
         identities=identities,
+    )
+
+@bp_governance.get("/identities/<user_id>")
+@login_required
+@client_role_required(IDENTITY_VIEWER)
+def identitY_detail(user_id):
+    identity_access= get_identity_access(
+        admin_api_url=current_app.config["KEYCLOAK_ADMIN_API_URL"],
+        token_url=current_app.config["KEYCLOAK_TOKEN_URL"],
+        client_id=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
+        client_secret=current_app.config["KEYCLOAK_SERVICE_CLIENT_SECRET"],
+        user_id=user_id,
+        target_client_name=current_app.config["KEYCLOAK_CLIENT_ID"]
+    )
+
+    return render_template(
+        "identity_detail.html",
+        identity_access=identity_access
     )

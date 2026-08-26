@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Identity Detail</h1>
+
+<h2>
+    {{ identity_access.identity.first_name }}
+    {{ identity_access.identity.last_name }}
+</h2>
+
+<p>
+    Username:
+    {{ identity_access.identity.username }}
+</p>
+
+<p>
+    Email:
+    {{ identity_access.identity.email }}
+</p>
+
+{% endblock %}

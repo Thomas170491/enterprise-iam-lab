@@ -1,5 +1,5 @@
 import governance.routes as governance_routes
-from unittest.mock import Mock
+from unittest.mock import Mock,ANY
 from auth.permissions import IDENTITY_VIEWER
 
 
@@ -165,3 +165,72 @@ def test_empty_search_returns_all_identities(
 
     assert b"e1001" in response.data
     assert b"e1005" in response.data
+
+
+def test_identity_detail_route_access(
+    client,
+    monkeypatch,
+):
+    _login_user(
+        client,
+        [IDENTITY_VIEWER],
+    )
+
+    fake_identity_access = {
+    "identity": {
+        "id": "user-123",
+        "username": "e1004",
+        "first_name": "Leo",
+        "last_name": "Bernard",
+        "email": "leo.bernard@novasecure.test",
+        "enabled": True,
+        "employee_id": "e1004",
+        "employment_status": "active",
+        "job_title": "IAM Operator",
+        "risk_level": "low",
+    },
+        
+        "groups": [
+            {
+                "id": "group-123",
+                "name": "IAM Operators",
+            }
+        ],
+        "realm_roles": [
+            {
+                "name": "employee",
+            }
+        ],
+        "client_roles": [
+            {
+                "name": "identity-viewer",
+            }
+        ],
+    }
+        
+    mock_get_identity_access=Mock(
+        return_value=fake_identity_access
+    )
+
+    monkeypatch.setattr(
+        governance_routes,
+        "get_identity_access",
+        mock_get_identity_access,
+    )
+
+    response= client.get(
+        "/identities/user-123"
+    )
+
+    assert response.status_code == 200
+    assert b"Leo" in response.data
+    assert b"Bernard" in response.data
+    assert b"e1004" in response.data
+    mock_get_identity_access.assert_called_once_with(
+        admin_api_url= ANY,
+        token_url=ANY,
+        client_id=ANY,
+        client_secret=ANY,
+        user_id="user-123",
+        target_client_name="iam-admin-portal",
+)  
