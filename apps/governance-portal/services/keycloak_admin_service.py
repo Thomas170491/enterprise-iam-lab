@@ -186,7 +186,7 @@ def get_effective_realm_roles(
         response=requests.get(
             f"{admin_api_url}/users/{user_id}/role-mappings/realm/composite",
             headers={
-                "Authorization" : "Bearer {access_token}",
+                "Authorization" : f"Bearer {access_token}",
                 "Accept" : "application/json"
             },
             timeout=5
@@ -204,4 +204,118 @@ def get_effective_realm_roles(
         raise KeycloakAdminAPIError("Unexpected effective realm roles response")
 
     return roles
+
+
+def get_client_uuid(
+        admin_api_url,
+        token_url,
+        client_id,
+        client_secret,
+        client_name
+) :
+    """
+    Retrieve the UUID of a Keycloak client by its name.
+    """
+
+    access_token = get_service_access_token(
+        token_url = token_url,
+        client_id = client_id,
+        client_secret = client_secret
+    )
+
+    try : 
+        response = requests.get(
+            f"{admin_api_url}/clients",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/json"
+            },
+            params={
+                "clientId": client_name
+            },
+            timeout=5
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise KeycloakAdminAPIError("Client UUID retrieval failed") from exc
+
+    try: 
+        results = response.json()
+    except ValueError as exc:
+        raise KeycloakAdminAPIError("Invalid JSON response") from exc
+
+    if not isinstance(results,list) :
+        raise KeycloakAdminAPIError("Unexpected client UUID response")
+
+    if len(results) == 0:
+        raise KeycloakAdminAPIError("Client not found")
+
+    client_uuid = results[0].get("id")
+
+    if not client_uuid:
+        raise KeycloakAdminAPIError("Client uuid missing")
+
+    return client_uuid 
+
+def get_effective_client_roles(
+        admin_api_url,
+        token_url,
+        client_id,
+        client_secret,
+        user_id,
+        target_client_name
+):
+    """
+    Retrieve effective client roles for an identity.
+
+    The target client's internal Keycloak UUID is resolved
+    before querying the composite client role mappings.
+    """
+
+    client_uuid = get_client_uuid(
+        admin_api_url=admin_api_url,
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        client_name=target_client_name
+    )
+
+    access_token = get_service_access_token(
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+
+    try:
+        response = requests.get(
+            f"{admin_api_url}/users/{user_id}"
+            f"/role-mappings/clients/{client_uuid}/composite",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/json"
+            },
+            timeout=5
+        )
+        response.raise_for_status()
+
+    except requests.RequestException as exc:
+        raise KeycloakAdminAPIError(
+            "Effective client roles retrieval failed"
+        ) from exc
+
+    try:
+        roles = response.json()
+
+    except ValueError as exc:
+        raise KeycloakAdminAPIError(
+            "Invalid JSON response"
+        ) from exc
+
+    if not isinstance(roles, list):
+        raise KeycloakAdminAPIError(
+            "Unexpected effective client roles response"
+        )
+
+    return roles
+
 
