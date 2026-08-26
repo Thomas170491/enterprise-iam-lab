@@ -1,21 +1,173 @@
 {% extends "base.html" %}
+
 {% block content %}
 
-<h1>Identity Detail</h1>
+<div class="identity-detail">
 
-<h2>
-    {{ identity_access.identity.first_name }}
-    {{ identity_access.identity.last_name }}
-</h2>
+    <div class="page-header">
+        <h1>Identity Detail</h1>
 
-<p>
-    Username:
-    {{ identity_access.identity.username }}
-</p>
+        <p>
+            Effective access and identity information
+            retrieved from NovaSecure IAM.
+        </p>
+    </div>
 
-<p>
-    Email:
-    {{ identity_access.identity.email }}
-</p>
+
+    <!-- Identity Information -->
+
+    <section class="identity-section">
+
+        <h2>Identity</h2>
+
+        <table>
+
+            <tr>
+                <th>Username</th>
+                <td>
+                     <a href="{{ url_for('governance.identity_detail',user_id=identity_access.identity.user_id) }}">
+        {{ identity_access.identity.username }}
+    </a>
+</td>
+            </tr>
+
+            <tr>
+                <th>Name</th>
+                <td>
+                    {{ identity_access.identity.first_name or "" }}
+                    {{ identity_access.identity.last_name or "" }}
+                </td>
+            </tr>
+
+            <tr>
+                <th>Email</th>
+                <td>{{ identity_access.identity.email or "-" }}</td>
+            </tr>
+
+            <tr>
+                <th>Employee ID</th>
+                <td>{{ identity_access.identity.employee_id or "-" }}</td>
+            </tr>
+
+            <tr>
+                <th>Job Title</th>
+                <td>{{ identity_access.identity.job_title or "-" }}</td>
+            </tr>
+
+            <tr>
+                <th>Employment Status</th>
+                <td>
+                    {{ identity_access.identity.employment_status or "-" }}
+                </td>
+            </tr>
+
+            <tr>
+                <th>Risk Level</th>
+                <td>{{ identity_access.identity.risk_level or "-" }}</td>
+            </tr>
+
+            <tr>
+                <th>Account Enabled</th>
+                <td>
+                    {% if identity_access.identity.enabled %}
+                        Yes
+                    {% else %}
+                        No
+                    {% endif %}
+                </td>
+            </tr>
+
+        </table>
+
+    </section>
+
+
+    <!-- Groups -->
+
+    <section class="identity-section">
+
+        <h2>Groups</h2>
+
+        {% if identity_access.groups %}
+
+            <ul>
+
+                {% for group in identity_access.groups %}
+
+                    <li>
+                        {{ group.name }}
+                    </li>
+
+                {% endfor %}
+
+            </ul>
+
+        {% else %}
+
+            <p>No group memberships.</p>
+
+        {% endif %}
+
+    </section>
+
+
+    <!-- Realm Roles -->
+
+    <section class="identity-section">
+
+        <h2>Effective Realm Roles</h2>
+
+        {% if identity_access.realm_roles %}
+
+            <ul>
+
+                {% for role in identity_access.realm_roles %}
+
+                    <li>
+                        {{ role.name }}
+                    </li>
+
+                {% endfor %}
+
+            </ul>
+
+        {% else %}
+
+            <p>No effective realm roles.</p>
+
+        {% endif %}
+
+    </section>
+
+
+    <!-- Client Roles -->
+
+    <section class="identity-section">
+
+        <h2>Effective Client Roles</h2>
+
+        {% if identity_access.client_roles %}
+
+            <ul>
+
+                {% for role in identity_access.client_roles %}
+
+                    <li>
+                        {{ role.name }}
+                    </li>
+
+                {% endfor %}
+
+            </ul>
+
+        {% else %}
+
+            <p>No effective client roles.</p>
+
+        {% endif %}
+
+    </section>
+
+</div>
 
 {% endblock %}

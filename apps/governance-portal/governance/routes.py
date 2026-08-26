@@ -62,7 +62,7 @@ def identities():
 @bp_governance.get("/identities/<user_id>")
 @login_required
 @client_role_required(IDENTITY_VIEWER)
-def identitY_detail(user_id):
+def identity_detail(user_id):
     identity_access= get_identity_access(
         admin_api_url=current_app.config["KEYCLOAK_ADMIN_API_URL"],
         token_url=current_app.config["KEYCLOAK_TOKEN_URL"],

@@ -234,3 +234,6 @@ def test_identity_detail_route_access(
         user_id="user-123",
         target_client_name="iam-admin-portal",
 )  
+    assert b"IAM Operators" in response.data
+    assert b"employee" in response.data
+    assert b"identity-viewer" in response.data
