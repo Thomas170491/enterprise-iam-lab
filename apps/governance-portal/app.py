@@ -13,6 +13,8 @@ from extensions import (
 )
 from governance import bp_governance
 import auth 
+import models 
+
 
 
 
