@@ -53,7 +53,10 @@
                         </td>
 
                         <td>
-                            {{ identity.username }}
+                                <a href="{{ url_for('governance.identity_detail', user_id=identity.id) }}">
+                                {{ identity.username }}
+                                </a>
+                    
                         </td>
 
                         <td>
