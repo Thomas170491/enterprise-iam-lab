@@ -3,7 +3,10 @@ from flask_login import login_required
 from auth.decorators import client_role_required
 from auth.permissions import IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER
 from services.identity_service import search_identities, get_identity_access
-from services.exceptions import KeycloakAdminAPIError
+from services.exceptions import KeycloakAdminAPIError, AuditPersistenceError
+from services.audit_service import record_audit_event 
+
+
 
 
 
@@ -82,8 +85,26 @@ def identity_detail(user_id):
             "identity-detail-error.html"
         ), 502
 
+    try :  
+        record_audit_event(
+            actor_user_id=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
+            actor_username=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
+            action="identity.view",
+            target_type="identity",
+            target_id=user_id,
+            target_name=identity_access["identity"].get("username"),
+            outcome="success",
+            details={
+                "source": "governance-portal"
+            },
+        )
+    except AuditPersistenceError:
+        current_app.logger.exception("Failed to persist audit event for identity view")
+
     return render_template(
         "identity_detail.html",
         identity_access=identity_access
     )
+
+
 

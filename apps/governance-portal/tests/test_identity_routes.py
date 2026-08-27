@@ -221,6 +221,15 @@ def test_identity_detail_route_access(
         "get_identity_access",
         mock_get_identity_access,
     )
+    mock_record_audit_event = Mock(
+        return_value=fake_identity_access
+    )
+
+    monkeypatch.setattr(
+        governance_routes,
+        "record_audit_event",
+        mock_record_audit_event,
+)
 
     response= client.get(
         "/identities/user-123"
@@ -241,6 +250,18 @@ def test_identity_detail_route_access(
     assert b"IAM Operators" in response.data
     assert b"employee" in response.data
     assert b"identity-viewer" in response.data
+    mock_record_audit_event.assert_called_once_with(
+        actor_user_id=ANY,
+        actor_username=ANY,
+        action="identity.view",
+        target_type="identity",
+        target_id="user-123",
+        target_name="e1004",
+        outcome="success",
+        details={
+            "source": "governance-portal"
+        },
+    )
 
 def test_identity_detail_handles_keycloak_failure(
     client,
