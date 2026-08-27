@@ -90,6 +90,14 @@ class Config :
     f"{KEYCLOAK_SERVER_URL}"
     f"/admin/realms/{KEYCLOAK_REALM}"
 )
+    # --------------------------------------------------
+    # SQLAlchemy / Database
+    # --------------------------------------------------
+    SQLALCHEMY_DATABASE_URI = os.getenv(
+        "DATABASE_URI"
+    )
+
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 #Fail immediately if required configuration is missing
 if not Config.SECRET_KEY :
@@ -97,6 +105,10 @@ if not Config.SECRET_KEY :
 
 if not Config.KEYCLOAK_CLIENT_SECRET :
     raise RuntimeError("KEYCLOAK_CLIENT_SECRET cannot be enpty")
+if not Config.SQLALCHEMY_DATABASE_URI:
+    raise RuntimeError(
+        "DATABASE_URL cannot be empty"
+    )
 
 
     

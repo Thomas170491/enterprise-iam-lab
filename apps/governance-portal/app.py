@@ -7,6 +7,9 @@ from extensions import (
     login_manager,
     oauth,
     session_manager,
+    db,
+    migrate
+
 )
 from governance import bp_governance
 import auth 
@@ -30,7 +33,7 @@ def create_app():
     client_kwargs={
         "scope": "openid profile email",
     },
-)
+    ) 
 
     # Flask-Login
     login_manager.init_app(app)
@@ -48,7 +51,14 @@ def create_app():
     #Auth blueprints
     app.register_blueprint(auth.bp_auth)
 
+    # Database
+
+    db.init_app(app)
+    migrate.init_app(app, db)
+
     return app
+
+
 
 
 app = create_app()
