@@ -2,7 +2,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from extensions import db 
 from models.audit_event import AuditEvent 
-from services.exceptions import AuditPersistenceError 
+from services.exceptions import AuditPersistenceError, AuditQueryError
 
 def record_audit_event(actor_user_id, actor_username, action, target_type, target_id=None, target_name=None, outcome=None, details=None):
     """
@@ -51,6 +51,8 @@ def get_recent_audit_events(limit=100):
 
     statement= db.select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(limit)
 
-    return db.session.execute(statement).scalars().all()
-
-
+    try:
+        return db.session.execute(statement).scalars().all()
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        raise AuditQueryError(f"Failed to retrieve audit events: {str(e)}")

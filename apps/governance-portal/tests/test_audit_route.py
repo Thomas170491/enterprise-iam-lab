@@ -1,10 +1,10 @@
+import governance.routes as governance_routes
+
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import Mock
-
-import governance.routes as governance_routes
-
 from auth.permissions import AUDIT_LOG_VIEWER
+from services.exceptions import AuditQueryError
 
 def _login_user(
     client,
@@ -130,6 +130,41 @@ def test_audit_log_empty_state(
 
     assert (
         b"No audit events recorded yet."
+        in response.data
+    )
+
+    mock_get_events.assert_called_once_with(
+        limit=100
+    )
+def test_audit_log_handles_database_failure(
+    client,
+    monkeypatch,
+):
+    _login_user(
+        client,
+        [AUDIT_LOG_VIEWER],
+    )
+
+    mock_get_events = Mock(
+        side_effect=AuditQueryError(
+            "Failed to retrieve audit events"
+        )
+    )
+
+    monkeypatch.setattr(
+        governance_routes,
+        "get_recent_audit_events",
+        mock_get_events,
+    )
+
+    response = client.get(
+        "/audit"
+    )
+
+    assert response.status_code == 503
+
+    assert (
+        b"Audit Log Unavailable"
         in response.data
     )
 

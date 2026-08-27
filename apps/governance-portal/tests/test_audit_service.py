@@ -4,7 +4,7 @@ import pytest
 import governance.routes as governance_routes
 import services.audit_service as audit_service
 
-from services.exceptions import AuditPersistenceError
+from services.exceptions import AuditPersistenceError, AuditQueryError
 from unittest.mock import Mock
 from datetime import datetime
 from types import SimpleNamespace
@@ -12,23 +12,6 @@ from types import SimpleNamespace
 
 from auth.permissions import AUDIT_LOG_VIEWER
 
-def _login_user(
-    client,
-    client_roles,
-):
-    with client.session_transaction() as sess:
-
-        sess["user"] = {
-            "sub": "test-subject",
-            "username": "test-user",
-            "name": "Test User",
-            "email": "test@example.test",
-            "client_roles": client_roles,
-            "realm_roles": [],
-        }
-
-        sess["_user_id"] = "test-subject"
-        sess["_fresh"] = True
 
 def test_record_audit_event(
     monkeypatch,
@@ -199,4 +182,40 @@ def test_get_recent_audit_events(
 
     fake_scalar_result.all.assert_called_once()
 
+def test_get_recent_audit_events_handles_failure(
+    monkeypatch,
+):
+    mock_execute = Mock(
+        side_effect=audit_service.SQLAlchemyError(
+            "database unavailable"
+        )
+    )
 
+    mock_rollback = Mock()
+
+    monkeypatch.setattr(
+        audit_service.db.session,
+        "execute",
+        mock_execute,
+    )
+
+    monkeypatch.setattr(
+        audit_service.db.session,
+        "rollback",
+        mock_rollback,
+    )
+
+    with pytest.raises(
+        AuditQueryError
+    ) as exc_info:
+
+        audit_service.get_recent_audit_events(
+            limit=50
+        )
+
+    mock_execute.assert_called_once()
+    mock_rollback.assert_called_once()
+
+    assert exc_info.value.reason == (
+        "Failed to retrieve audit events: database unavailable"
+    )

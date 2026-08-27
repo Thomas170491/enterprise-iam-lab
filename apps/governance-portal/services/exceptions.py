@@ -40,5 +40,14 @@ class AuditPersistenceError(Exception):
           self.reason = reason
           super().__init__(reason)
 
+class AuditQueryError(Exception):
+    """
+    Raised when audit events cannot be retrieved
+    from the database.
+    """
+
+    def __init__(self, reason):
+        self.reason = reason
+        super().__init__(reason)
            
      
