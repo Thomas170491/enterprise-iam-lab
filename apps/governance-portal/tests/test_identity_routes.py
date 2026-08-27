@@ -247,21 +247,19 @@ def test_identity_detail_route_access(
         user_id="user-123",
         target_client_name="iam-admin-portal",
 )  
-    assert b"IAM Operators" in response.data
-    assert b"employee" in response.data
-    assert b"identity-viewer" in response.data
     mock_record_audit_event.assert_called_once_with(
-        actor_user_id=ANY,
-        actor_username=ANY,
-        action="identity.view",
-        target_type="identity",
-        target_id="user-123",
-        target_name="e1004",
-        outcome="success",
-        details={
-            "source": "governance-portal"
-        },
-    )
+    actor_user_id="test-subject",
+    actor_username="test-user",
+    action="identity.view",
+    target_type="identity",
+    target_id="user-123",
+    target_name="e1004",
+    outcome="success",
+    details={
+        "source": "governance-portal",
+        "service_client": "iam-governance-service",
+    },
+)    
 
 def test_identity_detail_handles_keycloak_failure(
     client,

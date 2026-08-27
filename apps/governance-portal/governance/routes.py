@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template,current_app,request
-from flask_login import login_required
+from flask_login import login_required,current_user
 from auth.decorators import client_role_required
 from auth.permissions import IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER, AUDIT_LOG_VIEWER
 from services.identity_service import search_identities, get_identity_access
@@ -87,15 +87,16 @@ def identity_detail(user_id):
 
     try :  
         record_audit_event(
-            actor_user_id=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
-            actor_username=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
+            actor_user_id=current_user.sub,
+            actor_username=current_user.username,
             action="identity.view",
             target_type="identity",
             target_id=user_id,
             target_name=identity_access["identity"].get("username"),
             outcome="success",
             details={
-                "source": "governance-portal"
+                "source": "governance-portal",
+                "service_client": current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"]
             },
         )
     except AuditPersistenceError:
