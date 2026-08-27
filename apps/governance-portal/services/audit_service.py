@@ -39,3 +39,18 @@ def record_audit_event(actor_user_id, actor_username, action, target_type, targe
         raise AuditPersistenceError(f"Failed to persist audit event: {str(e)}")
 
     return audit_event 
+
+def get_recent_audit_events(limit=100):
+    """
+    Retrieves the most recent audit events from the database.
+
+    Args:
+        limit (int): The maximum number of audit events to retrieve. Defaults to 100.
+    Events are returned newest first.
+    """
+
+    statement= db.select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(limit)
+
+    return db.session.execute(statement).scalars().all()
+
+

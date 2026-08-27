@@ -1,10 +1,10 @@
 from flask import Blueprint, render_template,current_app,request
 from flask_login import login_required
 from auth.decorators import client_role_required
-from auth.permissions import IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER
+from auth.permissions import IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER, AUDIT_LOG_VIEWER
 from services.identity_service import search_identities, get_identity_access
 from services.exceptions import KeycloakAdminAPIError, AuditPersistenceError
-from services.audit_service import record_audit_event 
+from services.audit_service import record_audit_event, get_recent_audit_events
 
 
 
@@ -105,6 +105,18 @@ def identity_detail(user_id):
         "identity_detail.html",
         identity_access=identity_access
     )
+@bp_governance.get("/audit")
+@login_required
+@client_role_required(AUDIT_LOG_VIEWER)
+def audit_log():
+        events = get_recent_audit_events(
+            limit=100
+        )
+
+        return render_template(
+            "audit-log.html",
+            events=events,
+        )
 
 
 

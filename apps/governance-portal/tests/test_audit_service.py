@@ -1,10 +1,34 @@
-from unittest.mock import Mock
+
 
 import pytest
-
+import governance.routes as governance_routes
 import services.audit_service as audit_service
 
 from services.exceptions import AuditPersistenceError
+from unittest.mock import Mock
+from datetime import datetime
+from types import SimpleNamespace
+
+
+from auth.permissions import AUDIT_LOG_VIEWER
+
+def _login_user(
+    client,
+    client_roles,
+):
+    with client.session_transaction() as sess:
+
+        sess["user"] = {
+            "sub": "test-subject",
+            "username": "test-user",
+            "name": "Test User",
+            "email": "test@example.test",
+            "client_roles": client_roles,
+            "realm_roles": [],
+        }
+
+        sess["_user_id"] = "test-subject"
+        sess["_fresh"] = True
 
 def test_record_audit_event(
     monkeypatch,
@@ -134,3 +158,45 @@ def test_record_audit_event_rolls_back_on_failure(monkeypatch):
         assert exc_info.value.reason == (
             "Failed to persist audit event: database failure"
         )
+
+def test_get_recent_audit_events(
+    monkeypatch
+):
+    fake_events = [
+        Mock(),
+        Mock(),
+    ]
+
+    fake_scalar_result = Mock()
+    fake_scalar_result.all.return_value = fake_events
+
+    fake_execute_result = Mock()
+    fake_execute_result.scalars.return_value = (
+        fake_scalar_result
+    )
+
+    mock_execute = Mock(
+        return_value=fake_execute_result
+    )
+
+    monkeypatch.setattr(
+        audit_service.db.session,
+        "execute",
+        mock_execute,
+    )
+
+    events = (
+        audit_service.get_recent_audit_events(
+            limit=50
+        )
+    )
+
+    assert events == fake_events
+
+    mock_execute.assert_called_once()
+
+    fake_execute_result.scalars.assert_called_once()
+
+    fake_scalar_result.all.assert_called_once()
+
+
