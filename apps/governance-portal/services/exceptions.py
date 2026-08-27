@@ -14,7 +14,7 @@ class TokenValidationError(Exception):
         )
 
 class KeycloakServiceAuthenticationError(Exception):
-        """
+        """ 
     Raised when the Governance backend cannot authenticate
     its service account with Keycloak.
     """
@@ -31,3 +31,14 @@ class KeycloakAdminAPIError(Exception):
         super().__init__(
             f"Keycloak Admin API request failed: {reason}"
         )
+
+class AuditPersistenceError(Exception):
+     """
+     Raised when an audit event cannot be persisted to the database.
+     """
+     def __init__(self, reason):
+          self.reason = reason
+          super().__init__(reason)
+
+           
+     
