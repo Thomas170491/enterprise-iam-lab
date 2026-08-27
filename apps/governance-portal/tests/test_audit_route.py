@@ -91,3 +91,48 @@ def test_audit_log_access_denied(
     )
 
     assert response.status_code == 403
+
+def test_audit_log_requires_login(
+    client,
+):
+    response = client.get(
+        "/audit",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+def test_audit_log_empty_state(
+    client,
+    monkeypatch,
+):
+    _login_user(
+        client,
+        [AUDIT_LOG_VIEWER],
+    )
+
+    mock_get_events = Mock(
+        return_value=[]
+    )
+
+    monkeypatch.setattr(
+        governance_routes,
+        "get_recent_audit_events",
+        mock_get_events,
+    )
+
+    response = client.get(
+        "/audit"
+    )
+
+    assert response.status_code == 200
+
+    assert (
+        b"No audit events recorded yet."
+        in response.data
+    )
+
+    mock_get_events.assert_called_once_with(
+        limit=100
+    )
