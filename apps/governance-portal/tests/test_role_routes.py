@@ -266,8 +266,7 @@ def test_role_assignment_rejects_missing_csrf_token(
         "assign_identity_client_role",
         fake_assign,
     )
-    print(app.extensions)
-    print(app.config["WTF_CSRF_ENABLED"])
+
     response = client.post(
         "/identities/user-123/roles",
         data={
