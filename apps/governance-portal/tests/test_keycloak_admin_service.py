@@ -529,6 +529,100 @@ def test_get_client_role(monkeypatch) :
         assert role["id"] == "role-uuid-123"
         assert role["name"] == "finance-data-viewer"
 
+def test_assign_client_role(monkeypatch):
+    monkeypatch.setattr(
+        admin_service,
+        "get_service_access_token",
+        lambda **kwargs: "fake_service_token",
+    )
 
-        
-        
+    fake_response = Mock()
+    fake_response.raise_for_status.return_value = None
+
+    fake_post = Mock(
+        return_value=fake_response
+    )
+
+    monkeypatch.setattr(
+        admin_service.requests,
+        "post",
+        fake_post,
+    )
+
+    role = {
+        "id": "role-uuid-123",
+        "name": "finance-data-viewer",
+        "clientRole": True,
+    }
+
+    admin_service.assign_client_role(
+        admin_api_url=(
+            "https://keycloak.test/admin/realms/novasecure"
+        ),
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+        client_uuid="client-uuid-123",
+        role=role,
+    )
+
+    fake_post.assert_called_once_with(
+        (
+            "https://keycloak.test/admin/realms/"
+            "novasecure/users/user-123/"
+            "role-mappings/clients/client-uuid-123"
+        ),
+        headers={
+            "Authorization": "Bearer fake_service_token",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+        json=[role],
+        timeout=5,
+    )
+
+    fake_response.raise_for_status.assert_called_once_with()   
+
+def test_assign_client_role_handles_http_error(monkeypatch):
+    monkeypatch.setattr(
+        admin_service,
+        "get_service_access_token",
+        lambda **kwargs: "fake_service_token",
+    )
+
+    fake_response = Mock()
+
+    fake_response.raise_for_status.side_effect = (
+        admin_service.requests.HTTPError(
+            "403 Forbidden"
+        )
+    )
+
+    monkeypatch.setattr(
+        admin_service.requests,
+        "post",
+        Mock(return_value=fake_response),
+    )
+
+    role = {
+        "id": "role-uuid-123",
+        "name": "finance-data-viewer",
+        "clientRole": True,
+    }
+
+    with pytest.raises(
+        KeycloakAdminAPIError,
+        match="Client role assignment failed",
+    ):
+        admin_service.assign_client_role(
+            admin_api_url=(
+                "https://keycloak.test/admin/realms/novasecure"
+            ),
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="fake-secret",
+            user_id="user-123",
+            client_uuid="client-uuid-123",
+            role=role,
+        )
