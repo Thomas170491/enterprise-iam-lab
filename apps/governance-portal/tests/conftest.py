@@ -40,7 +40,8 @@ def app():
 
     flask_app.config.update(
         TESTING = True,
-        WTF_CSRF_ENABLED = False
+        WTF_CSRF_ENABLED = False,
+        SESSION_COOKIE_SECURE = False
     )
 
     yield flask_app

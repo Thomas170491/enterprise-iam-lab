@@ -16,13 +16,12 @@ class Config :
 
     SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
     SESSION_TYPE = 'filesystem'
-    SESSION_COOKIE_HTTP_ONLY = True
+    SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE ='Lax'
 
 
-    # Local development currently uses HTTP.
-    # This becomes True when we move the application to HTTPS.
-    SESSION_COOKIE_SECURE = False
+   
+    SESSION_COOKIE_SECURE = True
 
     SESSION_COOKIE_NAME = "novasecure_governance_session"
 

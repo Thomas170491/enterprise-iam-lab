@@ -1,3 +1,5 @@
+from config import Config
+
 def test_health_endpoint(client) :
     """
     The REST health endpoint should return the 
@@ -47,3 +49,9 @@ def test_expected_routes_are_registered(app):
     assert "/auth/callback" in routes
     assert "/api/v1/health" in routes
     assert "/api/openapi.json" in routes
+
+
+def test_session_cookie_secure_by_default():
+    assert Config.SESSION_COOKIE_HTTPONLY is True
+    assert Config.SESSION_COOKIE_SECURE is True
+    assert Config.SESSION_COOKIE_SAMESITE == "Lax"

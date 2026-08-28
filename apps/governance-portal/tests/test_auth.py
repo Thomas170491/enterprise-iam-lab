@@ -10,10 +10,10 @@ def test_login_starts_oidc_flow(client, monkeypatch):
 
     def fake_authorize_redirect(redirect_uri):
         assert redirect_uri == (
-            "http://localhost/auth/callback"
+            "https://localhost:5001/auth/callback"
         )
 
-        return redirect("http://keycloak.test/login")
+        return redirect("https://keycloak.test/login")
 
     monkeypatch.setattr(
         oauth.keycloak,
@@ -23,13 +23,14 @@ def test_login_starts_oidc_flow(client, monkeypatch):
 
     response = client.get(
         "/login",
+        base_url ='https://localhost:5001',
         follow_redirects=False
     )
 
     assert response.status_code == 302
 
     assert response.headers["Location"] == (
-        "http://keycloak.test/login"
+        "https://keycloak.test/login"
     )
 
 
