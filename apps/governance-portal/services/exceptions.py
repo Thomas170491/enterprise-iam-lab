@@ -49,5 +49,22 @@ class AuditQueryError(Exception):
     def __init__(self, reason):
         self.reason = reason
         super().__init__(reason)
+
+
+class RoleAdministrationPolicyError(Exception) :
+    """
+    Raised when a requested role administration operation
+    violates Governance Portal policy.
+    """
+
+    def __init__(self, reason) :
+        self.reason = reason
+
+        super().__init__(
+          f"Role administration policy denied : {reason}"
+        )
+
+    
+
            
      
