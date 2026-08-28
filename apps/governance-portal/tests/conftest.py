@@ -21,7 +21,7 @@ os.environ["KEYCLOAK_CLIENT_SECRET"] = (
 )
 
 os.environ["KEYCLOAK_SERVER_URL"] = (
-    "http://localhost:8080"
+    "https://localhost:8080"
 )
 
 os.environ["KEYCLOAK_REALM"] = "novasecure"

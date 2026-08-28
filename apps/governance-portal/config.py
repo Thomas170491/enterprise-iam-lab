@@ -51,7 +51,7 @@ class Config :
 
     KEYCLOAK_SERVER_URL = os.getenv(
         "KEYCLOAK_SERVER_URL",
-        "http://localhost:8080",
+        "https://localhost:8080",
     )
 
     KEYCLOAK_REALM = os.getenv(
