@@ -318,4 +318,54 @@ def get_effective_client_roles(
 
     return roles
 
+def get_client_role(
+        admin_api_url,
+        token_url,
+        client_id,
+        client_secret,
+        client_uuid,
+        role_name,
+):
+    """
+    Retrieve one client role representation from Keycloak.
+
+    A complete RoleRepresentation is required when we later
+    assign the role to a user.
+    """
+
+    access_token = get_service_access_token(
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+
+    try : 
+        response = requests.get(
+            (
+            f"{admin_api_url}/clients/{client_uuid}"
+            f"/roles/{role_name}"
+        ),
+        headers = {
+            "Authorization" : f"Bearer {access_token}",
+            "Accept" : "application/json"
+        },
+        timeout= 5
+        )
+    except requests.RequestException as exc:
+        raise KeycloakAdminAPIError("Client role retrieval fail") from exc 
+
+    try : 
+        role = response.json()
+    except ValueError as exc :
+        raise KeycloakAdminAPIError("Invalid JSON respon") from exc 
+
+    if not isinstance(role, dict) : 
+        raise KeycloakAdminAPIError("Unexpected JSON response")
+
+    if not role.get("id") or not role.get("name") :
+        raise KeycloakAdminAPIError("Incomplete clien response")
+
+    return role
+
+
 

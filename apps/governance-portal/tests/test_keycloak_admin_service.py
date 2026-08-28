@@ -475,3 +475,60 @@ def test_get_effective_client_roles(
     assert roles[2]["name"] == (
         "role-manager"
     )
+
+def test_get_client_role(monkeypatch) :
+        monkeypatch.setattr(
+            admin_service,
+            "get_service_access_token",
+            lambda  **kwargs : "fake_service_token"
+        )
+
+        fake_response = Mock()
+        fake_response.raise_for_status_value.return_value = None
+
+        fake_response.json.return_value = {
+            "id" : "role-uuid-123",
+            "name" : "finance-data-viewer",
+            "clientRole" : True 
+        }
+
+        fake_get = Mock(
+            return_value=fake_response
+        )
+
+        monkeypatch.setattr(
+            admin_service.requests,
+            "get",
+            fake_get,
+        )
+
+
+        role = admin_service.get_client_role(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        client_uuid="client-uuid-123",
+        role_name="finance-data-viewer",
+        )
+
+        fake_get.assert_called_once_with(
+                  (
+            "https://keycloak.test/admin/realms/"
+            "novasecure/clients/client-uuid-123/"
+            "roles/finance-data-viewer"
+        ),
+        headers={
+            "Authorization": "Bearer fake_service_token",
+            "Accept": "application/json",
+        },
+        timeout=5,
+        )
+    
+
+        assert role["id"] == "role-uuid-123"
+        assert role["name"] == "finance-data-viewer"
+
+
+        
+        
