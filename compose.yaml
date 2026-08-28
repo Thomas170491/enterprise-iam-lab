@@ -72,12 +72,22 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
 
-    ports:
-      - "127.0.0.1:8080:8080"
+      #TLS configuration
+      KC_HTTP_ENABLED: "false"
+      KC_HTTPS_PORT: 8443
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/tls/localhost.pem
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/tls/localhost-key.pem
 
+    ports:
+      - "127.0.0.1:8080:8443"
+      
+    volumes:
+     - ./certs:/opt/keycloak/conf/tls:ro
+     
     depends_on:
       postgres:
         condition: service_healthy
+
 
     restart: unless-stopped
 
