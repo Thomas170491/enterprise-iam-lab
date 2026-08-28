@@ -351,6 +351,10 @@ def get_client_role(
         },
         timeout= 5
         )
+
+        response.raise_for_status()
+
+
     except requests.RequestException as exc:
         raise KeycloakAdminAPIError("Client role retrieval fail") from exc 
 
@@ -411,6 +415,63 @@ def assign_client_role(
 
     except requests.RequestException as exc :
         raise KeycloakAdminAPIError("Client role assignment failed") from exc
+
+def remove_client_role(
+        admin_api_url,
+        token_url,
+        client_id,
+        client_secret,
+        user_id,
+        client_uuid,
+        role,    
+) : 
+    """
+    Remove one client role from a Keycloak user.
+    Keycloak expects a list of RoleRepresentation
+    objects when removing client-level role mappings.
+
+    """
+
+    access_token = get_service_access_token(
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+
+    try : 
+      response = requests.delete(
+            (
+            f"{admin_api_url}/users/{user_id}/"
+            f"role-mappings/clients/{client_uuid}"
+        ),
+
+        headers = {
+            "Authorization" : f"Bearer {access_token}",
+            "Accept" : "application/json",
+            "Content-Type" : "application/json"
+        },
+        json = [role],
+        timeout = 5
+        )
+      
+      response.raise_for_status()
+
+    except requests.RequestException as exc :
+        raise KeycloakAdminAPIError("Client role removal failed") from exc
+
+    
+
+    
+
+    
+    
+
+
+
+
+
+
+
 
      
 
