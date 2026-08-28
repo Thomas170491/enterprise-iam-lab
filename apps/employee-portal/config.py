@@ -52,7 +52,7 @@ class Config:
     # Session security
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = ENVIRONMENT == "production"
+    SESSION_COOKIE_SECURE = True
 
     # Flask-Session
     SESSION_TYPE = "cachelib"
