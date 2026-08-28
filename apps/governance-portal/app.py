@@ -8,7 +8,9 @@ from extensions import (
     oauth,
     session_manager,
     db,
-    migrate
+    migrate,
+    csrf
+    
 
 )
 from governance import bp_governance
@@ -35,7 +37,11 @@ def create_app():
     client_kwargs={
         "scope": "openid profile email",
     },
-    ) 
+    )
+
+    
+    #CSRF
+    csrf.init_app(app) 
 
     # Flask-Login
     login_manager.init_app(app)
@@ -43,6 +49,10 @@ def create_app():
 
     # Server-side session storage
     session_manager.init_app(app)
+
+    # Database
+    db.init_app(app)
+    migrate.init_app(app, db)
 
     # Application routes
     app.register_blueprint(bp_governance)
@@ -53,10 +63,8 @@ def create_app():
     #Auth blueprints
     app.register_blueprint(auth.bp_auth)
 
-    # Database
 
-    db.init_app(app)
-    migrate.init_app(app, db)
+
 
     return app
 
