@@ -4,7 +4,9 @@ A hands-on enterprise Identity and Access Management lab built around **Keycloak
 
 The project models the IAM environment of the fictional organization **NovaSecure SA** and is designed to progressively demonstrate authentication, authorization, identity governance, lifecycle automation, segregation of duties, access reviews, privileged-access controls, and IAM security monitoring.
 
-The first major application milestone — the **NovaSecure Employee Portal** — is now functionally complete. It implements browser-based OIDC authentication, role-based authorization, database-backed department resources, a protected REST API, stateless Bearer-token authentication, and hardened JWT validation.
+The **NovaSecure Employee Portal** is functionally complete. It implements browser-based OIDC authentication, role-based authorization, database-backed department resources, a protected REST API, stateless Bearer-token authentication, and hardened JWT validation.
+
+Development has now progressed into the **IAM Governance Portal**, which implements protected governance access, identity search, effective-access inspection, PostgreSQL-backed audit events, an audit-log viewer, Keycloak Admin REST API integration, and governed Employee Portal client-role assignment and removal.
 
 ---
 
@@ -56,7 +58,7 @@ Implemented:
 * Bearer API integration test script
 * Responsive Employee Portal interface
 
-The next major phase is the **IAM Governance Portal**, followed by OpenLDAP integration, Joiner-Mover-Leaver automation, access reviews, segregation-of-duties controls, privileged-access workflows, and ELK/Wazuh monitoring.
+The **IAM Governance Portal is now under active development**. Identity search, effective-access inspection, audit logging, and governed client-role administration are implemented. Remaining governance work includes access reviews, segregation-of-duties enforcement, reporting, lifecycle automation, privileged-access workflows, and ELK/Wazuh monitoring.
 
 ---
 
@@ -137,15 +139,29 @@ Employee Portal         IAM Governance Portal
 * Dedicated Keycloak PostgreSQL database
 * Dedicated Employee Portal PostgreSQL database
 
-## Planned
+## Governance and Administration
+
+Implemented or actively used:
 
 * IAM Governance Portal
-* OpenLDAP
 * Keycloak Admin REST API
+* Service-account authentication for administrative API operations
+* Identity search
+* Effective access inspection
+* Governance RBAC
+* PostgreSQL-backed audit events
+* Audit-log viewer
+* Governed Employee Portal client-role assignment and removal
+
+## Planned
+
+* OpenLDAP
 * HR identity source
 * Automated JML workflows
 * Access reviews
-* Segregation-of-duties workflows
+* Governance reporting
+* Segregation-of-duties enforcement
+* Privileged-access workflows
 * ELK / Wazuh
 
 ---
@@ -1200,11 +1216,17 @@ portfolio/
 
 ## Phase 3 — IAM Governance Portal
 
-* [ ] Identity search
-* [ ] Effective access view
-* [ ] Role management
+* [x] OIDC authentication
+* [x] Governance dashboard RBAC
+* [x] Identity search
+* [x] Effective access view
+* [x] Keycloak Admin REST API integration
+* [x] PostgreSQL audit-event persistence
+* [x] Audit event viewer
+* [x] Governed Employee Portal client-role assignment
+* [x] Governed Employee Portal client-role removal
+* [x] Role-administration audit trail
 * [ ] Access reviews
-* [ ] Audit event viewer
 * [ ] Governance reports
 * [ ] Segregation-of-duties enforcement
 
