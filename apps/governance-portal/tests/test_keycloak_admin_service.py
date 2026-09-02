@@ -724,3 +724,84 @@ def test_remove_client_role_handles_http_error(monkeypatch):
             client_uuid="client-uuid-123",
             role=role,
         )
+
+def test_get_direct_client_roles(monkeypatch):
+
+    monkeypatch.setattr(
+        admin_service,
+        "get_service_access_token",
+        lambda **kwargs : "fake-service-token"
+    )
+
+    
+
+    monkeypatch.setattr(
+        admin_service,
+        "get_client_uuid",
+        lambda **kwargs : "client-uuid-123"
+    )
+
+    fake_response = Mock()
+
+    fake_response.raise_for_status.return_value = None 
+
+    fake_response.json.return_value = [
+        {
+            "id": "role-1",
+            "name": "finance-data-viewer",
+        },
+        {
+            "id": "role-2",
+            "name": "manager-dashboard",
+        },
+    ]
+
+    fake_get = Mock(
+        return_value=fake_response
+    )
+    monkeypatch.setattr(
+        admin_service.requests,
+        "get",
+        fake_get
+    )
+
+    roles = admin_service.get_direct_client_roles(
+        admin_api_url=(
+            "https://keycloak.test/admin/realms/novasecure"
+        ),
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+        target_client_name="employee-portal",
+    )
+
+    assert len(roles) == 2
+
+    assert roles[0]["name"] == (
+        "finance-data-viewer"
+    )
+
+    assert roles[1]["name"] == (
+        "manager-dashboard"
+    )
+
+    fake_get.assert_called_once_with(
+        (
+            "https://keycloak.test/admin/realms/"
+            "novasecure/users/user-123/"
+            "role-mappings/clients/client-uuid-123"
+        ),
+        headers={
+            "Authorization": "Bearer fake-service-token",
+            "Accept": "application/json",
+        },
+        timeout=5,
+    )
+
+
+
+
+
+
+

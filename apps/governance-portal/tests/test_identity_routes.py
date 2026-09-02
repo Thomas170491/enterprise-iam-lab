@@ -345,6 +345,26 @@ def test_get_identity_access(
         ],
     )
 
+    monkeypatch.setattr(
+    identity_service,
+    "get_direct_client_roles",
+    lambda **kwargs: [
+        {
+            "name": "manager-dashboard",
+        }
+    ],
+)
+    direct_client_roles = identity_service.get_direct_client_roles(
+        admin_api_url=(
+            "https://keycloak.test/admin/realms/novasecure"
+        ),
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+        target_client_name="iam-admin-portal",
+    )
+
     access = identity_service.get_identity_access(
         admin_api_url=(
             "https://keycloak.test/admin/realms/novasecure"
@@ -354,6 +374,7 @@ def test_get_identity_access(
         client_secret="fake-secret",
         user_id="user-123",
         target_client_name="iam-admin-portal",
+      
     )
 
     assert access["identity"]["username"] == "e1004"
@@ -373,3 +394,7 @@ def test_get_identity_access(
     assert access["client_roles"][0]["name"] == (
         "identity-viewer"
     )
+
+    assert access["direct_client_roles"][0]["name"] == (
+    "manager-dashboard"
+)

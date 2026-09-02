@@ -459,6 +459,72 @@ def remove_client_role(
     except requests.RequestException as exc :
         raise KeycloakAdminAPIError("Client role removal failed") from exc
 
+def get_direct_client_roles(
+        admin_api_url,
+        token_url,
+        client_id,
+        client_secret,
+        user_id,
+        target_client_name,
+):
+    """
+    Retrieve client roles directly assigned to a user.
+    """
+    client_uuid = get_client_uuid(
+        admin_api_url=admin_api_url,
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        client_name=target_client_name,
+    )
+
+    access_token = get_service_access_token(
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+
+    try:
+        response = requests.get(
+            (
+                f"{admin_api_url}/users/{user_id}/"
+                f"role-mappings/clients/{client_uuid}"
+            ),
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/json",
+            },
+            timeout=5,
+        )
+
+        response.raise_for_status()
+
+    except requests.RequestException as exc:
+        raise KeycloakAdminAPIError(
+            "Direct client roles retrieval failed"
+        ) from exc
+
+    try :
+        roles = response.json()
+
+    except requests.RequestException as exc :
+        raise KeycloakAdminAPIError(
+            "Invalid JSON response"
+        )from exc
+
+    if not isinstance(roles,list) :
+        raise KeycloakAdminAPIError(
+            "Unexpected direct client roles response"
+        )
+    return roles
+
+
+
+
+
+
+    
+
     
 
     

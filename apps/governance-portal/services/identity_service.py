@@ -4,6 +4,7 @@ from services.keycloak_admin_service import (
     get_user_groups,
     get_effective_realm_roles,
     get_effective_client_roles,
+    get_direct_client_roles
 )
 
 def _first_attribute(attributes ,name):
@@ -139,6 +140,15 @@ def get_identity_access(
         target_client_name=target_client_name,
     )
 
+    direct_client_roles = get_direct_client_roles(
+        admin_api_url=admin_api_url,
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        user_id=user_id,
+        target_client_name=target_client_name,
+    )
+
     identity = _normalize_identity(user)
 
     return {
@@ -146,5 +156,6 @@ def get_identity_access(
         "groups": groups,
         "realm_roles": realm_roles,
         "client_roles": client_roles,
+        "direct_client_roles" : direct_client_roles
     }
 
