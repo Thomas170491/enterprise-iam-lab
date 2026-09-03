@@ -23,6 +23,17 @@ MANAGED_CLIENTS = {
     "employee-portal",
 }
 
+MANAGED_ROLES = {
+    "employee-portal": {
+        "manager-dashboard",
+        "hr-data-viewer",
+        "finance-data-viewer",
+        "it-data-viewer",
+        "operations-data-viewer",
+        "security-data-viewer",
+    }
+}
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +85,18 @@ def _ensure_managed_client(target_client_name):
             "unmanaged client"
         )
 
+def _ensure_managed_role(target_client_name, role_name):
+    """
+    Reject role changes for roles that are outside the
+    Governance Portal's administration scope.
+    """
+    allowed_roles = MANAGED_ROLES.get(target_client_name, set())
+
+    if role_name not in allowed_roles :
+        raise RoleAdministrationPolicyError(
+            "unmanaged role"
+        )
+
 
 def assign_identity_client_role(
         admin_api_url,
@@ -102,6 +125,11 @@ def assign_identity_client_role(
 
     _ensure_managed_client(
         target_client_name
+    )
+
+    _ensure_managed_role(
+        target_client_name,
+        role_name
     )
 
     # ---------------------------------------------------------
@@ -264,6 +292,10 @@ def remove_identity_client_role(
         target_client_name
     )
 
+    _ensure_managed_role(
+        target_client_name,
+        role_name
+    )
     # ---------------------------------------------------------
     # 2. Resolve Keycloak client
     # ---------------------------------------------------------

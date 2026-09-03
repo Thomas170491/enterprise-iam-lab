@@ -5,7 +5,7 @@ from unittest.mock import Mock,ANY
 from auth.permissions import IDENTITY_VIEWER, ROLE_MANAGER
 from services.exceptions import KeycloakAdminAPIError
 import services.identity_service as identity_service 
-
+ 
 
 def _login_user(
     client,
@@ -332,12 +332,60 @@ def test_identity_detail_only_allows_direct_role_removal(
     assert response.status_code == 200
     assert b"/identities/user-123/roles/manager-dashboard/remove" in response.data
     assert b"/identities/user-123/roles/finance-data-viewer/remove" not in response.data
+    mock_get_identity_access.assert_called_once()
+
+def test_identity_viewer_does_not_see_role_removal_controls(
+    client,
+    monkeypatch,
+):
+    _login_user(
+        client,
+        [
+            IDENTITY_VIEWER,
+        ],
+        )
+
+    fake_identity_access = {
+        "identity": {
+            "id": "user-123",
+            "username": "e1004",
+        },
+        "groups": [],
+        "realm_roles": [],
+        "client_roles": [
+            {
+                "name": "manager-dashboard",
+            },
+        ],
+        "direct_client_roles": [
+            {
+                "name": "manager-dashboard",
+            },
+        ],
+    }
+
+    mock_get_identity_access = Mock(return_value=fake_identity_access)
     
+    monkeypatch.setattr(
+        governance_routes,
+        "get_identity_access",
+        mock_get_identity_access
+    )
 
+    monkeypatch.setattr(
+        governance_routes,  
+        "record_audit_event",
+        Mock()
+    )
 
+    response = client.get(
+        "/identities/user-123"
+    )
 
-
-
+    mock_get_identity_access.assert_called_once()
+    assert response.status_code == 200
+    assert b"manager-dashboard" in response.data
+    assert b"/identities/user-123/roles/manager-dashboard/remove" not in response.data
 
 def test_identity_detail_handles_keycloak_failure(
     client,
@@ -476,3 +524,5 @@ def test_get_identity_access(
     assert access["direct_client_roles"][0]["name"] == (
         "manager-dashboard"
     )
+
+

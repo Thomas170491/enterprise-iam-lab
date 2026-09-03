@@ -715,7 +715,7 @@ def test_assignment_success_not_masked_by_final_audit_failure(
         role_name="finance-data-viewer",
         actor_user_id="leo-sub-123",
         actor_username="e1004",
-    )
+    ) 
 
     fake_assign.assert_called_once()
 
@@ -744,7 +744,7 @@ def test_removal_success_not_masked_by_final_audit_failure(
     fake_remove = Mock()
 
     monkeypatch.setattr(
-        role_service,
+        role_service, 
         "remove_client_role",
         fake_remove,
     )
@@ -785,3 +785,37 @@ def test_removal_success_not_masked_by_final_audit_failure(
     )
 
     assert fake_audit.call_count == 2
+
+def test_role_administration_rejects_unmanaged_role(monkeypatch):
+
+    fake_client_lookup = Mock()
+
+    monkeypatch.setattr(
+        role_service,
+        "get_client_uuid",
+        fake_client_lookup,
+    )
+    with pytest.raises(
+        RoleAdministrationPolicyError
+    ) as exc_info:
+        
+        role_service.assign_identity_client_role(
+            admin_api_url=(
+                "https://keycloak.test/admin/realms/novasecure"
+            ),
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="fake-secret",
+            user_id="user-123",
+            target_client_name="employee-portal",
+
+            # Deliberately not in MANAGED_ROLES.
+            role_name="portal-user",
+
+            actor_user_id="leo-sub-123",
+            actor_username="e1004",
+        )
+
+        assert exc_info.value.reason ==  "unmanaged role"
+        assert fake_client_lookup.assert_not_called()
+    
