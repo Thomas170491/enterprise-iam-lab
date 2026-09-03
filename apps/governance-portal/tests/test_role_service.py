@@ -790,7 +790,7 @@ def test_role_administration_rejects_unmanaged_role(monkeypatch):
 
     fake_client_lookup = Mock()
 
-    monkeypatch.setattr(
+    monkeypatch.setattr( 
         role_service,
         "get_client_uuid",
         fake_client_lookup,
