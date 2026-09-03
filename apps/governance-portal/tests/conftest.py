@@ -2,6 +2,7 @@ import os
 import pytest
 
 
+
 # ---------------------------------------------------------
 # Test environment
 # ---------------------------------------------------------
@@ -41,7 +42,11 @@ def app():
     flask_app.config.update(
         TESTING = True,
         WTF_CSRF_ENABLED = False,
-        SESSION_COOKIE_SECURE = False
+        SESSION_COOKIE_SECURE = False,
+        KEYCLOAK_SERVICE_CLIENT_ID="iam-governance-service",
+        KEYCLOAK_SERVICE_CLIENT_SECRET="test-service-client-secret",
+        
+
     )
 
     yield flask_app

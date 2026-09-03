@@ -85,7 +85,7 @@ def identity_detail(user_id):
             client_id=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
             client_secret=current_app.config["KEYCLOAK_SERVICE_CLIENT_SECRET"],
             user_id=user_id,
-            target_client_name=current_app.config["KEYCLOAK_CLIENT_ID"]
+            target_client_name="employee-portal"
         )
     except KeycloakAdminAPIError: 
         current_app.logger.exception("Failed to retrieve identity access")

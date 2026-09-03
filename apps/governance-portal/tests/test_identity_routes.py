@@ -230,6 +230,7 @@ def test_identity_detail_route_access(
         "record_audit_event",
         mock_record_audit_event,
 )
+    
 
     response= client.get(
         "/identities/user-123"
@@ -245,7 +246,7 @@ def test_identity_detail_route_access(
         client_id=ANY,
         client_secret=ANY,
         user_id="user-123",
-        target_client_name="iam-admin-portal",
+        target_client_name="employee-portal",
 )  
     mock_record_audit_event.assert_called_once_with(
     actor_user_id="test-subject",
@@ -396,5 +397,5 @@ def test_get_identity_access(
     )
 
     assert access["direct_client_roles"][0]["name"] == (
-    "manager-dashboard"
-)
+        "manager-dashboard"
+    )
