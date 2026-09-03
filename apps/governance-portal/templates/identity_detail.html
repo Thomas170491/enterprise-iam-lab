@@ -148,15 +148,38 @@
 
         {% if identity_access.client_roles %}
 
-            <ul>
+        <ul>
 
-                {% for role in identity_access.client_roles %}
+    {% for role in identity_access.client_roles %}
 
-                    <li>
-                        {{ role.name }}
-                    </li>
+        <li>
+            {{ role.name }}
 
-                {% endfor %}
+            {% if role.name in direct_role_names %}
+                Direct
+
+                {%if "role-manager" in current_user.client_roles%}
+                    <form method="POST" 
+                          action="{{ url_for('governance.remove_identity_role', 
+                          role_name=role.name,
+                          user_id =identity_access.identity.id,
+                          ) 
+                          }}" 
+                          style="display:inline;">
+                        <input 
+                            type="hidden" 
+                            name="csrf_token" 
+                            value="{{ csrf_token() }}">                    
+                        <button type="submit">Remove</button>
+                    </form>
+                {% endif %}
+                
+            {% else %}
+                Inherited
+            {% endif %}
+        </li>
+
+{% endfor %}
 
             </ul>
 

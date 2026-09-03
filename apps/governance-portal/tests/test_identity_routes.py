@@ -2,7 +2,7 @@ from pytest import MonkeyPatch
 
 import governance.routes as governance_routes
 from unittest.mock import Mock,ANY
-from auth.permissions import IDENTITY_VIEWER
+from auth.permissions import IDENTITY_VIEWER, ROLE_MANAGER
 from services.exceptions import KeycloakAdminAPIError
 import services.identity_service as identity_service 
 
@@ -198,7 +198,7 @@ def test_identity_detail_route_access(
             {
                 "id": "group-123",
                 "name": "IAM Operators",
-            }
+            } 
         ],
         "realm_roles": [
             {
@@ -206,11 +206,21 @@ def test_identity_detail_route_access(
             }
         ],
         "client_roles": [
+             {
+                "name": "finance-data-viewer",
+            },
             {
-                "name": "identity-viewer",
+                "name": "manager-dashboard",
+            },
+        ],  
+
+
+        "direct_client_roles": [
+            {
+                "name": "manager-dashboard",
             }
         ],
-    }
+            }
         
     mock_get_identity_access=Mock(
         return_value=fake_identity_access
@@ -237,9 +247,16 @@ def test_identity_detail_route_access(
     )
 
     assert response.status_code == 200
+    
+    assert b"finance-data-viewer" in response.data
+    assert b"manager-dashboard" in response.data
+    assert b"Inherited" in response.data
+    assert b"Direct" in response.data
+
     assert b"Leo" in response.data
     assert b"Bernard" in response.data
     assert b"e1004" in response.data
+
     mock_get_identity_access.assert_called_once_with(
         admin_api_url= ANY,
         token_url=ANY,
@@ -260,7 +277,67 @@ def test_identity_detail_route_access(
         "source": "governance-portal",
         "service_client": "iam-governance-service",
     },
-)    
+)
+
+def test_identity_detail_only_allows_direct_role_removal(
+        client,
+        monkeypatch,
+        ):
+    _login_user(
+        client,
+        [
+            IDENTITY_VIEWER,
+            ROLE_MANAGER
+        ]
+    )
+
+    fake_identity_access = {
+        "identity": {
+            "id": "user-123",
+            "username": "e1004",
+        },
+        "groups": [],
+        "realm_roles": [],
+        "client_roles": [
+            {
+                "name": "finance-data-viewer",
+            },
+            {
+                "name": "manager-dashboard",
+            },
+        ],
+        "direct_client_roles": [
+            {
+                "name": "manager-dashboard",
+            },
+        ],
+    }
+    mock_get_identity_access = Mock(return_value=fake_identity_access)
+    monkeypatch.setattr(
+        governance_routes,
+        "get_identity_access",
+        mock_get_identity_access     
+    )
+
+    monkeypatch.setattr(
+        governance_routes,
+        "record_audit_event",
+        Mock()
+        )
+
+    response = client.get(
+        "/identities/user-123"
+    )
+
+    assert response.status_code == 200
+    assert b"/identities/user-123/roles/manager-dashboard/remove" in response.data
+    assert b"/identities/user-123/roles/finance-data-viewer/remove" not in response.data
+    
+
+
+
+
+
 
 def test_identity_detail_handles_keycloak_failure(
     client,
