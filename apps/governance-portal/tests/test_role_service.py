@@ -51,6 +51,23 @@ def _patch_role_resolution(
         lambda **kwargs: role,
     )
 
+def test_get_managed_roles_returns_sorted_roles():
+    roles = role_service.get_managed_roles(
+        "employee-portal"
+    )
+
+    assert roles == sorted(roles)
+
+    assert "manager-dashboard" in roles
+    assert "finance-data-viewer" in roles
+
+def test_get_managed_roles_returns_empty_for_unmanaged_client():
+    roles = role_service.get_managed_roles(
+        "iam-admin-portal"
+    )
+
+    assert roles == []
+
 
 # ============================================================
 # Assignment — successful path

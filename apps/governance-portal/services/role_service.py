@@ -98,6 +98,22 @@ def _ensure_managed_role(target_client_name, role_name):
         )
 
 
+def get_managed_roles(
+    target_client_name,
+):
+    """
+    Return the roles that Governance is allowed
+    to administer for a managed client.
+    """
+
+    return sorted(
+        MANAGED_ROLES.get(
+            target_client_name,
+            set(),
+        )
+    )
+
+
 def assign_identity_client_role(
         admin_api_url,
         token_url,
