@@ -819,7 +819,7 @@ def test_role_administration_rejects_unmanaged_role(monkeypatch):
         assert exc_info.value.reason ==  "unmanaged role"
         assert fake_client_lookup.assert_not_called()
 
-    def test_role_administration_rejects_unmanaged_role_removal(monkeypatch):
+def test_role_administration_rejects_unmanaged_role_removal(monkeypatch):
 
         fake_client_lookup = Mock()
 
