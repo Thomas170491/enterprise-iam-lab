@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  governance-tests:
+    name: Governance Portal Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      DATABASE_URI: sqlite:///:memory:
+
+    defaults:
+      run:
+        working-directory: apps/governance-portal
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            apps/governance-portal/requirements.txt
+            apps/governance-portal/requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run Governance test suite
+        run: |
+          python -m pytest -v
+
+  security:
+    name: Bandit SAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Bandit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install bandit
+
+      - name: Scan application code
+        run: |
+          bandit -r \
+            apps/employee-portal/app.py \
+            apps/employee-portal/config.py \
+            apps/employee-portal/auth \
+            apps/employee-portal/portal \
+            apps/governance-portal/app.py \
+            apps/governance-portal/config.py \
+            apps/governance-portal/extensions.py \
+            apps/governance-portal/api \
+            apps/governance-portal/auth \
+            apps/governance-portal/governance \
+            apps/governance-portal/models \
+            apps/governance-portal/services \
+            -ll -ii
+  dependency-security:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pip-audit
+
+      - name: Audit Employee Portal dependencies
+        run: |
+          pip-audit -r apps/employee-portal/requirements.txt
+
+      - name: Audit Governance Portal dependencies
+        run: |
+          pip-audit -r apps/governance-portal/requirements.txt
