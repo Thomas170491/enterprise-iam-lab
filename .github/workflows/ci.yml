@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 10
 
     env:
-      DATABASE_URI: sqlite:///:memory:
+      DATABASE_URI: "sqlite:///:memory:"
 
     defaults:
       run:
