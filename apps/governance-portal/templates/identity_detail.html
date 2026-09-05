@@ -14,7 +14,9 @@
     </div>
 
 
-    <!-- Identity Information -->
+    <!-- =====================================================
+         Identity Information
+         ===================================================== -->
 
     <section class="identity-section">
 
@@ -25,10 +27,13 @@
             <tr>
                 <th>Username</th>
                 <td>
-                     <a href="{{ url_for('governance.identity_detail',user_id=identity_access.identity.user_id) }}">
-        {{ identity_access.identity.username }}
-    </a>
-</td>
+                    <a href="{{ url_for(
+                        'governance.identity_detail',
+                        user_id=identity_access.identity.id
+                    ) }}">
+                        {{ identity_access.identity.username }}
+                    </a>
+                </td>
             </tr>
 
             <tr>
@@ -41,17 +46,23 @@
 
             <tr>
                 <th>Email</th>
-                <td>{{ identity_access.identity.email or "-" }}</td>
+                <td>
+                    {{ identity_access.identity.email or "-" }}
+                </td>
             </tr>
 
             <tr>
                 <th>Employee ID</th>
-                <td>{{ identity_access.identity.employee_id or "-" }}</td>
+                <td>
+                    {{ identity_access.identity.employee_id or "-" }}
+                </td>
             </tr>
 
             <tr>
                 <th>Job Title</th>
-                <td>{{ identity_access.identity.job_title or "-" }}</td>
+                <td>
+                    {{ identity_access.identity.job_title or "-" }}
+                </td>
             </tr>
 
             <tr>
@@ -63,7 +74,9 @@
 
             <tr>
                 <th>Risk Level</th>
-                <td>{{ identity_access.identity.risk_level or "-" }}</td>
+                <td>
+                    {{ identity_access.identity.risk_level or "-" }}
+                </td>
             </tr>
 
             <tr>
@@ -82,7 +95,9 @@
     </section>
 
 
-    <!-- Groups -->
+    <!-- =====================================================
+         Groups
+         ===================================================== -->
 
     <section class="identity-section">
 
@@ -111,7 +126,9 @@
     </section>
 
 
-    <!-- Realm Roles -->
+    <!-- =====================================================
+         Realm Roles
+         ===================================================== -->
 
     <section class="identity-section">
 
@@ -140,7 +157,9 @@
     </section>
 
 
-    <!-- Client Roles -->
+    <!-- =====================================================
+         Employee Portal Client Roles
+         ===================================================== -->
 
     <section class="identity-section">
 
@@ -148,38 +167,60 @@
 
         {% if identity_access.client_roles %}
 
-        <ul>
+            <ul>
 
-    {% for role in identity_access.client_roles %}
+                {% for role in identity_access.client_roles %}
 
-        <li>
-            {{ role.name }}
+                    <li>
 
-            {% if role.name in direct_role_names %}
-                Direct
+                        {{ role.name }}
 
-                {%if "role-manager" in current_user.client_roles%}
-                    <form method="POST" 
-                          action="{{ url_for('governance.remove_identity_role', 
-                          role_name=role.name,
-                          user_id =identity_access.identity.id,
-                          ) 
-                          }}" 
-                          style="display:inline;">
-                        <input 
-                            type="hidden" 
-                            name="csrf_token" 
-                            value="{{ csrf_token() }}">                    
-                        <button type="submit">Remove</button>
-                    </form>
-                {% endif %}
-                
-            {% else %}
-                Inherited
-            {% endif %}
-        </li>
+                        {% if role.name in direct_role_names %}
 
-{% endfor %}
+                            <strong>Direct</strong>
+
+                            <!--
+                            Only ROLE_MANAGER users receive mutation controls.
+
+                            This is only a UI restriction.
+                            The Flask POST route still performs the real
+                            server-side authorization check.
+                            -->
+                            {% if "role-manager" in current_user.client_roles %}
+
+                                <form
+                                    method="POST"
+                                    action="{{ url_for(
+                                        'governance.remove_identity_role',
+                                        user_id=identity_access.identity.id,
+                                        role_name=role.name
+                                    ) }}"
+                                    style="display:inline;"
+                                >
+
+                                    <input
+                                        type="hidden"
+                                        name="csrf_token"
+                                        value="{{ csrf_token() }}"
+                                    >
+
+                                    <button type="submit">
+                                        Remove
+                                    </button>
+
+                                </form>
+
+                            {% endif %}
+
+                        {% else %}
+
+                            <strong>Inherited</strong>
+
+                        {% endif %}
+
+                    </li>
+
+                {% endfor %}
 
             </ul>
 
@@ -190,6 +231,62 @@
         {% endif %}
 
     </section>
+
+
+    <!-- =====================================================
+         Governed Role Assignment
+         ===================================================== -->
+
+    {% if "role-manager" in current_user.client_roles %}
+
+        <section class="identity-section">
+
+            <h2>Assign Role</h2>
+
+            <form
+                method="POST"
+                action="{{ url_for(
+                    'governance.assign_identity_role',
+                    user_id=identity_access.identity.id
+                ) }}"
+            >
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token() }}"
+                >
+
+                <label for="role_name">
+                    Employee Portal role
+                </label>
+
+                <select
+                    id="role_name"
+                    name="role_name"
+                    required
+                >
+
+                    {% for role_name in managed_roles %}
+
+                        <option value="{{ role_name }}">
+                            {{ role_name }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+                <button type="submit">
+                    Assign Role
+                </button>
+
+            </form>
+
+        </section>
+
+    {% endif %}
+
 
 </div>
 

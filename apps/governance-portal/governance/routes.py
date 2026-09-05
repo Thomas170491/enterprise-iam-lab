@@ -14,7 +14,7 @@ from auth.permissions import IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER, AUDIT_LOG_VIE
 from services.identity_service import search_identities, get_identity_access
 from services.exceptions import KeycloakAdminAPIError, AuditPersistenceError, AuditQueryError,RoleAdministrationPolicyError
 from services.audit_service import record_audit_event, get_recent_audit_events
-from services.role_service import assign_identity_client_role, remove_identity_client_role
+from services.role_service import assign_identity_client_role, remove_identity_client_role,get_managed_roles
 
 
 
@@ -92,6 +92,8 @@ def identity_detail(user_id):
         role["name"] for role in identity_access["direct_client_roles"]
         }
 
+        managed_roles = get_managed_roles("employee-portal")
+
     except KeycloakAdminAPIError: 
         current_app.logger.exception("Failed to retrieve identity access")
 
@@ -119,7 +121,8 @@ def identity_detail(user_id):
     return render_template(
         "identity_detail.html",
         identity_access=identity_access,
-        direct_role_names=direct_role_names
+        direct_role_names=direct_role_names,
+        managed_roles=managed_roles
 
     )
 @bp_governance.get("/audit")

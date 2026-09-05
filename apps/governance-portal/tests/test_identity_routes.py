@@ -386,6 +386,7 @@ def test_identity_viewer_does_not_see_role_removal_controls(
     assert response.status_code == 200
     assert b"manager-dashboard" in response.data
     assert b"/identities/user-123/roles/manager-dashboard/remove" not in response.data
+    assert b"Assign Role" not in response.data
 
 def test_identity_detail_handles_keycloak_failure(
     client,
@@ -524,5 +525,76 @@ def test_get_identity_access(
     assert access["direct_client_roles"][0]["name"] == (
         "manager-dashboard"
     )
+
+def test_role_manager_sees_managed_role_choices(
+    client,
+    monkeypatch,
+):
+    _login_user(
+        client,
+        [
+            IDENTITY_VIEWER,
+            ROLE_MANAGER
+        ]
+    )
+
+    fake_identity_access = {
+        "identity": {
+            "id": "user-123",
+            "username": "e1004",
+        },
+        "groups": [],
+        "realm_roles": [],
+        "client_roles": [
+            {
+                "name": "finance-data-viewer",
+            },
+            {
+                "name": "manager-dashboard",
+            },
+        ],
+        "direct_client_roles": [
+            {
+                "name": "manager-dashboard",
+            },
+        ],
+    }
+
+    monkeypatch.setattr(
+        governance_routes,
+        "get_identity_access",
+        lambda **kwargs: fake_identity_access
+    )
+
+    monkeypatch.setattr(
+        governance_routes,
+        "record_audit_event",
+        Mock(),
+    )
+
+    monkeypatch.setattr(
+        governance_routes,
+        "get_managed_roles",
+        lambda target_client_name: [
+                "finance-data-viewer",
+                "manager-dashboard",
+            ]
+        ),
+    response = client.get(
+        "/identities/user-123"
+    )
+
+    assert response.status_code == 200 
+    assert b"finance-data-viewer" in response.data
+    assert b"manager-dashboard" in response.data
+    assert b"Assign Role" in response.data
+
+    
+
+
+
+           
+
+
 
 
