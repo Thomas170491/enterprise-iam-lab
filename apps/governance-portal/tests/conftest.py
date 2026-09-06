@@ -1,7 +1,5 @@
-import os 
+import os
 import pytest
-
-
 
 # ---------------------------------------------------------
 # Test environment
@@ -13,25 +11,21 @@ import pytest
 # They must also never contain actual Keycloak credentials.
 # ---------------------------------------------------------
 
-os.environ["FLASK_SECRET_KEY"] = (
-    "test-flask-secret-key-not-for-production"
-)
+os.environ["FLASK_SECRET_KEY"] = "test-flask-secret-key-not-for-production"
 
-os.environ["KEYCLOAK_CLIENT_SECRET"] = (
-    "test-keycloak-client-secret"
-)
+os.environ["KEYCLOAK_CLIENT_SECRET"] = "test-keycloak-client-secret"
 
-os.environ["KEYCLOAK_SERVER_URL"] = (
-    "https://localhost:8080"
-)
+os.environ["KEYCLOAK_SERVER_URL"] = "https://localhost:8080"
 
 os.environ["KEYCLOAK_REALM"] = "novasecure"
 
-os.environ["KEYCLOAK_CLIENT_ID"] = (
-    "iam-admin-portal"
-)
+os.environ["KEYCLOAK_CLIENT_ID"] = "iam-admin-portal"
+
+os.environ["DATABASE_URL"] = "sqlite://"
 
 from app import app as flask_app
+from extensions import db
+
 
 @pytest.fixture
 def app():
@@ -40,16 +34,19 @@ def app():
     """
 
     flask_app.config.update(
-        TESTING = True,
-        WTF_CSRF_ENABLED = False,
-        SESSION_COOKIE_SECURE = False,
+        TESTING=True,
+        WTF_CSRF_ENABLED=False,
+        SESSION_COOKIE_SECURE=False,
         KEYCLOAK_SERVICE_CLIENT_ID="iam-governance-service",
         KEYCLOAK_SERVICE_CLIENT_SECRET="test-service-client-secret",
-        
-
     )
 
-    yield flask_app
+    with flask_app.app_context():
+        db.create_all()
+        yield flask_app
+        db.session.remove()
+        db.drop_all()
+
 
 @pytest.fixture
 def client(app):
@@ -57,5 +54,3 @@ def client(app):
     Provide a Flask test client
     """
     return app.test_client()
-
-
