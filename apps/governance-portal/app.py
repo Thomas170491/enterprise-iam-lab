@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask,render_template
 
 from api import blp_health
 from config import Config
@@ -63,8 +63,9 @@ def create_app():
     #Auth blueprints
     app.register_blueprint(auth.bp_auth)
 
-
-
+    @app.errorhandler(403)
+    def forbidden_error(error):
+        return render_template("unauthorized.html"), 403
 
     return app
 

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}
+Access Denied | NovaSecure IAM Governance
+{% endblock %}
+
+{% block content %}
+<section class="access-denied">
+    <h1>Access denied</h1>
+
+    <p>
+        Your account is authenticated, but it is not
+        authorized to access this Governance Portal resource.
+    </p>
+
+    <p>
+        Contact an IAM administrator if you believe that
+        you should have access.
+    </p>
+
+    {% if current_user.is_authenticated %}
+        <form
+            method="POST"
+            action="{{ url_for('auth.logout') }}"
+        >
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
+
+            <button type="submit">
+                Log out
+            </button>
+        </form>
+    {% endif %}
+</section>
+{% endblock %}

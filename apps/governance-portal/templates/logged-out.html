@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}
+Logged Out | NovaSecure IAM Governance
+{% endblock %}
+
+{% block content %}
+<section class="card">
+    <h1>You have been logged out</h1>
+
+    <p>
+        Your Governance Portal and Keycloak sessions
+        have been terminated.
+    </p>
+
+    <a href="{{ url_for('auth.login') }}">
+        Log in again
+    </a>
+</section>
+{% endblock %}

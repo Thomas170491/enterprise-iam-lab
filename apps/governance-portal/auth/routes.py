@@ -1,11 +1,13 @@
 from flask import (
     Blueprint,
     redirect,
+    render_template,
     session,
     url_for,
     current_app
 )
-from flask_login import login_user
+from flask_login import login_user, login_required, logout_user
+from urllib.parse import urlencode 
 
 from auth.user import User
 from extensions import oauth
@@ -95,7 +97,52 @@ def callback():
     }
 
     login_user(user)
+    session["id_token"] = token["id_token"]
 
     return redirect(
         url_for("governance.dashboard")
     )
+
+@bp_auth.post("/logout")
+@login_required
+def logout():
+    """
+    Log the user out of the application and Keycloak.
+    """
+
+    id_token = session.get("id_token")
+
+    post_logout_redirect_uri = url_for(
+        "auth.logged_out",
+        _external=True,
+    )
+
+
+    logout_user()
+    session.clear()
+
+    logout_endpoint = (
+        f"{current_app.config['KEYCLOAK_SERVER_URL']}/realms/"
+        f"{current_app.config['KEYCLOAK_REALM']}/protocol/openid-connect/logout"
+    )
+
+    parameters = {
+        "client_id": current_app.config[
+            "KEYCLOAK_CLIENT_ID"
+        ],
+        "post_logout_redirect_uri": (
+           post_logout_redirect_uri
+        ),
+    }
+
+    if id_token:
+        parameters["id_token_hint"] = id_token
+
+    return redirect(
+        f"{logout_endpoint}?{urlencode(parameters)}"
+    )
+
+
+@bp_auth.get("/logged-out")
+def logged_out():
+    return render_template("logged-out.html")

@@ -1,3 +1,6 @@
+from urllib import response
+
+
 def _login_test_user(client,client_roles):
         """
     Place a test identity directly into the Flask
@@ -7,7 +10,6 @@ def _login_test_user(client,client_roles):
     which already has its own test suite.
     """
         with client.session_transaction() as sess:
-            print(dict(sess))
             sess["user"] = {
                 "sub": "test-subject",
                 "username": "test-user",
@@ -54,6 +56,22 @@ def test_dashboard_requires_authentification(client):
       print(response)
       assert response.status_code ==302
       assert "/login" in response.headers["Location"]
-      
 
-      
+
+
+def test_unauthorized_user_receives_custom_403_page(
+    client,
+):
+    _login_test_user(client, [])
+    
+
+    response = client.get("/")
+
+    assert response.status_code == 403
+
+    page_text = " ".join(
+    response.get_data(as_text=True).split()
+)
+
+    assert "Access denied" in page_text
+    assert "not authorized" in page_text

@@ -22,12 +22,58 @@
 </head>
 
 <body>
-
     <header>
-        <nav>
-            <a href="{{ url_for('governance.dashboard') }}">
+        <nav class="main-nav">
+            <a
+                class="nav-brand"
+                href="{{ url_for('governance.dashboard') }}"
+            >
                 NovaSecure IAM Governance
             </a>
+
+            {% if current_user.is_authenticated %}
+                <div class="nav-links">
+                    <a href="{{ url_for('governance.dashboard') }}">
+                        Dashboard
+                    </a>
+
+                    {% if "identity-viewer" in current_user.client_roles %}
+                        <a href="{{ url_for('governance.identities') }}">
+                            Identities
+                        </a>
+                    {% endif %}
+
+                    {% if "audit-log-viewer" in current_user.client_roles %}
+                        <a href="{{ url_for('governance.audit_log') }}">
+                            Audit Log
+                        </a>
+                    {% endif %}
+                </div>
+
+                <div class="nav-account">
+                    <span>{{ current_user.name }}</span>
+
+                    <form
+                        class="nav-logout-form"
+                        method="POST"
+                        action="{{ url_for('auth.logout') }}"
+                    >
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{ csrf_token() }}"
+                        >
+
+                        <button class="nav-link" type="submit">
+                            Log out
+                        </button>
+                    </form>
+                </div>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}">
+                    Log in
+                </a>
+            {% endif %}
         </nav>
     </header>
 

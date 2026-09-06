@@ -8,9 +8,48 @@ header {
     border-bottom: 1px solid #ddd;
 }
 
-nav a {
-    text-decoration: none;
+.main-nav {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2rem;
+}
+
+.main-nav a {
+    color: inherit;
     font-weight: bold;
+    text-decoration: none;
+}
+
+.nav-brand {
+    margin-right: auto;
+}
+
+.nav-links,
+.nav-account {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.nav-logout-form {
+    display: inline;
+    margin: 0;
+}
+
+.nav-link {
+    border: 0;
+    padding: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.main-nav a:hover,
+.nav-link:hover {
+    text-decoration: underline;
 }
 
 main {
@@ -21,8 +60,8 @@ main {
 
 table {
     width: 100%;
-    border-collapse: collapse;
     margin-top: 1rem;
+    border-collapse: collapse;
 }
 
 th,
@@ -41,10 +80,24 @@ form {
 }
 
 input[type="search"] {
-    padding: 0.6rem;
     min-width: 300px;
+    padding: 0.6rem;
 }
 
 button {
     padding: 0.6rem 1rem;
+}
+
+@media (max-width: 750px) {
+    .main-nav,
+    .nav-links,
+    .nav-account {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .nav-brand {
+        margin-right: 0;
+    }
 }
