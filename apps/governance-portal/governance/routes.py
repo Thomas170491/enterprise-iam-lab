@@ -10,7 +10,7 @@ from flask import (
 
 from flask_login import login_required,current_user
 from auth.decorators import client_role_required
-from auth.permissions import IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER, AUDIT_LOG_VIEWER,ROLE_MANAGER
+from auth.permissions import IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER, AUDIT_LOG_REVIEWER,ROLE_MANAGER
 from services.identity_service import search_identities, get_identity_access
 from services.exceptions import KeycloakAdminAPIError, AuditPersistenceError, AuditQueryError,RoleAdministrationPolicyError
 from services.audit_service import record_audit_event, get_recent_audit_events
@@ -127,7 +127,7 @@ def identity_detail(user_id):
     )
 @bp_governance.get("/audit")
 @login_required
-@client_role_required(AUDIT_LOG_VIEWER)
+@client_role_required(AUDIT_LOG_REVIEWER)
 def audit_log():
     try:
         events = get_recent_audit_events(

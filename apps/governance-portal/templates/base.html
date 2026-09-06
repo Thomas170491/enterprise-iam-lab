@@ -43,7 +43,7 @@
                         </a>
                     {% endif %}
 
-                    {% if "audit-log-viewer" in current_user.client_roles %}
+                    {% if "audit-log-reviewer" in current_user.client_roles %}
                         <a href="{{ url_for('governance.audit_log') }}">
                             Audit Log
                         </a>

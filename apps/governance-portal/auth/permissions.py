@@ -7,6 +7,7 @@ ROLE_MANAGER = "role-manager"
 
 ACCESS_REVIEWER = "access-reviewer"
 
-AUDIT_LOG_VIEWER = "audit-log-viewer"
+AUDIT_LOG_REVIEWER = "audit-log-reviewer"
 
 REPORT_EXPORTER = "report-exporter"
+
