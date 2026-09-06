@@ -6,7 +6,7 @@ import auth.decorators as decorators
 
 from auth.permissions import (
     ACCESS_REVIEWER,
-    AUDIT_LOG_VIEWER,
+    AUDIT_LOG_REVIEWER,
     IAM_DASHBOARD_ACCESS,
     IDENTITY_MANAGER,
     IDENTITY_VIEWER,
@@ -39,14 +39,14 @@ EMMA_ROLES = [
     IAM_DASHBOARD_ACCESS,
     IDENTITY_VIEWER,
     ACCESS_REVIEWER,
-    AUDIT_LOG_VIEWER,
+    AUDIT_LOG_REVIEWER,
     REPORT_EXPORTER,
 ]
 
 NADIA_ROLES = [
     IAM_DASHBOARD_ACCESS,
     IDENTITY_VIEWER,
-    AUDIT_LOG_VIEWER,
+    AUDIT_LOG_REVIEWER,
 ]
 
 ALICE_ROLES = []
@@ -107,7 +107,7 @@ def test_leo_has_operator_permissions(
         IAM_DASHBOARD_ACCESS,
         IDENTITY_VIEWER,
         ACCESS_REVIEWER,
-        AUDIT_LOG_VIEWER,
+        AUDIT_LOG_REVIEWER,
         REPORT_EXPORTER,
     ],
 )
@@ -129,7 +129,7 @@ def test_emma_has_auditor_permissions(
     [
         IAM_DASHBOARD_ACCESS,
         IDENTITY_VIEWER,
-        AUDIT_LOG_VIEWER,
+        AUDIT_LOG_REVIEWER,
     ],
 )
 def test_nadia_has_security_permissions(
@@ -148,7 +148,7 @@ def test_nadia_has_security_permissions(
     "role",
     [
         ACCESS_REVIEWER,
-        AUDIT_LOG_VIEWER,
+        AUDIT_LOG_REVIEWER,
     ],
 )
 def test_leo_cannot_perform_auditor_functions(
@@ -208,7 +208,7 @@ def test_nadia_cannot_modify_or_certify_access(
         IDENTITY_MANAGER,
         ROLE_MANAGER,
         ACCESS_REVIEWER,
-        AUDIT_LOG_VIEWER,
+        AUDIT_LOG_REVIEWER,
         REPORT_EXPORTER,
     ],
 )

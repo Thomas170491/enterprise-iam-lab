@@ -1,6 +1,6 @@
 from auth.permissions import (
     ACCESS_REVIEWER,
-    AUDIT_LOG_VIEWER,
+    AUDIT_LOG_REVIEWER,
     IAM_DASHBOARD_ACCESS,
     IDENTITY_MANAGER,
     IDENTITY_VIEWER,
@@ -29,8 +29,8 @@ def test_gouvernance_permission_names():
         "access-reviewer"
     )
 
-    assert AUDIT_LOG_VIEWER == (
-        "audit-log-viewer"
+    assert AUDIT_LOG_REVIEWER == (
+        "audit-log-reviewer"
     )
 
     assert REPORT_EXPORTER == (

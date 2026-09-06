@@ -3,7 +3,7 @@ import governance.routes as governance_routes
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import Mock
-from auth.permissions import AUDIT_LOG_VIEWER
+from auth.permissions import AUDIT_LOG_REVIEWER
 from services.exceptions import AuditQueryError
 
 def _login_user(
@@ -30,7 +30,7 @@ def test_audit_log_route_access(
 ):
     _login_user(
         client,
-        [AUDIT_LOG_VIEWER],
+        [AUDIT_LOG_REVIEWER],
     )
 
     fake_events = [
@@ -109,7 +109,7 @@ def test_audit_log_empty_state(
 ):
     _login_user(
         client,
-        [AUDIT_LOG_VIEWER],
+        [AUDIT_LOG_REVIEWER],
     )
 
     mock_get_events = Mock(
@@ -142,7 +142,7 @@ def test_audit_log_handles_database_failure(
 ):
     _login_user(
         client,
-        [AUDIT_LOG_VIEWER],
+        [AUDIT_LOG_REVIEWER],
     )
 
     mock_get_events = Mock(

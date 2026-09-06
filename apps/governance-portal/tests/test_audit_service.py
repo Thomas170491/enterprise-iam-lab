@@ -10,7 +10,7 @@ from datetime import datetime
 from types import SimpleNamespace
 
 
-from auth.permissions import AUDIT_LOG_VIEWER
+from auth.permissions import AUDIT_LOG_REVIEWER
 
 
 def test_record_audit_event(
