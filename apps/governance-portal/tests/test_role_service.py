@@ -9,8 +9,37 @@ from services.exceptions import (
     KeycloakAdminAPIError,
     RoleAdministrationPolicyError,
 )
+from extensions import db
+from models import ManagedRole
+
+#Add application context
+pytestmark = pytest.mark.usefixtures("app")
 
 
+@pytest.fixture(autouse=True)
+def managed_role_catalogue(app):
+    """
+    Seed enabled Employee Portal roles for each role-service test.
+    """
+    role_names = [
+        "manager-dashboard",
+        "hr-data-viewer",
+        "finance-data-viewer",
+        "it-data-viewer",
+        "operations-data-viewer",
+        "security-data-viewer",
+    ]
+
+    db.session.add_all([
+        ManagedRole(
+            client_name="employee-portal",
+            role_name=role_name,
+        )
+        for role_name in role_names
+    ])
+    db.session.commit()
+    
+    
 # ============================================================
 # Shared test data
 # ============================================================
@@ -240,7 +269,7 @@ def test_role_administration_rejects_unmanaged_client(
         )
 
     assert exc_info.value.reason == (
-        "unmanaged client"
+        "unmanaged_client"
     )
 
     # The request must be rejected before

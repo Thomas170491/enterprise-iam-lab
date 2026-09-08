@@ -9,30 +9,24 @@ from services.exceptions import (
 from services.keycloak_admin_service import (
     get_client_uuid,
     get_client_role,
+    get_effective_client_roles,
     assign_client_role,
     remove_client_role,
 )
 
+from services.sod_service import (
+    SOD_ALLOW,
+    evaluate_role_assignment,
+)
+
+from extensions import db
+from models import ManagedRole
 
 # The Governance Portal is currently allowed to administer
 # application access for the Employee Portal only.
 #
 # This prevents a ROLE_MANAGER from using the same
 # functionality to modify Governance Portal administrative roles.
-MANAGED_CLIENTS = {
-    "employee-portal",
-}
-
-MANAGED_ROLES = {
-    "employee-portal": {
-        "manager-dashboard",
-        "hr-data-viewer",
-        "finance-data-viewer",
-        "it-data-viewer",
-        "operations-data-viewer",
-        "security-data-viewer",
-    }
-}
 
 
 logger = logging.getLogger(__name__)
@@ -79,10 +73,18 @@ def _ensure_managed_client(target_client_name):
     Reject role changes for clients that are outside the
     Governance Portal's administration scope.
     """
-
-    if target_client_name not in MANAGED_CLIENTS:
+    
+    managed_role_id = db.session.execute(
+        db.select(ManagedRole.id).where(
+            target_client_name == ManagedRole.client_name,
+            ManagedRole.enabled.is_(True),
+        
+        ).limit(1)
+    ).scalar_one_or_none()
+    
+    if managed_role_id is None:
         raise RoleAdministrationPolicyError(
-            "unmanaged client"
+            "unmanaged_client"
         )
 
 def _ensure_managed_role(target_client_name, role_name):
@@ -90,11 +92,16 @@ def _ensure_managed_role(target_client_name, role_name):
     Reject role changes for roles that are outside the
     Governance Portal's administration scope.
     """
-    allowed_roles = MANAGED_ROLES.get(target_client_name, set())
+    managed_role_id = db.session.execute(
+        db.select(ManagedRole.id).where(
+            target_client_name == ManagedRole.client_name,
+            role_name == ManagedRole.role_name,
+            ManagedRole.enabled.is_(True)            
+        )).scalar_one_or_none()
 
-    if role_name not in allowed_roles :
+    if managed_role_id is None :
         raise RoleAdministrationPolicyError(
-            "unmanaged role"
+            "unmanaged_role"
         )
 
 
@@ -106,12 +113,13 @@ def get_managed_roles(
     to administer for a managed client.
     """
 
-    return sorted(
-        MANAGED_ROLES.get(
-            target_client_name,
-            set(),
-        )
-    )
+    return db.session.execute(
+        db.select(ManagedRole.role_name).where(
+            target_client_name == ManagedRole.client_name,
+            ManagedRole.enabled.is_(True)
+            
+        ).order_by(ManagedRole.role_name.asc())
+    ).scalars().all()
 
 
 def assign_identity_client_role(
