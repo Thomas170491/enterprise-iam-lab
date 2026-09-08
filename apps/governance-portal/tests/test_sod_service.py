@@ -247,3 +247,5 @@ def test_all_current_roles_are_checked_for_conflicts(app):
     assert result["reason"] == "sod_rule_matched"
     assert result["rule_id"] == sod_test.id
     
+    
+    

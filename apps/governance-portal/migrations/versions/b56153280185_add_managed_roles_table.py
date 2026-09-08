@@ -24,7 +24,7 @@ def upgrade():
     sa.Column('role_name', sa.String(length=100), nullable=False),
     sa.Column('enabled', sa.Boolean(), nullable=False),
     sa.Column('risk_level', sa.String(length=20), nullable=False),
-    sa.Column('is_priviledged', sa.Boolean(), nullable=False),
+    sa.Column('is_privileged', sa.Boolean(), nullable=False),
     sa.Column('assignment_mode', sa.String(length=20), nullable=False),
     sa.Column('requires_approval', sa.Boolean(), nullable=False),
     sa.Column('requires_review', sa.Boolean(), nullable=False),

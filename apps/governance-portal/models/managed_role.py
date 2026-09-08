@@ -9,13 +9,13 @@ class ManagedRole(db.Model):
 
     client_name = db.Column(db.String(100),nullable=False)
 
-    role_name= db.Column(db.String(100), unique=True, nullable=False)
+    role_name= db.Column(db.String(100), nullable=False)
 
     enabled = db.Column(db.Boolean, default=True, nullable=False)
 
     risk_level = db.Column(db.String(20), default="low", nullable=False)
 
-    is_priviledged = db.Column(db.Boolean, default=False, nullable=False)
+    is_privileged = db.Column(db.Boolean, default=False, nullable=False)
 
     assignment_mode = db.Column(db.String(20), default="direct", nullable=False)
 

@@ -21,7 +21,7 @@ os.environ["KEYCLOAK_REALM"] = "novasecure"
 
 os.environ["KEYCLOAK_CLIENT_ID"] = "iam-admin-portal"
 
-os.environ["DATABASE_URL"] = "sqlite://"
+os.environ["DATABASE_URI"] = "sqlite://"
 
 from app import app as flask_app
 from extensions import db
