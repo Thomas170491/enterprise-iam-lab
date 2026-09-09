@@ -104,6 +104,41 @@ def _ensure_managed_role(target_client_name, role_name):
             "unmanaged_role"
         )
 
+def _record_sod_audit_event(
+    actor_user_id,
+    actor_username,
+    user_id,
+    target_client_name,
+    requested_role_name,
+    current_role_names,
+    service_client_id,
+    sod_result,
+):
+    """
+    Persist the SoD evaluation result for a requested role assignment.
+    """
+    
+    return record_audit_event(
+        actor_user_id=actor_user_id,
+        actor_username=actor_username,
+        action="sod.evaluate",
+        target_type="identity",
+        target_id=user_id,
+        target_name=None,
+        outcome=sod_result["decision"],
+        details={
+            "source": "governance-portal",
+            "service_client": service_client_id,
+            "client_name": target_client_name,
+            "requested_role": requested_role_name,
+            "current_roles": sorted(set(current_role_names)),
+            "reason": sod_result["reason"],
+            "rule_id": sod_result["rule_id"],
+        },
+    )
+    
+    
+
 
 def get_managed_roles(
     target_client_name,
@@ -141,10 +176,12 @@ def assign_identity_client_role(
 
     Privileged mutations are fail-closed if the initial
     audit event cannot be persisted.
+    
+    Assignments are evaluated against the identity's effective roles before mutation.
     """
 
     # ---------------------------------------------------------
-    # 1. Enforce Governance policy
+    # 1. Enforce Governance policy 
     # ---------------------------------------------------------
 
     _ensure_managed_client(
@@ -155,6 +192,43 @@ def assign_identity_client_role(
         target_client_name,
         role_name
     )
+    
+    effective_roles = get_effective_client_roles(
+        admin_api_url=admin_api_url,
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        user_id=user_id,
+        target_client_name=target_client_name,
+    )
+    
+    current_role_names = [
+        role["name"]
+        for role in effective_roles
+        if role.get("name")
+    ]
+    
+    sod_result = evaluate_role_assignment(
+        target_client_name=target_client_name,
+        requested_role_name=role_name,
+        current_role_names=current_role_names,
+    )
+    
+    _record_sod_audit_event(
+        actor_user_id=actor_user_id,
+        actor_username=actor_username,
+        user_id=user_id,
+        target_client_name=target_client_name,
+        requested_role_name=role_name,
+        current_role_names=current_role_names,
+        service_client_id=client_id,
+        sod_result=sod_result,
+    )
+    
+    if sod_result["decision"] != SOD_ALLOW:
+        raise RoleAdministrationPolicyError(
+            f"sod_{sod_result['decision']}"
+        )
 
     # ---------------------------------------------------------
     # 2. Resolve Keycloak client

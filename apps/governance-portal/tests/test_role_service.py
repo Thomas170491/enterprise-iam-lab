@@ -67,6 +67,12 @@ def _patch_role_resolution(
     These tests exercise the Governance role service,
     not the real Keycloak Admin API.
     """
+    
+    monkeypatch.setattr(
+        role_service,
+        "get_effective_client_roles",
+        lambda **kwargs : []
+    )
 
     monkeypatch.setattr(
         role_service,
@@ -81,6 +87,7 @@ def _patch_role_resolution(
     )
 
 def test_get_managed_roles_returns_sorted_roles():
+    """Return enabled catalogue role names in alphabetical order."""
     roles = role_service.get_managed_roles(
         "employee-portal"
     )
@@ -91,6 +98,7 @@ def test_get_managed_roles_returns_sorted_roles():
     assert "finance-data-viewer" in roles
 
 def test_get_managed_roles_returns_empty_for_unmanaged_client():
+    """Return no roles for a client outside the seeded catalogue."""
     roles = role_service.get_managed_roles(
         "iam-admin-portal"
     )
@@ -104,12 +112,15 @@ def test_get_managed_roles_returns_empty_for_unmanaged_client():
 
 
 def test_assign_identity_client_role(monkeypatch):
+    """Assign an allowed role and return its normalized representation."""
     role = _fake_role()
 
     _patch_role_resolution(
         monkeypatch,
         role,
     )
+    
+
 
     fake_assign = Mock()
 
@@ -168,6 +179,7 @@ def test_assign_identity_client_role(monkeypatch):
 
 
 def test_remove_identity_client_role(monkeypatch):
+    """Remove a managed role and return its normalized representation."""
     role = _fake_role()
 
     _patch_role_resolution(
@@ -326,16 +338,32 @@ def test_assign_identity_client_role_audits_human_actor(
         actor_username="e1004",
     )
 
-    # One "attempted" event and one "success" event.
-    assert fake_audit.call_count == 2
+    # SoD evaluation, assignment attempt, and assignment success.
+    assert fake_audit.call_count == 3
+
+    sod_event = fake_audit.call_args_list[0].kwargs
 
     attempted_event = (
-        fake_audit.call_args_list[0].kwargs
+        fake_audit.call_args_list[1].kwargs
     )
 
     success_event = (
-        fake_audit.call_args_list[1].kwargs
+        fake_audit.call_args_list[2].kwargs
     )
+
+    assert sod_event["action"] == "sod.evaluate"
+    assert sod_event["outcome"] == "allow"
+    assert sod_event["details"]["reason"] == "no_sod_conflict"
+    assert sod_event["details"]["rule_id"] is None
+    assert sod_event["details"]["requested_role"] == "finance-data-viewer"
+    assert sod_event["details"]["current_roles"] == []
+    for event in (sod_event, attempted_event, success_event):
+        assert event["actor_user_id"] == "leo-sub-123"
+        assert event["actor_username"] == "e1004"
+        assert event["target_id"] == "target-user-123"
+        assert event["details"]["service_client"] == "iam-governance-service"
+        assert event["details"]["client_name"] == "employee-portal"
+    assert success_event["action"] == "role.assign"
 
     assert attempted_event[
         "actor_user_id"
@@ -388,6 +416,7 @@ def test_assign_identity_client_role_audits_human_actor(
 def test_remove_identity_client_role_audits_human_actor(
         monkeypatch,
 ):
+    """Record the human actor and service client for role removal."""
     role = _fake_role()
 
     _patch_role_resolution(
@@ -528,6 +557,7 @@ def test_assignment_not_performed_when_initial_audit_fails(
 def test_removal_not_performed_when_initial_audit_fails(
         monkeypatch,
 ):
+    """Prevent removal when its initial audit event cannot be saved."""
     role = _fake_role()
 
     _patch_role_resolution(
@@ -581,6 +611,7 @@ def test_removal_not_performed_when_initial_audit_fails(
 def test_assignment_failure_is_audited(
         monkeypatch,
 ):
+    """Record SoD approval, assignment attempt, and Keycloak failure."""
     role = _fake_role()
 
     _patch_role_resolution(
@@ -623,19 +654,16 @@ def test_assignment_failure_is_audited(
             actor_username="e1004",
         )
 
-    assert fake_audit.call_count == 2
+    assert fake_audit.call_count == 3
 
-    assert (
-        fake_audit.call_args_list[0]
-        .kwargs["outcome"]
-        == "attempted"
-    )
-
-    assert (
-        fake_audit.call_args_list[1]
-        .kwargs["outcome"]
-        == "failure"
-    )
+    assert [
+        (entry.kwargs["action"], entry.kwargs["outcome"])
+        for entry in fake_audit.call_args_list
+    ] == [
+        ("sod.evaluate", "allow"),
+        ("role.assign", "attempted"),
+        ("role.assign", "failure"),
+    ]
 
 
 # ============================================================
@@ -646,6 +674,7 @@ def test_assignment_failure_is_audited(
 def test_removal_failure_is_audited(
         monkeypatch,
 ):
+    """Record the attempt and failure when Keycloak rejects removal."""
     role = _fake_role()
 
     _patch_role_resolution(
@@ -737,6 +766,7 @@ def test_assignment_success_not_masked_by_final_audit_failure(
     fake_audit = Mock(
         side_effect=[
             None,
+            None,
             AuditPersistenceError(
                 "database unavailable"
             ),
@@ -768,8 +798,7 @@ def test_assignment_success_not_masked_by_final_audit_failure(
     assert result["role_name"] == (
         "finance-data-viewer"
     )
-
-    assert fake_audit.call_count == 2
+    assert fake_audit.call_count == 3
 
 
 # ============================================================
@@ -780,6 +809,7 @@ def test_assignment_success_not_masked_by_final_audit_failure(
 def test_removal_success_not_masked_by_final_audit_failure(
         monkeypatch,
 ):
+    """Preserve successful removal when its final audit write fails."""
     role = _fake_role()
 
     _patch_role_resolution(
@@ -833,6 +863,7 @@ def test_removal_success_not_masked_by_final_audit_failure(
     assert fake_audit.call_count == 2
 
 def test_role_administration_rejects_unmanaged_role(monkeypatch):
+    """Reject an unlisted role before contacting Keycloak."""
 
     fake_client_lookup = Mock()
 
@@ -862,10 +893,11 @@ def test_role_administration_rejects_unmanaged_role(monkeypatch):
             actor_username="e1004",
         )
 
-        assert exc_info.value.reason ==  "unmanaged role"
-        assert fake_client_lookup.assert_not_called()
+    assert exc_info.value.reason == "unmanaged_role"
+    fake_client_lookup.assert_not_called()
 
 def test_role_administration_rejects_unmanaged_role_removal(monkeypatch):
+        """Reject removal of an unlisted role before contacting Keycloak."""
 
         fake_client_lookup = Mock()
 
@@ -895,5 +927,160 @@ def test_role_administration_rejects_unmanaged_role_removal(monkeypatch):
                 actor_username="e1004",
             )
 
-            assert exc_info.value.reason ==  "unmanaged role"
-            assert fake_client_lookup.assert_not_called()
+        assert exc_info.value.reason == "unmanaged_role"
+        fake_client_lookup.assert_not_called()
+            
+def test_sod_deny_prevents_keycloak_assignment(monkeypatch):
+    """
+    Verify that an SoD deny decision prevents the Keycloak assignment.
+    """
+    
+    fake_assign = Mock()
+    
+    monkeypatch.setattr(
+        role_service,
+        "get_effective_client_roles",
+        lambda **kwargs :[{
+            "id" : "finance-role-id",
+            "name" : "finance-data-viewer"            
+        }]
+    )
+    
+    monkeypatch.setattr(
+        role_service,
+        "assign_client_role",
+        fake_assign
+    )
+    
+    monkeypatch.setattr(
+        role_service,
+        "evaluate_role_assignment",
+        lambda **kwargs : {
+            "decision" : "deny",
+            "reason" : "sod_rule_matched",
+            "rule_id" : 1
+        } 
+    )
+    
+    with pytest.raises(
+        RoleAdministrationPolicyError
+    ) as exc_info:
+        role_service.assign_identity_client_role(
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
+            user_id="user-123",
+            target_client_name="employee-portal",
+            role_name="security-data-viewer",
+            actor_user_id="operator-123",
+            actor_username="leo",
+        )
+
+    
+    assert exc_info.value.reason == "sod_deny"
+    fake_assign.assert_not_called()
+    
+def test_sod_review_prevents_immediate_keycloak_assignment(monkeypatch):
+    
+    """
+    Verify that an SoD review decision prevents immediate assignment.
+    """
+    
+    fake_assign = Mock()
+    
+    monkeypatch.setattr(
+        role_service,
+        "get_effective_client_roles",
+        lambda **kwargs :[{
+            "id" : "finance-role-id",
+            "name" : "finance-data-viewer"            
+        }]
+    )
+    
+    monkeypatch.setattr(
+        role_service,
+        "assign_client_role",
+        fake_assign
+    )
+    
+    monkeypatch.setattr(
+        role_service,
+        "evaluate_role_assignment",
+        lambda **kwargs : {
+            "decision" : "requires_review",
+            "reason" : "sod_rule_matched",
+            "rule_id" : 1
+        } 
+    )
+    
+    with pytest.raises(
+        RoleAdministrationPolicyError
+    ) as exc_info:
+        role_service.assign_identity_client_role(
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
+            user_id="user-123",
+            target_client_name="employee-portal",
+            role_name="security-data-viewer",
+            actor_user_id="operator-123",
+            actor_username="leo",
+        )
+
+    
+    assert exc_info.value.reason == "sod_requires_review"
+    fake_assign.assert_not_called()
+    
+def test_assignment_not_performed_when_attempt_audit_fails(monkeypatch):
+    """
+    Prevent assignment when its attempt audit fails after SoD auditing succeeds.
+    """
+
+    role = _fake_role()
+
+    _patch_role_resolution(
+        monkeypatch,
+        role,
+    )
+
+    fake_assign = Mock()
+
+    monkeypatch.setattr(
+        role_service,
+        "assign_client_role",
+        fake_assign,
+    )
+
+    monkeypatch.setattr(
+        role_service,
+        "record_audit_event",
+        Mock(
+            None, 
+            side_effect=AuditPersistenceError(
+                "database unavailable"
+            )
+        ),
+    )
+
+    with pytest.raises(
+        AuditPersistenceError
+    ):
+        role_service.assign_identity_client_role(
+            admin_api_url=(
+                "https://keycloak.test/admin/realms/novasecure"
+            ),
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="fake-secret",
+            user_id="target-user-123",
+            target_client_name="employee-portal",
+            role_name="finance-data-viewer",
+            actor_user_id="leo-sub-123",
+            actor_username="e1004",
+        )
+
+    fake_assign.assert_not_called()
+    
+    
