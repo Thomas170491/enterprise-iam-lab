@@ -304,3 +304,49 @@ def test_deny_takes_priority_over_review(app):
     assert result["decision"] == SOD_DENY
     assert result["reason"] == "sod_rule_matched"
     assert result["rule_id"] == deny_rule.id
+    
+def test_disabled_current_role_still_triggers_sod_deny(app):
+    """
+    Verify that a held role still triggers an enabled deny rule
+    when its managed-role catalogue entry is disabled.
+    """
+    current_role = ManagedRole(
+        client_name="employee-portal",
+        role_name="finance-data-viewer",
+        enabled=False,
+    )
+
+    requested_role = ManagedRole(
+        client_name="employee-portal",
+        role_name="security-data-viewer",
+        enabled=True,
+    )
+
+    db.session.add_all([current_role, requested_role])
+    db.session.flush()
+
+    first_role_id, second_role_id = sorted([
+        current_role.id,
+        requested_role.id,
+    ])
+
+    deny_rule = SoDRule(
+        name="Finance and security conflict",
+        first_role_id=first_role_id,
+        second_role_id=second_role_id,
+        outcome=SOD_DENY,
+        enabled=True,
+    )
+
+    db.session.add(deny_rule)
+    db.session.commit()
+
+    result = evaluate_role_assignment(
+        target_client_name="employee-portal",
+        requested_role_name="security-data-viewer",
+        current_role_names=["finance-data-viewer"],
+    )
+
+    assert result["decision"] == SOD_DENY
+    assert result["reason"] == "sod_rule_matched"
+    assert result["rule_id"] == deny_rule.id

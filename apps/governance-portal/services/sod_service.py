@@ -26,6 +26,9 @@ def evaluate_role_assignment(
 
     Requests for unmanaged or disabled roles are denied by default.
     Deny rules take precedence over review rules across all matching role pairs.
+    
+    Held roles remain subject to SoD checks even when their catalogue
+    entries are disabled.
     """
     
     requested_role = db.session.execute(
@@ -47,7 +50,7 @@ def evaluate_role_assignment(
         db.select(ManagedRole).where(
             ManagedRole.client_name == target_client_name,
             ManagedRole.role_name.in_(current_role_names),
-            ManagedRole.enabled.is_(True),
+           
         )
     ).scalars().all()
     
