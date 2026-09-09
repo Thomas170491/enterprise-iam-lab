@@ -248,4 +248,59 @@ def test_all_current_roles_are_checked_for_conflicts(app):
     assert result["rule_id"] == sod_test.id
     
     
+def test_deny_takes_priority_over_review(app):
     
+    """
+    Verify that a deny decision overrides a review decision when both rules match.
+    """
+    current_review_role = ManagedRole(
+        client_name="employee-portal",
+        role_name="operations-data-viewer",
+    )
+
+    current_deny_role = ManagedRole(
+        client_name="employee-portal",
+        role_name="finance-data-viewer",
+    )
+
+    requested_role = ManagedRole(
+        client_name="employee-portal",
+        role_name="security-data-viewer",
+    )
+    
+    db.session.add_all([
+        current_deny_role,
+        current_review_role, 
+        requested_role
+    ])
+    
+    db.session.flush()
+    
+    first_role_id, second_role_id = sorted([current_deny_role.id, requested_role.id])
+    
+    reivew_rule = SoDRule(
+        name="Operations and security require review",
+        first_role_id=current_review_role.id,
+        second_role_id=second_role_id,
+        outcome=SOD_REQUIRES_REVIEW,
+    )
+    
+    deny_rule = SoDRule(
+        name= "Finance and operations requires deny",
+        first_role_id = first_role_id,
+        second_role_id  =second_role_id,
+        outcome = SOD_DENY
+    )
+    
+    db.session.add_all([reivew_rule,deny_rule])
+    db.session.commit()
+    
+    result = evaluate_role_assignment(
+        target_client_name= "employee-portal",
+        current_role_names= ["operations-data-viewer","finance-data-viewer"],
+        requested_role_name= "security-data-viewer"    
+    )
+    
+    assert result["decision"] == SOD_DENY
+    assert result["reason"] == "sod_rule_matched"
+    assert result["rule_id"] == deny_rule.id

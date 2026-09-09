@@ -25,6 +25,7 @@ def evaluate_role_assignment(
         rule_id: The matching SoD rule ID, or None when no rule matched.
 
     Requests for unmanaged or disabled roles are denied by default.
+    Deny rules take precedence over review rules across all matching role pairs.
     """
     
     requested_role = db.session.execute(
@@ -50,6 +51,8 @@ def evaluate_role_assignment(
         )
     ).scalars().all()
     
+    review_rule = None
+    
     for role in current_roles :
         
         current_role_id = role.id
@@ -66,12 +69,28 @@ def evaluate_role_assignment(
         ).scalar_one_or_none()
         
         if matching_rule is not None :
-            return{
-                "decision": matching_rule.outcome,
+            
+            if matching_rule.outcome == SOD_DENY:
+                return {
+                    "decision" : SOD_DENY,
+                    "reason" : "sod_rule_matched",
+                    "rule_id" : matching_rule.id
+                }
+                
+            if matching_rule.outcome == SOD_REQUIRES_REVIEW:
+                review_rule = matching_rule
+                
+            
+
+    if review_rule is not None :
+                
+        return {
+                "decision": SOD_REQUIRES_REVIEW,
                 "reason" :  "sod_rule_matched",
                 "rule_id": matching_rule.id
-            }
-        
+        }            
+
+            
     return {
         "decision" : SOD_ALLOW,
         "reason" : "no_sod_conflict",
