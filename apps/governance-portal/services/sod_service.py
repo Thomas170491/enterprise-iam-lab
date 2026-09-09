@@ -90,7 +90,7 @@ def evaluate_role_assignment(
         return {
                 "decision": SOD_REQUIRES_REVIEW,
                 "reason" :  "sod_rule_matched",
-                "rule_id": matching_rule.id
+                "rule_id": review_rule.id
         }            
 
             

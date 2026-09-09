@@ -180,8 +180,7 @@ def assign_identity_role(user_id):
             ],
             user_id=user_id,
 
-                       # Do NOT trust the browser to choose the client.
-            #
+            # Do NOT trust the browser to choose the client.
             # The Governance Portal currently administers
             # Employee Portal application access only.
             target_client_name="employee-portal",
@@ -194,10 +193,30 @@ def assign_identity_role(user_id):
 
         )
     
-    except RoleAdministrationPolicyError:
-        current_app.logger.warning("Role assignment rejected by the Governance Policy")
-        abort(403)
+    except RoleAdministrationPolicyError as exc:
+        current_app.logger.warning(
+            "Role assignment rejected by Governance policy: %s",
+            exc.reason,
+        )
 
+        sod_messages = {
+            "sod_deny": (
+                "This role combination violates a segregation-of-duties rule. "
+                "No role was assigned."
+            ),
+            "sod_requires_review": (
+                "This role assignment requires review. "
+                "No role was assigned."
+            ),
+        }
+
+        if exc.reason in sod_messages:
+            return render_template(
+                "role-assignment-blocked.html",
+                message=sod_messages[exc.reason],
+            ), 403
+
+        abort(403)
     except AuditPersistenceError:
         #role service is fail-closed
         #the Keycloak mutation has not happend when
