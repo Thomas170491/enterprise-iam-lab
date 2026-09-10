@@ -1,5 +1,5 @@
 from unittest.mock import ANY, Mock
-
+import requests
 import governance.routes as governance_routes
 
 from auth.permissions import (
@@ -11,6 +11,7 @@ from auth.permissions import (
 from services.exceptions import (
     AuditPersistenceError,
     KeycloakAdminAPIError,
+    RoleAdministrationPolicyError
 )
 
 def _login_user(
@@ -278,3 +279,69 @@ def test_role_assignment_rejects_missing_csrf_token(
 
     # CSRF rejection happens before our mutation route runs.
     fake_assign.assert_not_called()
+    
+def test_sod_deny_returns_specific_403_message(app,client,monkeypatch) :
+    """
+    Verify that an SoD denial returns HTTP 403 with a specific conflict explanation.
+    """
+    
+    _login_user(
+        client,
+        [ROLE_MANAGER]
+    )
+    
+    
+    monkeypatch.setattr(
+        governance_routes,
+        "assign_identity_client_role",
+        Mock(side_effect=RoleAdministrationPolicyError("sod_deny"))
+    )
+    
+    response = client.post(
+        "/identities/user-123/roles",
+        data= {
+            "role_name" : "finance-data-viewer"
+            
+        }
+    )
+    
+    assert response.status_code == 403
+    assert (
+        "This role combination violates a segregation-of-duties rule."
+        in response.get_data(as_text=True)
+    )
+
+def test_sod_review_returns_specific_403_message(app,client,monkeypatch) :
+    """
+    Verify that an SoD review requirement returns HTTP 403 with a specific conflict explanation.
+    """
+    
+    _login_user(
+        client,
+        [ROLE_MANAGER]
+    )
+    
+    
+    monkeypatch.setattr(
+        governance_routes,
+        "assign_identity_client_role",
+        Mock(side_effect=RoleAdministrationPolicyError("sod_requires_review"))
+    )
+    
+    response = client.post(
+        "/identities/user-123/roles",
+        data= {
+            "role_name" : "finance-data-viewer"
+            
+        }
+    )
+    
+    assert response.status_code == 403
+    assert (
+        "This role assignment requires review. No role was assigned." 
+        in response.get_data(as_text=True)
+    )
+    
+    
+    
+    

@@ -1,6 +1,7 @@
 from  services.sod_service import SOD_DENY,SOD_ALLOW,SOD_REQUIRES_REVIEW, evaluate_role_assignment
 from models import ManagedRole, SoDRule
 from extensions import db
+from unittest.mock import Mock
 
 def test_unmanaged_request_role_is_denied(app):
     result = evaluate_role_assignment("employee-portal", "unknown-role", [])
@@ -350,3 +351,80 @@ def test_disabled_current_role_still_triggers_sod_deny(app):
     assert result["decision"] == SOD_DENY
     assert result["reason"] == "sod_rule_matched"
     assert result["rule_id"] == deny_rule.id
+    
+def test_review_decision_survives_later_nonmatching_role(app, monkeypatch):
+    """
+    Verify that a review match is preserved when a later held role
+    has no matching SoD rule.
+    """
+    review_role = ManagedRole(
+        client_name="employee-portal",
+        role_name="finance-data-viewer",
+        enabled=True,
+    )
+
+    unrelated_role = ManagedRole(
+        client_name="employee-portal",
+        role_name="operations-data-viewer",
+        enabled=True,
+    )
+
+    requested_role = ManagedRole(
+        client_name="employee-portal",
+        role_name="security-data-viewer",
+        enabled=True,
+    )
+
+    db.session.add_all([
+        review_role,
+        unrelated_role,
+        requested_role,
+    ])
+    db.session.flush()
+    
+    first_role_id, second_role_id = sorted([requested_role.id, review_role.id])
+    
+    requires_review = SoDRule(
+        outcome = SOD_REQUIRES_REVIEW,
+        first_role_id = first_role_id,
+        second_role_id = second_role_id,
+        name = "My Rule",
+        enabled = True,
+    )
+    
+    db.session.add(requires_review) 
+    db.session.commit()
+    
+    requested_result=Mock()
+    requested_result.scalar_one_or_none.return_value = requested_role
+    
+  
+    current_result = Mock()
+    current_result.scalars.return_value.all.return_value = [review_role, unrelated_role]
+    
+    review_result = Mock()
+    review_result.scalar_one_or_none.return_value = requires_review
+    
+    no_match_result = Mock()
+    no_match_result.scalar_one_or_none.return_value = None
+    
+    
+    
+    fake_execute = Mock(
+        side_effect=[
+            requested_result,
+            current_result,
+            review_result,
+            no_match_result,
+        ]
+    )
+
+    monkeypatch.setattr(db.session, "execute", fake_execute)
+    
+    result=evaluate_role_assignment("employee-portal","security-data-viewer", ["finance-data-viewer","operations-data-viewer"])
+    
+    assert result["decision"] == SOD_REQUIRES_REVIEW
+    assert result["reason"] == "sod_rule_matched"
+    assert result["rule_id"] == requires_review.id
+    
+    fake_execute.call_count == 4
