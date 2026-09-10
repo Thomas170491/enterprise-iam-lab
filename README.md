@@ -6,7 +6,7 @@ The project models the IAM environment of the fictional organization **NovaSecur
 
 The **NovaSecure Employee Portal** is functionally complete. It implements browser-based OIDC authentication, role-based authorization, database-backed department resources, a protected REST API, stateless Bearer-token authentication, and hardened JWT validation.
 
-Development has now progressed into the **IAM Governance Portal**, which implements protected governance access, identity search, effective-access inspection, PostgreSQL-backed audit events, an audit-log viewer, Keycloak Admin REST API integration, and governed Employee Portal client-role assignment and removal.
+Development has now progressed into the **IAM Governance Portal**, which implements protected governance access, identity search, effective-access inspection, PostgreSQL-backed audit events, an audit-log viewer, Keycloak Admin REST API integration, and governed Employee Portal client-role assignment and removal with database-backed segregation-of-duties checks.
 
 ---
 
@@ -58,7 +58,7 @@ Implemented:
 * Bearer API integration test script
 * Responsive Employee Portal interface
 
-The **IAM Governance Portal is now under active development**. Identity search, effective-access inspection, audit logging, and governed client-role administration are implemented. Remaining governance work includes access reviews, segregation-of-duties enforcement, reporting, lifecycle automation, privileged-access workflows, and ELK/Wazuh monitoring.
+The **IAM Governance Portal is now under active development**. Identity search, effective-access inspection, audit logging, governed client-role administration, and Employee Portal segregation-of-duties enforcement are implemented. Remaining governance work includes approval workflows, access reviews, reporting, lifecycle automation, privileged-access workflows, and ELK/Wazuh monitoring.
 
 ---
 
@@ -152,6 +152,8 @@ Implemented or actively used:
 * PostgreSQL-backed audit events
 * Audit-log viewer
 * Governed Employee Portal client-role assignment and removal
+* Database-backed managed-role catalogue and SoD rules
+* SoD evaluation, enforcement, audit events, and specific rejection messages
 
 ## Planned
 
@@ -160,7 +162,7 @@ Implemented or actively used:
 * Automated JML workflows
 * Access reviews
 * Governance reporting
-* Segregation-of-duties enforcement
+* Governance administrator/auditor role-conflict enforcement
 * Privileged-access workflows
 * ELK / Wazuh
 
@@ -1228,7 +1230,11 @@ portfolio/
 * [x] Role-administration audit trail
 * [ ] Access reviews
 * [ ] Governance reports
-* [ ] Segregation-of-duties enforcement
+* [x] Managed-role catalogue and seeded Employee Portal SoD rules
+* [x] SoD enforcement with deny priority and evaluation auditing
+* [x] Specific SoD rejection messages and regression tests
+* [ ] Approval request workflow for review-required assignments
+* [ ] Governance administrator/auditor role-conflict enforcement
 
 ## Phase 4 — Directory and Lifecycle
 
@@ -1252,6 +1258,64 @@ portfolio/
 
 ---
 
+# IAM Governance Portal — Segregation of Duties
+
+The Governance Portal evaluates Employee Portal role assignments against enabled segregation-of-duties (SoD) rules before changing access in Keycloak. The managed-role catalogue and rules are stored in PostgreSQL and seeded through Alembic migrations.
+
+## Seeded Lab Policies
+
+| Employee Portal role combination | Decision |
+| --- | --- |
+| `hr-data-viewer` + `finance-data-viewer` | Deny |
+| `finance-data-viewer` + `security-data-viewer` | Requires review |
+
+These are example lab policies, not universal departmental restrictions. The rules apply regardless of which role in the pair is requested.
+
+## Evaluation Behavior
+
+* Unmanaged or disabled requested roles are denied.
+* The identity's current effective client roles are resolved through the managed-role catalogue and checked against the requested role.
+* Held roles still participate in conflict checks when their catalogue entries are disabled; disabling a catalogue entry does not revoke access in Keycloak.
+* Disabled SoD rules are ignored.
+* A deny rule takes priority over a review rule.
+* A review decision is preserved when later roles have no matching rule.
+* If no enabled rule matches, the SoD decision is `allow`.
+
+## Enforcement and Audit Trail
+
+Each completed SoD evaluation records a `sod.evaluate` event containing the human actor, target identity, decision, reason, matching rule ID, and role context.
+
+Both `deny` and `requires_review` block assignment before the Keycloak mutation and before any `role.assign` attempt event. The UI returns HTTP 403 with a specific explanation:
+
+| Decision | User-facing explanation |
+| --- | --- |
+| Deny | This role combination violates a segregation-of-duties rule. No role was assigned. |
+| Requires review | This role assignment requires review. No role was assigned. |
+
+Allowed assignments proceed through the normal `role.assign` attempted and success/failure audit flow. If SoD auditing or the assignment attempt audit fails, assignment stops. Failure to persist the final success audit does not turn an already completed Keycloak assignment into a reported mutation failure.
+
+## Validation
+
+Automated tests cover unmanaged and disabled requested roles, matching deny and review rules, disabled rules, deny priority, held disabled roles, and preservation of a review decision after a later nonmatching role. Service and route tests cover assignment blocking, audit failures, and the specific HTTP 403 explanations.
+
+Manual deny and requires-review checks confirmed that blocked requests produce SoD audit events without granting the requested Keycloak role or producing a subsequent `role.assign` event for the blocked request.
+
+Run the Governance Portal test suite from its application directory with its virtual environment active:
+
+```bash
+pytest -q
+```
+
+## Current Scope and Limitations
+
+* `requires_review` blocks assignment but does not create an approval request.
+* Enforcement covers Employee Portal assignments made through the Governance Portal; direct changes in Keycloak bypass these checks.
+* Existing conflicting access is not automatically detected or revoked.
+* Governance administrator/auditor role conflicts and prevention of self-certification remain follow-up work.
+* Catalogue approval and review metadata does not by itself implement an approval workflow.
+
+---
+
 # Planned Governance Model
 
 The IAM Governance Portal will separate access administration from access certification.
@@ -1271,7 +1335,7 @@ IAM Auditor
 -----------
 identity-viewer
 access-reviewer
-audit-log-viewer
+audit-log-reviewer
 report-exporter
 ```
 
