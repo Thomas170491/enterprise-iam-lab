@@ -4,7 +4,15 @@ from extensions import db
 from models.audit_event import AuditEvent 
 from services.exceptions import AuditPersistenceError, AuditQueryError
 
-def record_audit_event(actor_user_id, actor_username, action, target_type, target_id=None, target_name=None, outcome=None, details=None):
+def record_audit_event(actor_user_id, 
+                       actor_username, 
+                       action, 
+                       target_type, 
+                       target_id=None, 
+                       target_name=None, 
+                       outcome=None, 
+                       details=None
+):
     """
     Records an audit event in the database.
 
