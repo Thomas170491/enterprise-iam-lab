@@ -26,3 +26,7 @@ flask_session
 
 #Certs 
 certs/
+
+#Local fix
+
+fix.txt
