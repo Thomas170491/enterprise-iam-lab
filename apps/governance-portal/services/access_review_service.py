@@ -126,7 +126,7 @@ def open_access_review(review_id : int) -> AccessReview :
     
     return campaign 
 
-def cancel_access_review(review_id : int) :
+def cancel_access_review(review_id : int) -> AccessReview :
     """
     Cancel a draft or open access review campaign while preserving its items.
 
@@ -147,3 +147,21 @@ def cancel_access_review(review_id : int) :
     
     return campaign
 
+def get_access_reviews_for_reviewer(reviewer_user_id : str) -> list[AccessReview]:
+    """
+    Return campaigns assigned to the specified reviewer, newest first.
+
+    Include all campaign statuses without modifying the database.
+    """
+    
+    reviewer_user_id = _validate_required_string(reviewer_user_id,"reviewer_user_id",255)
+    
+    return db.session.execute(
+        db.select(AccessReview)
+        .where(AccessReview.reviewer_user_id == reviewer_user_id)
+        .order_by(AccessReview.created_at.desc(), AccessReview.id.desc())       
+        
+    ).scalars().all()
+    
+    
+    

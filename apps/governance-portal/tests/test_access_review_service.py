@@ -3,7 +3,8 @@ from datetime import datetime,timezone
 from services.access_review_service import (add_access_review_item,
                                             create_access_review, 
                                             open_access_review,
-                                            cancel_access_review
+                                            cancel_access_review,
+                                            get_access_reviews_for_reviewer
 )
 from extensions import db
 from models import AccessReview,AccessReviewItem
@@ -320,7 +321,41 @@ def test_cancel_access_review_does_not_commit(app):
     assert campaign_test_rollbacked is not None  
     assert campaign_test_rollbacked.status == "draft"
     
+def test_get_access_reviews_for_reviewer_excludes_other_reviewers(app):
+    """
+    Verify that a reviewer receives only campaigns assigned to them.
+    """
     
+    first_review = create_access_review("test campaign 1", "user-123", "reviewer-123")
+    second_review = create_access_review("test campaign 2", "user-456", "reviewer-456")
     
+    result = get_access_reviews_for_reviewer("reviewer-123")
     
+    assert result == [first_review]
+
+def test_get_access_reviews_for_reviewer_returns_newest_first(app):
+    """
+    Verify that assigned campaigns are returned newest first.
+    """
+    older_campaign = create_access_review("test campaign 1", "user-123", "reviewer-123")
+    newer_campaign= create_access_review("test campaign 2", "user-456", "reviewer-123")
     
+    older_campaign.created_at = datetime(2026,1,1,tzinfo=timezone.utc)
+    newer_campaign.created_at = datetime(2026,1,2,tzinfo=timezone.utc)
+    db.session.flush()
+    
+    result =get_access_reviews_for_reviewer("reviewer-123")
+    
+    assert result == [newer_campaign,older_campaign]
+    
+def test_get_access_reviews_for_reviewer_returns_empty_list(app):
+    """
+    Verify that a reviewer with no assigned campaigns receives an empty list.
+    """
+    
+    campaign = create_access_review("test campaign", "user-123", "reviewer-123")
+    db.session.flush()
+    
+    result = get_access_reviews_for_reviewer("reviewer-456")
+    
+    assert result == []
