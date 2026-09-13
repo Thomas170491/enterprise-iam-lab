@@ -67,7 +67,7 @@ def add_access_review_item(
     client_name: str,
     role_id: str,
     role_name: str,
-) -> AccessReview:
+) -> AccessReviewItem:
     """
     Add an identity-role snapshot to an existing draft review campaign.
 
@@ -125,3 +125,25 @@ def open_access_review(review_id : int) -> AccessReview :
     db.session.flush()
     
     return campaign 
+
+def cancel_access_review(review_id : int) :
+    """
+    Cancel a draft or open access review campaign while preserving its items.
+
+    Flush the status change without committing; the caller owns the transaction.
+    """
+    
+    campaign = db.session.get(AccessReview, review_id)
+    
+    if campaign is None :
+        raise ValueError("access_review_not_found")
+    
+    if campaign.status not in ("draft", "open" ) :
+        raise ValueError("access_review_not_cancellable")
+    
+    campaign.status ="cancelled"
+    
+    db.session.flush()
+    
+    return campaign
+

@@ -1,6 +1,10 @@
 import pytest
 from datetime import datetime,timezone
-from services.access_review_service import add_access_review_item, create_access_review, open_access_review
+from services.access_review_service import (add_access_review_item,
+                                            create_access_review, 
+                                            open_access_review,
+                                            cancel_access_review
+)
 from extensions import db
 from models import AccessReview,AccessReviewItem
 
@@ -209,7 +213,9 @@ def test_open_access_review_rejects_empty_campaign(app):
 
 @pytest.mark.parametrize("status", ["open", "completed", "cancelled"])
 def test_open_access_review_rejects_non_draft_campaign(app, status):
-    """Verify that opening is rejected for campaigns outside draft status."""
+    """
+    Verify that opening is rejected for campaigns outside draft status.
+    """
     review = create_access_review(
         name="September review",
         created_by_user_id="creator-123",
@@ -249,3 +255,72 @@ def test_open_access_review_does_not_commit(app):
 
     assert persisted_review is not None
     assert persisted_review.status == "draft"
+    
+def test_cancel_access_review_cancels_draft_campaign(app):
+    """
+    Verify that a draft campaign can be cancelled.
+    """
+    campaign_test= create_access_review("test campaign", "creator-123", "reviewer-123")
+    
+    result = cancel_access_review(campaign_test.id)
+    
+    assert result.status == "cancelled"
+    
+    
+def test_cancel_access_review_preserves_items(app):
+    """
+    Verify that cancelling an open campaign preserves its captured access items.
+    """
+    campaign_test= create_access_review("test campaign", "creator-123", "reviewer-123")
+    
+    item = add_access_review_item(
+        review_id=campaign_test.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    open_access_review(campaign_test.id) 
+    result = cancel_access_review(campaign_test.id)
+        
+    assert result.status == "cancelled"
+    assert item in campaign_test.items 
+    
+def test_cancel_access_review_rejects_completed_campaign(app):
+    """
+    Verify that a completed campaign cannot be cancelled.
+    """
+    
+    campaign_test= create_access_review("test campaign", "creator-123", "reviewer-123")
+    campaign_test.status = "completed"
+    db.session.flush()
+    
+    with pytest.raises(ValueError, match= "access_review_not_cancellable"):
+        cancel_access_review(campaign_test.id)
+        
+    assert campaign_test.status =="completed"
+    
+def test_cancel_access_review_does_not_commit(app):
+    """
+    Verify that rolling back cancellation restores the campaign's draft status.
+    """
+    
+    campaign_test= create_access_review("test campaign", "creator-123", "reviewer-123")
+    db.session.commit()
+    review_id = campaign_test.id
+    
+    
+    
+    cancel_access_review(review_id)
+    db.session.rollback()
+    
+    campaign_test_rollbacked =db.session.get(AccessReview, review_id)
+     
+    assert campaign_test_rollbacked is not None  
+    assert campaign_test_rollbacked.status == "draft"
+    
+    
+    
+    
+    
