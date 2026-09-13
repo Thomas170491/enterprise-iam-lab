@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-
+from cachelib.file import FileSystemCache
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -15,7 +15,11 @@ class Config :
     # ========================================================
 
     SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
-    SESSION_TYPE = 'filesystem'
+    SESSION_TYPE = "cachelib"
+    SESSION_CACHELIB = FileSystemCache(
+        cache_dir=str(BASE_DIR / "flask_session"),
+        threshold=500,
+    )
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE ='Lax'
 
