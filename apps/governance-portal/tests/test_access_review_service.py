@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime,timezone
-from services.access_review_service import add_access_review_item, create_access_review
+from services.access_review_service import add_access_review_item, create_access_review, open_access_review
 from extensions import db
 from models import AccessReview,AccessReviewItem
 
@@ -158,3 +158,91 @@ def test_add_access_review_item_does_not_commit(app):
 
     assert db.session.get(AccessReviewItem, item_id) is None
     assert db.session.get(AccessReview, review_id) is not None
+    
+def test_open_access_review_opens_draft_campaign(app):
+    """
+    Verify that a draft campaign containing a snapshot can be opened.
+    """
+    
+    review = create_access_review(
+        name="September review",
+        created_by_user_id="creator-123",
+        reviewer_user_id="reviewer-456",
+    )
+    add_access_review_item(
+        review_id=review.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+
+    opened_review = open_access_review(review.id)
+
+    assert opened_review.id == review.id
+    assert opened_review.status == "open"
+
+
+def test_open_access_review_rejects_missing_campaign(app):
+    """Verify that a nonexistent campaign cannot be opened."""
+    with pytest.raises(ValueError, match="access_review_not_found"):
+        open_access_review(999999)
+
+
+def test_open_access_review_rejects_empty_campaign(app):
+    """Verify that an empty campaign remains draft when opening is rejected."""
+    review = create_access_review(
+        name="Empty review",
+        created_by_user_id="creator-123",
+        reviewer_user_id="reviewer-456",
+    )
+
+    with pytest.raises(ValueError, match="access_review_empty"):
+        open_access_review(review.id)
+
+    assert review.status == "draft"
+
+
+@pytest.mark.parametrize("status", ["open", "completed", "cancelled"])
+def test_open_access_review_rejects_non_draft_campaign(app, status):
+    """Verify that opening is rejected for campaigns outside draft status."""
+    review = create_access_review(
+        name="September review",
+        created_by_user_id="creator-123",
+        reviewer_user_id="reviewer-456",
+    )
+    review.status = status
+    db.session.flush()
+
+    with pytest.raises(ValueError, match="access_review_not_draft"):
+        open_access_review(review.id)
+
+    assert review.status == status
+
+
+def test_open_access_review_does_not_commit(app):
+    """Verify that rolling back restores an opened campaign to draft status."""
+    review = create_access_review(
+        name="September review",
+        created_by_user_id="creator-123",
+        reviewer_user_id="reviewer-456",
+    )
+    add_access_review_item(
+        review_id=review.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    db.session.commit()
+    review_id = review.id
+
+    open_access_review(review_id)
+    db.session.rollback()
+
+    persisted_review = db.session.get(AccessReview, review_id)
+
+    assert persisted_review is not None
+    assert persisted_review.status == "draft"

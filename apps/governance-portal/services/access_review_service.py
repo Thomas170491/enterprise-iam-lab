@@ -67,7 +67,7 @@ def add_access_review_item(
     client_name: str,
     role_id: str,
     role_name: str,
-):
+) -> AccessReview:
     """
     Add an identity-role snapshot to an existing draft review campaign.
 
@@ -102,3 +102,26 @@ def add_access_review_item(
     db.session.flush()
 
     return item
+
+def open_access_review(review_id : int) -> AccessReview :
+    """
+    Open an existing draft access review campaign containing at least one item.
+
+    Flush the status change without committing; the caller owns the transaction.
+    """
+    
+    campaign = db.session.get(AccessReview, review_id)
+    
+    if campaign is None :
+        raise ValueError("access_review_not_found")
+    
+    if campaign.status != "draft" :
+        raise ValueError("access_review_not_draft")
+    
+    if not campaign.items :
+        raise ValueError("access_review_empty")
+    
+    campaign.status = "open"
+    db.session.flush()
+    
+    return campaign 
