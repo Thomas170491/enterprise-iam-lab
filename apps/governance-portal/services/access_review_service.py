@@ -1,63 +1,104 @@
-from datetime import datetime 
-from models import AccessReview
-from extensions import db 
+from datetime import datetime
+
+from extensions import db
+from models import AccessReview, AccessReviewItem
+
+
+def _validate_required_string(value, field_name, max_length):
+    """Return a trimmed required string or raise a field-specific ValueError."""
+    if not isinstance(value, str):
+        raise ValueError(f"invalid_{field_name}")
+
+    value = value.strip()
+
+    if not value or len(value) > max_length:
+        raise ValueError(f"invalid_{field_name}")
+
+    return value
+
 
 def create_access_review(
-    name : str, 
-    created_by_user_id : str,
-    reviewer_user_id : str,
-    due_at : str | None = None  
+    name: str,
+    created_by_user_id: str,
+    reviewer_user_id: str,
+    due_at: datetime | None = None,
 ):
     """
-    Create a draft access review campaign with an assigned reviewer
-    and optional due date.
+    Create a draft access review campaign with an assigned reviewer.
+
+    Validate and trim required strings. An optional due date must
+    be a timezone-aware datetime.
+
     Flush the campaign without committing; the caller owns the transaction.
     """
-    
-    if not isinstance(name, str):
-        raise ValueError("invalid_review_name")
-    
-    name = name.strip()
-    
-    if not name or len(name) > 200:
-        raise ValueError("invalid_review_name")
-
-    
-    if not isinstance(created_by_user_id,str) :
-        raise ValueError("invalid_creator_user_id")
-    
-    if not isinstance(reviewer_user_id,str):
-        raise ValueError("invalid_reviewer_user_id")
-    
-    created_by_user_id = created_by_user_id.strip()
-    reviewer_user_id = reviewer_user_id.strip()
-    
-    if not created_by_user_id or len(created_by_user_id) > 255 :
-        raise ValueError("invalid_creator_user_id")
-    
-    if not reviewer_user_id or len(reviewer_user_id) > 255 :
-        raise ValueError("invalid_reviewer_user_id")   
-    
-    if due_at is not None : 
-        
-        if not isinstance(due_at,datetime) :
-            raise ValueError("invalid_due_at")
-        
-        if due_at.tzinfo is None or due_at.utcoffset() is None :
-            raise ValueError("invalid_due_at")
-    
-    access_review = AccessReview(
-        name = name,
-        created_by_user_id  = created_by_user_id,
-        reviewer_user_id = reviewer_user_id,
-        due_at = due_at,
-        status = "draft",
+    name = _validate_required_string(name, "review_name", 200)
+    created_by_user_id = _validate_required_string(
+        created_by_user_id, "creator_user_id", 255
     )
+    reviewer_user_id = _validate_required_string(
+        reviewer_user_id, "reviewer_user_id", 255
+    )
+
+    if due_at is not None:
+        if not isinstance(due_at, datetime):
+            raise ValueError("invalid_due_at")
+
+        if due_at.tzinfo is None or due_at.utcoffset() is None:
+            raise ValueError("invalid_due_at")
+
+    access_review = AccessReview(
+        name=name,
+        created_by_user_id=created_by_user_id,
+        reviewer_user_id=reviewer_user_id,
+        due_at=due_at,
+        status="draft",
+    )
+
     db.session.add(access_review)
     db.session.flush()
-    
+
     return access_review
-        
-                
-    
-    
+
+
+def add_access_review_item(
+    review_id: int,
+    user_id: str,
+    username: str,
+    client_name: str,
+    role_id: str,
+    role_name: str,
+):
+    """
+    Add an identity-role snapshot to an existing draft review campaign.
+
+    Validate and trim the required identity and role details.
+
+    Flush the item without committing; the caller owns the transaction.
+    """
+    campaign = db.session.get(AccessReview, review_id)
+
+    if campaign is None:
+        raise ValueError("access_review_not_found")
+
+    if campaign.status != "draft":
+        raise ValueError("access_review_not_draft")
+
+    user_id = _validate_required_string(user_id, "user_id", 255)
+    username = _validate_required_string(username, "username", 255)
+    client_name = _validate_required_string(client_name, "client_name", 100)
+    role_id = _validate_required_string(role_id, "role_id", 255)
+    role_name = _validate_required_string(role_name, "role_name", 100)
+
+    item = AccessReviewItem(
+        review=campaign,
+        user_id=user_id,
+        username=username,
+        client_name=client_name,
+        role_id=role_id,
+        role_name=role_name,
+    )
+
+    db.session.add(item)
+    db.session.flush()
+
+    return item

@@ -1,8 +1,8 @@
 import pytest
 from datetime import datetime,timezone
-from services.access_review_service import create_access_review
+from services.access_review_service import add_access_review_item, create_access_review
 from extensions import db
-from models import AccessReview
+from models import AccessReview,AccessReviewItem
 
 def test_create_access_review(app):
     """
@@ -63,3 +63,98 @@ def test_create_access_review_does_not_commit(app):
     db.session.rollback()
     
     assert db.session.get(AccessReview,review_id) is None
+    
+def test_add_access_review_item_creates_snapshot(app):
+    """
+    Verify that adding a snapshot preserves its campaign, identity, and role details.
+    """
+    
+    review = create_access_review(
+        name="September review",
+        created_by_user_id="creator-123",
+        reviewer_user_id="reviewer-456",
+    )
+
+    item = add_access_review_item(
+        review_id=review.id,
+        user_id="  user-123  ",
+        username="  alice  ",
+        client_name="  employee-portal  ",
+        role_id="  finance-role-id  ",
+        role_name="  finance-data-viewer  ",
+    )
+
+    assert item.id is not None
+    assert item.review_id == review.id
+    assert item.user_id == "user-123"
+    assert item.username == "alice"
+    assert item.client_name == "employee-portal"
+    assert item.role_id == "finance-role-id"
+    assert item.role_name == "finance-data-viewer"
+    
+@pytest.mark.parametrize("status", ["open", "completed", "cancelled"])
+def test_add_access_review_item_rejects_non_draft_campaign(app, status):
+    """
+    Verify that snapshots cannot be added to a campaign outside draft status.
+    """
+    
+    review = create_access_review(
+        name="September review",
+        created_by_user_id="creator-123",
+        reviewer_user_id="reviewer-456",
+    )
+    
+    review.status = status
+    db.session.flush()
+
+    with pytest.raises(ValueError, match="access_review_not_draft"):
+        add_access_review_item(
+            review_id=review.id,
+            user_id="user-123",
+            username="alice",
+            client_name="employee-portal",
+            role_id="finance-role-id",
+            role_name="finance-data-viewer",
+        )
+
+    assert review.items == []
+    
+def test_add_access_review_item_rejects_missing_campaign(app):
+    """
+    Verify that a snapshot cannot be added to a nonexistent campaign.
+    """
+    
+    with pytest.raises(ValueError, match="access_review_not_found"):
+        add_access_review_item(
+            review_id=999999,
+            user_id="user-123",
+            username="alice",
+            client_name="employee-portal",
+            role_id="finance-role-id",
+            role_name="finance-data-viewer",
+        )
+        
+def test_add_access_review_item_does_not_commit(app):
+    """Verify that rolling back removes a new item but preserves its campaign."""
+    review = create_access_review(
+        name="September review",
+        created_by_user_id="creator-123",
+        reviewer_user_id="reviewer-456",
+    )
+    db.session.commit()
+    review_id = review.id
+
+    item = add_access_review_item(
+        review_id=review_id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    item_id = item.id
+
+    db.session.rollback()
+
+    assert db.session.get(AccessReviewItem, item_id) is None
+    assert db.session.get(AccessReview, review_id) is not None
