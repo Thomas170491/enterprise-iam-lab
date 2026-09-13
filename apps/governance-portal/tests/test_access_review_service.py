@@ -185,7 +185,10 @@ def test_open_access_review_opens_draft_campaign(app):
 
 
 def test_open_access_review_rejects_missing_campaign(app):
-    """Verify that a nonexistent campaign cannot be opened."""
+    """
+    Verify that a nonexistent campaign cannot be opened.
+    """
+    
     with pytest.raises(ValueError, match="access_review_not_found"):
         open_access_review(999999)
 
