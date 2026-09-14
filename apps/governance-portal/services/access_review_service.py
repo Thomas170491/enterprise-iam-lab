@@ -163,5 +163,23 @@ def get_access_reviews_for_reviewer(reviewer_user_id : str) -> list[AccessReview
         
     ).scalars().all()
     
+def get_access_review_for_reviewer(review_id : int, reviewer_user_id : str) -> AccessReview :
+    """
+    Return a campaign only when it is assigned to the specified reviewer.
+
+    Raise the same not-found error for missing and unassigned campaigns.
+    """
+    
+    reviewer_user_id = _validate_required_string(reviewer_user_id,"reviewer_user_id",255,)
+    
+    campaign = db.session.execute(
+        db.select(AccessReview)
+        .where(AccessReview.id == review_id , AccessReview.reviewer_user_id == reviewer_user_id)
+    ).scalar_one_or_none()
+        
+    if campaign is None :
+        raise ValueError("access_review_not_found")
+    
+    return campaign
     
     

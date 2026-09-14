@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime,timezone
 from services.access_review_service import (add_access_review_item,
-                                            create_access_review, 
+                                            create_access_review, get_access_review_for_reviewer, 
                                             open_access_review,
                                             cancel_access_review,
                                             get_access_reviews_for_reviewer
@@ -359,3 +359,32 @@ def test_get_access_reviews_for_reviewer_returns_empty_list(app):
     result = get_access_reviews_for_reviewer("reviewer-456")
     
     assert result == []
+    
+def test_get_access_review_for_reviewer_returns_assigned_campaign(app):
+    """
+    Verify that the assigned reviewer can retrieve a specific campaign.
+    """
+    
+    campaign = create_access_review("test campaign", "user-123", "reviewer-123")
+    
+    result = get_access_review_for_reviewer(campaign.id,"reviewer-123")
+    
+    assert result == campaign
+    
+def test_get_access_review_for_reviewer_rejects_other_reviewer(app):
+    """
+    Verify that a reviewer cannot retrieve another reviewer's campaign.
+    """
+    
+    campaign = create_access_review("test campaign", "user-123", "reviewer-123")
+    
+    with pytest.raises(ValueError, match="access_review_not_found"):
+        get_access_review_for_reviewer(campaign.id, "reviewer-456")
+        
+def test_get_access_review_for_reviewer_rejects_missing_campaign(app):
+    """
+    Verify that retrieving a nonexistent campaign raises the not-found error.
+    """
+    with pytest.raises(ValueError, match="access_review_not_found"):
+        get_access_review_for_reviewer(999999, "reviewer-456")
+            
