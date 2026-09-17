@@ -10,11 +10,18 @@ from flask import (
 
 from flask_login import login_required,current_user
 from auth.decorators import client_role_required
-from auth.permissions import IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER, AUDIT_LOG_REVIEWER,ROLE_MANAGER
+from auth.permissions import (
+            IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER, 
+            AUDIT_LOG_REVIEWER,ROLE_MANAGER,
+            ACCESS_REVIEWER,
+            ACCESS_REVIEW_MANAGER
+)
 from services.identity_service import search_identities, get_identity_access
 from services.exceptions import KeycloakAdminAPIError, AuditPersistenceError, AuditQueryError,RoleAdministrationPolicyError
 from services.audit_service import record_audit_event, get_recent_audit_events
 from services.role_service import assign_identity_client_role, remove_identity_client_role,get_managed_roles
+from services.access_review_service import get_access_reviews_for_reviewer,get_access_review_for_reviewer
+
 
 
 
@@ -95,10 +102,10 @@ def identity_detail(user_id):
         managed_roles = get_managed_roles("employee-portal")
 
     except KeycloakAdminAPIError: 
-        current_app.logger.exception("Failed to retrieve identity access")
+        current_app.logger.exception("Failed_to_retrieve_identity_access")
 
         return render_template(
-            "identity-detail-error.html"
+            "identity-detail-error.html" 
         ), 502
 
     try :  
@@ -221,11 +228,11 @@ def assign_identity_role(user_id):
         #role service is fail-closed
         #the Keycloak mutation has not happend when
         #the initail audit write fails
-        current_app.logger.exception("Role assignment blocked because audit persistance failed")
+        current_app.logger.exception("Role_assignment_blocked_because_audit_persistance_failed")
         abort(503)
 
     except KeycloakAdminAPIError:
-        current_app.logger.exception("Keycloak role assignment failed")
+        current_app.logger.exception("Keycloak_role_assignment_failed")
         abort(502)
 
     return redirect(
@@ -257,7 +264,7 @@ def remove_identity_role(user_id,role_name):
                 "KEYCLOAK_ADMIN_API_URL"
             ],
             token_url=current_app.config[
-                "KEYCLOAK_TOKEN_URL"
+                "KEYCLOAK_TOKEN_URL"        
             ],
             client_id=current_app.config[
                 "KEYCLOAK_SERVICE_CLIENT_ID"
@@ -282,18 +289,18 @@ def remove_identity_role(user_id,role_name):
         )
     
     except RoleAdministrationPolicyError:
-        current_app.logger.warning("Role removal rejected by the Governance Policy")
+        current_app.logger.warning("Role_removal_rejected_by_the_Governance_Policy")
         abort(403)
 
     except AuditPersistenceError:
         #role service is fail-closed
         #the Keycloak mutation has not happend when
         #the initail audit write fails
-        current_app.logger.exception("Role removal blocked because audit persistance failed")
+        current_app.logger.exception("Role_removal_blocked_because_audit_persistance_failed")
         abort(503)
 
     except KeycloakAdminAPIError:
-        current_app.logger.exception("Keycloak role removal failed")
+        current_app.logger.exception("Keycloak_role_removal_failed")
         abort(502)
 
     return redirect(
@@ -302,3 +309,37 @@ def remove_identity_role(user_id,role_name):
             user_id = user_id
             )
     )
+
+@bp_governance.get("/access-reviews")
+@login_required
+@client_role_required(ACCESS_REVIEWER)
+
+def access_reviews():
+    """
+    Display access review campaigns assigned to the authenticated reviewer.
+    """
+    
+    reviews = get_access_reviews_for_reviewer(current_user.get_id())
+    
+    return render_template(
+        "access-reviews.html",
+        reviews=reviews,
+    )
+
+@bp_governance.get("/access-reviews/<int:review_id>")
+@login_required
+@client_role_required(ACCESS_REVIEWER)
+def access_review_detail(review_id):
+    """
+    Display a campaign and its snapshots to the assigned reviewer.
+    """
+    try:
+        review = get_access_review_for_reviewer(
+            review_id,
+            current_user.get_id())
+    except ValueError:
+        abort(404)
+        
+    return render_template(
+        "access-review-detail.html", 
+        review=review)

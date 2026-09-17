@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}
+Access Reviews | NovaSecure IAM Governance
+{% endblock %}
+
+{% block content %}
+<h1>My access reviews</h1>
+
+<p>Access review campaigns assigned to you.</p>
+
+{% if reviews %}
+<table>
+    <thead>
+        <tr>
+            <th scope="col">Campaign</th>
+            <th scope="col">Status</th>
+            <th scope="col">Created</th>
+            <th scope="col">Due date</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for review in reviews %}
+        <tr>
+            <td>
+                <a href="{{ url_for('governance.access_review_detail', review_id=review.id) }}">
+                    {{ review.name }}
+                </a>
+            </td>
+            <td>{{ review.status | capitalize }}</td>
+            <td>{{ review.created_at.strftime("%Y-%m-%d") }}</td>
+            <td>
+                {% if review.due_at %}
+                    {{ review.due_at.strftime("%Y-%m-%d") }}
+                {% else %}
+                    No due date
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No access review campaigns are assigned to you.</p>
+{% endif %}
+{% endblock %}

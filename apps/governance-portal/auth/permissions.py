@@ -11,3 +11,5 @@ AUDIT_LOG_REVIEWER = "audit-log-reviewer"
 
 REPORT_EXPORTER = "report-exporter"
 
+ACCESS_REVIEW_MANAGER = "access-review-manager"
+
