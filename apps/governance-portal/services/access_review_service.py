@@ -2,6 +2,7 @@ from datetime import datetime
 
 from extensions import db
 from models import AccessReview, AccessReviewItem
+from services.audit_service import record_audit_event
 
 
 def _validate_required_string(value, field_name, max_length):
@@ -22,7 +23,7 @@ def create_access_review(
     created_by_user_id: str,
     reviewer_user_id: str,
     due_at: datetime | None = None,
-):
+) -> AccessReview:
     """
     Create a draft access review campaign with an assigned reviewer.
 
@@ -183,3 +184,40 @@ def get_access_review_for_reviewer(review_id : int, reviewer_user_id : str) -> A
     return campaign
     
     
+def create_access_review_with_audit(
+    name : str,
+    created_by_user_id :str,
+    actor_username : str,
+    reviewer_user_id :str,
+    due_at : datetime | None = None
+) -> AccessReview:
+    """
+    Create a draft campaign and its audit event in one transaction.
+
+    Commit both together, or roll back if either operation fails.
+    """
+    
+    try:
+        review = create_access_review(name, created_by_user_id,reviewer_user_id,due_at)
+        record_audit_event(
+            actor_user_id=review.created_by_user_id,
+            actor_username=actor_username,
+            action="access_review.create",
+            target_type="access_review",
+            target_id=str(review.id),
+            target_name=review.name,
+            outcome="success",
+            details={
+                "source": "governance-portal",
+                "reviewer_user_id": review.reviewer_user_id,
+                "status": review.status,
+            },
+            commit=False,
+        )
+        db.session.commit()
+        
+    except Exception:
+        db.session.rollback()
+        raise
+    
+    return review
