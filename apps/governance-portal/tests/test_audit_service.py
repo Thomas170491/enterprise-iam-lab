@@ -6,11 +6,9 @@ import services.audit_service as audit_service
 
 from services.exceptions import AuditPersistenceError, AuditQueryError
 from unittest.mock import Mock
-from datetime import datetime
-from types import SimpleNamespace
-
-
-from auth.permissions import AUDIT_LOG_REVIEWER
+from  extensions import db 
+from models import AuditEvent,AccessReview
+from services.access_review_service import create_access_review
 
 
 def test_record_audit_event(
@@ -141,6 +139,52 @@ def test_record_audit_event_rolls_back_on_failure(monkeypatch):
         assert exc_info.value.reason == (
             "Failed to persist audit event: database failure"
         )
+        
+def test_record_audit_event_without_commit_can_be_rolled_back(app):
+    """
+    Verify that an audit event recorded without committing can be rolled back.
+    """
+    event = audit_service.record_audit_event(
+        actor_user_id="operator-123",
+        actor_username="leo",
+        action="access_review.create",
+        target_type="access_review",
+        target_id="1",
+        outcome="success",
+        commit=False,
+    )
+    event_id = event.id
+
+    assert event_id is not None
+
+    db.session.rollback()
+
+    assert db.session.get(AuditEvent, event_id) is None
+
+def test_campaign_and_audit_event_roll_back_together(app) :
+    """
+    Verify that a campaign and its audit event share the caller's transaction.
+    """
+    
+    review = create_access_review("campaign", "user-123", "reviwer-123")
+    event = audit_service.record_audit_event(
+        actor_user_id="operator-123",
+        actor_username="leo",
+        action="access_review.create",
+        target_type="access_review",
+        target_id=str(review.id),
+        target_name=review.name,
+        outcome="success",
+        commit=False,
+    )
+    
+    review_id = review.id
+    event_id = event.id
+    
+    db.session.rollback()
+    
+    assert db.session.get(AccessReview, review_id) is None
+    assert db.session.get(AuditEvent, event_id) is None
 
 def test_get_recent_audit_events(
     monkeypatch
