@@ -24,16 +24,15 @@ Access Review | NovaSecure IAM Governance
 <h2>Access under review</h2>
 
 <p>
-    {% if manager_view | default(false) %}
-        <a href="{{ url_for('governance.create_access_review') }}">
-            Create another campaign
-        </a>
-    {% else %}
-        <a href="{{ url_for('governance.access_reviews') }}">
-            Back to my access reviews
-        </a>
-    {% endif %}
-</p>
+{% if manager_view | default(false) %}
+    <a href="{{ url_for('governance.manage_access_reviews') }}">
+        Back to managed access reviews
+    </a>
+{% else %}
+    <a href="{{ url_for('governance.access_reviews') }}">
+        Back to my access reviews
+    </a>
+{% endif %}
 
 {% if review.items %}
 <table>

@@ -443,3 +443,80 @@ def test_reviewer_cannot_view_manager_route(client):
     
     
     assert response.status_code == 403
+
+def test_manage_access_reviews_requires_authentication(client):
+    """
+    Verify that unauthenticated users are redirected to login.
+    """
+
+    response = client.get("/access-reviews/manage")
+
+    assert response.status_code == 302
+
+    with client.application.test_request_context():
+        login_url = url_for("auth.login")
+
+    assert urlsplit(response.headers["Location"]).path == login_url
+
+
+def test_manage_access_reviews_requires_manager_role(client):
+    """
+    Verify that reviewers without the manager role cannot access the manager campaign list.
+    """
+
+    _login_user(client, [ACCESS_REVIEWER])
+
+    response = client.get("/access-reviews/manage")
+
+    assert response.status_code == 403
+
+
+def test_manage_access_reviews_shows_only_owned_campaigns(client):
+    """
+    Verify that a manager sees only campaigns they created.
+    """
+
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    create_access_review(
+        "My campaign",
+        "test-subject",
+        "reviewer-123",
+    )
+
+    create_access_review(
+        "Other manager campaign",
+        "other-manager",
+        "reviewer-456",
+    )
+
+    db.session.commit()
+
+    response = client.get("/access-reviews/manage")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "My campaign" in html
+    assert "Other manager campaign" not in html
+
+
+def test_manage_access_reviews_displays_empty_message(client):
+    """
+    Verify that a manager with no created campaigns sees the empty-state message.
+    """
+
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    create_access_review(
+        "Other manager campaign",
+        "other-manager",
+        "reviewer-456",
+    )
+
+    db.session.commit()
+
+    response = client.get("/access-reviews/manage")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "No access review campaigns have been created by you." in html

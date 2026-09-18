@@ -25,7 +25,8 @@ from services.access_review_service import(
     get_access_reviews_for_reviewer,
     get_access_review_for_reviewer,
     create_access_review_with_audit,
-    get_access_review_for_manager
+    get_access_review_for_manager,
+    get_access_reviews_for_manager
 )
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -421,6 +422,24 @@ def create_access_review():
         ),
         303,
     )
+    
+@bp_governance.get("/access-reviews/manage")
+@login_required
+@client_role_required(ACCESS_REVIEW_MANAGER)
+def manage_access_reviews():
+    """
+    Display access review campaigns created by the authenticated manager.
+    """
+
+    reviews = get_access_reviews_for_manager(
+        current_user.get_id()
+    )
+
+    return render_template(
+        "access-reviews-manage.html",
+        reviews=reviews,
+    )
+    
 @bp_governance.get("/access-reviews/manage/<int:review_id>")
 @login_required
 @client_role_required(ACCESS_REVIEW_MANAGER)
@@ -442,5 +461,6 @@ def manage_access_review_detail(review_id):
         review=campaign,
         manager_view=True,
     )
+
     
     

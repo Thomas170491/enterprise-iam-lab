@@ -7,7 +7,8 @@ from services.access_review_service import (add_access_review_item,
                                             open_access_review,
                                             cancel_access_review,
                                             get_access_reviews_for_reviewer,
-                                            get_access_review_for_manager
+                                            get_access_review_for_manager,
+                                            get_access_reviews_for_manager
 )
 from extensions import db
 from models import AccessReview,AccessReviewItem
@@ -105,7 +106,7 @@ def test_add_access_review_item_creates_snapshot(app):
     assert item.role_name == "finance-data-viewer"
     
 @pytest.mark.parametrize("status", ["open", "completed", "cancelled"])
-def test_add_access_review_item_rejects_non_draft_campaign(app, status):
+def test_add_access_review_item_rejects_non_draft_campaign(app,status):
     """
     Verify that snapshots cannot be added to a campaign outside draft status.
     """
@@ -220,7 +221,7 @@ def test_open_access_review_rejects_empty_campaign(app):
 
 
 @pytest.mark.parametrize("status", ["open", "completed", "cancelled"])
-def test_open_access_review_rejects_non_draft_campaign(app, status):
+def test_open_access_review_rejects_non_draft_campaign(app,status):
     """
     Verify that opening is rejected for campaigns outside draft status.
     """
@@ -442,7 +443,42 @@ def test_get_access_review_for_manager_rejects_missing_campaign(app):
             "manager-123",
         )
 
-
+def test_get_access_reviews_for_manager_excludes_other_managers(app):
+    """
+    Verify that a manager receives only campaigns they created.
+    """
     
+    first_review = create_access_review("test campaign 1", "manager-123", "reviewer-123")
+    second_review = create_access_review("test campaign 2", "manager-456", "reviewer-456")
     
+    result = get_access_reviews_for_manager("manager-123")
     
+    assert result == [first_review]
+    
+def test_get_access_reviews_for_manager_returns_newest_first(app):
+    """
+    Verify that a manager's campaigns are returned newest first.
+    """
+    
+    older_campaign = create_access_review("test campaign 1", "manager-123", "reviewer-123")
+    newer_campaign= create_access_review("test campaign 2", "manager-123", "reviewer-123")
+    
+    older_campaign.created_at = datetime(2026,1,1,tzinfo=timezone.utc)
+    newer_campaign.created_at = datetime(2026,1,2,tzinfo=timezone.utc)
+    db.session.flush()
+    
+    result =get_access_reviews_for_manager("manager-123")
+    
+    assert result == [newer_campaign,older_campaign]
+    
+def test_get_access_reviews_for_manager_returns_empty_list(app):
+    """
+    Verify that a manager with no created campaigns receives an empty list.
+    """
+    
+    create_access_review("test campaign", "manager-123", "reviewer-123")
+    db.session.flush()
+    
+    result = get_access_reviews_for_manager("manager-456")
+    
+    assert result == []

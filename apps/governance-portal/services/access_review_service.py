@@ -234,11 +234,7 @@ def get_access_review_for_manager(
     campaigns to avoid exposing campaign existence.
     """
 
-    manager_user_id = _validate_required_string(
-        manager_user_id,
-        "manager_user_id",
-        255,
-    )
+    manager_user_id = _validate_required_string(manager_user_id,"manager_user_id",255,)
 
     campaign = db.session.execute(
         db.select(AccessReview).where(
@@ -251,3 +247,21 @@ def get_access_review_for_manager(
         raise ValueError("access_review_not_found")
 
     return campaign
+
+def get_access_reviews_for_manager(manager_user_id: str) -> list[AccessReview]:
+    """
+    Return access review campaigns created by the specified manager, newest first.
+
+    Include all campaign statuses without modifying the database.
+    """
+    
+    manager_user_id=_validate_required_string(manager_user_id,"manager_user_id",255)
+    
+    return db.session.execute(
+        db.select(AccessReview)
+        .where(AccessReview.created_by_user_id == manager_user_id)
+        .order_by(AccessReview.created_at.desc(), AccessReview.id.desc())  
+    ).scalars().all()
+    
+
+    
