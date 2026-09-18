@@ -60,7 +60,7 @@ def test_access_reviews_rejects_user_without_reviewer_role(
     assert response.status_code == 403
 
 
-def test_access_reviews_shows_only_assigned_campaigns(app, client):
+def test_access_reviews_shows_only_assigned_campaigns(client):
     """
     Verify that the page displays only campaigns assigned to the authenticated reviewer.
     """
@@ -89,7 +89,7 @@ def test_access_reviews_shows_only_assigned_campaigns(app, client):
     assert f'href="/access-reviews/{review.id}"' in html
 
 
-def test_access_reviews_ignores_supplied_reviewer_id(app, client):
+def test_access_reviews_ignores_supplied_reviewer_id( client):
     """
     Verify that a query parameter cannot expose another reviewer's campaigns.
     """
@@ -118,7 +118,7 @@ def test_access_reviews_ignores_supplied_reviewer_id(app, client):
     assert "Private campaign" not in html
 
 
-def test_access_reviews_displays_empty_message(app, client):
+def test_access_reviews_displays_empty_message(client):
     """
     Verify that reviewers without assigned campaigns see the empty-state message.
     """
@@ -180,7 +180,7 @@ def test_access_review_detail_requires_reviewer_role(
     assert "Assigned campaign" not in response.get_data(as_text=True)
 
 
-def test_access_review_detail_displays_assigned_campaign(app, client):
+def test_access_review_detail_displays_assigned_campaign( client):
     """
     Verify that the assigned reviewer can view a campaign and its captured access.
     """
@@ -240,7 +240,6 @@ def test_access_review_detail_displays_assigned_campaign(app, client):
     ],
 )
 def test_access_review_detail_rejects_other_reviewer(
-    app,
     client,
     query_string,
 ):
@@ -287,7 +286,7 @@ def test_access_review_detail_rejects_missing_campaign(client):
     assert response.status_code == 404
 
 
-def test_access_review_detail_displays_empty_items_message(app, client):
+def test_access_review_detail_displays_empty_items_message( client):
     """
     Verify that a campaign without snapshots displays an explanatory message.
     """
@@ -307,7 +306,7 @@ def test_access_review_detail_displays_empty_items_message(app, client):
     assert "Empty draft campaign" in html
     assert "No access items have been captured for this campaign." in html
     
-def test_access_review_creation_form_allows_manager(app, client):
+def test_access_review_creation_form_allows_manager( client):
     """
     Verify that an access review manager can view the campaign creation form.
     """
@@ -355,7 +354,7 @@ def test_access_review_creation_form_requires_manager_role(
 
     assert response.status_code == 403
 
-def test_access_review_manager_can_create_campaign(app, client):
+def test_access_review_manager_can_create_campaign(client):
     """
     Verify that an access review manager can create a draft campaign.
     """
@@ -386,3 +385,61 @@ def test_access_review_manager_can_create_campaign(app, client):
     assert response.headers["Location"].endswith(
         f"/access-reviews/manage/{review.id}"
     )
+    
+
+def test_manager_can_view_own_campaign(client):
+    """
+    Verify that an access review manager can view a campaign they created.
+    """
+  
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+    
+    campaign = create_access_review("test-campaign","test-subject","reviewer-123")
+    campaign_id = campaign.id
+    
+    response= client.get(f"/access-reviews/manage/{campaign_id}")
+    html = response.get_data(as_text=True)
+    
+    assert response.status_code == 200
+    assert "test-campaign" in html
+
+def test_manager_cannot_view_other_manager_campaign(client) :
+    """
+    Verify that an access review manager cannot view a campaign created by another manager.
+    """
+        
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+    
+    campaign = create_access_review("test-campaign", "other-manager", "reviewer-123")
+    campaign_id = campaign.id
+    
+    response= client.get(f"/access-reviews/manage/{campaign_id}")
+    html = response.get_data(as_text=True)
+    
+    assert response.status_code == 404
+    assert "test-campaign" not in html 
+    
+def test_missing_campaign_returns_404(client):
+    """
+    Verify that requesting a nonexistent managed access review campaign returns HTTP 404.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+    
+    fake_id = 99999
+    
+    response = client.get(f"/access-reviews/manage/{fake_id}")
+    assert response.status_code == 404
+    
+def test_reviewer_cannot_view_manager_route(client):
+    """
+    Verify that an access reviewer without the manager role cannot access the manager campaign detail route.
+    """
+
+    _login_user(client, [ACCESS_REVIEWER])
+    
+    fake_id = 99999
+        
+    response = client.get(f"/access-reviews/manage/{fake_id}")
+    
+    
+    assert response.status_code == 403

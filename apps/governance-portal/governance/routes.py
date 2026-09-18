@@ -15,21 +15,18 @@ from auth.permissions import (
             IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER, 
             AUDIT_LOG_REVIEWER,ROLE_MANAGER,
             ACCESS_REVIEWER,
-            ACCESS_REVIEW_MANAGER,
-        
+            ACCESS_REVIEW_MANAGER,       
 )
-from models import AccessReview
-from extensions import db
 from services.identity_service import search_identities, get_identity_access
 from services.exceptions import KeycloakAdminAPIError, AuditPersistenceError, AuditQueryError,RoleAdministrationPolicyError
 from services.audit_service import record_audit_event, get_recent_audit_events
 from services.role_service import assign_identity_client_role, remove_identity_client_role,get_managed_roles
 from services.access_review_service import( 
-                                           get_access_reviews_for_reviewer,
-                                           get_access_review_for_reviewer,
-                                           create_access_review_with_audit,
-                                           get_access_review_for_manager
-                                           )
+                get_access_reviews_for_reviewer,
+                get_access_review_for_reviewer,
+                create_access_review_with_audit,
+                get_access_review_for_manager
+)
 from sqlalchemy.exc import SQLAlchemyError
 
 

@@ -1,13 +1,20 @@
 import pytest
 from datetime import datetime,timezone
+
+
 from services.access_review_service import (add_access_review_item,
                                             create_access_review, get_access_review_for_reviewer, 
                                             open_access_review,
                                             cancel_access_review,
-                                            get_access_reviews_for_reviewer
+                                            get_access_reviews_for_reviewer,
+                                            get_access_review_for_manager
 )
 from extensions import db
 from models import AccessReview,AccessReviewItem
+from auth.permissions import ACCESS_REVIEW_MANAGER
+
+
+
 
 def test_create_access_review(app):
     """
@@ -388,3 +395,54 @@ def test_get_access_review_for_reviewer_rejects_missing_campaign(app):
     with pytest.raises(ValueError, match="access_review_not_found"):
         get_access_review_for_reviewer(999999, "reviewer-456")
 
+def test_get_access_review_for_manager_returns_owned_campaign(app):
+    """
+    Verify that a manager can retrieve a campaign they created.
+    """
+    campaign = create_access_review(
+        "Manager campaign",
+        "manager-123",
+        "reviewer-123",
+    )
+    
+    result = get_access_review_for_manager(campaign.id, "manager-123")
+    
+    assert result == campaign
+    
+def test_get_access_review_for_manager_rejects_other_manager(app):
+    """
+    Verify that a manager cannot retrieve another manager's campaign.
+    """
+    campaign = create_access_review(
+        "Private campaign",
+        "manager-123",
+        "reviewer-123",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="access_review_not_found",
+    ):
+        get_access_review_for_manager(
+            campaign.id,
+            "manager-456",
+        )
+
+
+def test_get_access_review_for_manager_rejects_missing_campaign(app):
+    """
+    Verify that a nonexistent campaign returns the same not-found error.
+    """
+    with pytest.raises(
+        ValueError,
+        match="access_review_not_found",
+    ):
+        get_access_review_for_manager(
+            999999,
+            "manager-123",
+        )
+
+
+    
+    
+    
