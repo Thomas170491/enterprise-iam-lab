@@ -221,3 +221,33 @@ def create_access_review_with_audit(
         raise
     
     return review
+
+def get_access_review_for_manager(
+    review_id : int,
+    manager_user_id : str,
+) -> AccessReview :
+    """
+    Return an access review campaign only when it was created by
+    the specified access review manager.
+
+    Raise the same not-found error for missing and unauthorized
+    campaigns to avoid exposing campaign existence.
+    """
+
+    manager_user_id = _validate_required_string(
+        manager_user_id,
+        "manager_user_id",
+        255,
+    )
+
+    campaign = db.session.execute(
+        db.select(AccessReview).where(
+            AccessReview.id == review_id,
+            AccessReview.created_by_user_id == manager_user_id,
+        )
+    ).scalar_one_or_none()
+
+    if campaign is None:
+        raise ValueError("access_review_not_found")
+
+    return campaign

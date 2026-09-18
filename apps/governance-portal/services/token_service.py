@@ -137,7 +137,7 @@ def validate_access_token(
         key_set = get_key_set(jwks_url, jwks_cache_ttl_seconds, force_refresh=True)
 
         try :
-            _decode_token(access_token, key_set)
+            token =_decode_token(access_token, key_set)
 
         except InvalidKeyIdError as exc :
             raise TokenValidationError("Invalid Key Id") from exc

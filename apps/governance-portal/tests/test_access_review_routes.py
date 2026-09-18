@@ -2,7 +2,7 @@ from urllib.parse import urlsplit
 
 import pytest
 from flask import url_for
-
+from models import AccessReview
 from auth.permissions import ACCESS_REVIEW_MANAGER, ACCESS_REVIEWER
 from extensions import db
 from services.access_review_service import (
@@ -306,3 +306,83 @@ def test_access_review_detail_displays_empty_items_message(app, client):
     assert response.status_code == 200
     assert "Empty draft campaign" in html
     assert "No access items have been captured for this campaign." in html
+    
+def test_access_review_creation_form_allows_manager(app, client):
+    """
+    Verify that an access review manager can view the campaign creation form.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    response = client.get("/access-reviews/new")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Create access review" in html
+    assert 'name="reviewer_user_id"' in html
+    assert 'name="csrf_token"' in html
+    
+def test_access_review_creation_form_requires_authentication(client):
+    """
+    Verify that unauthenticated users are redirected to login.
+    """
+    response = client.get("/access-reviews/new")
+
+    assert response.status_code == 302
+
+    with client.application.test_request_context():
+        login_url = url_for("auth.login")
+
+    assert urlsplit(response.headers["Location"]).path == login_url
+
+
+@pytest.mark.parametrize(
+    "client_roles",
+    [
+        [],
+        [ACCESS_REVIEWER],
+    ],
+)
+def test_access_review_creation_form_requires_manager_role(
+    client,
+    client_roles,
+):
+    """
+    Verify that only access review managers can open the creation form.
+    """
+    _login_user(client, client_roles)
+
+    response = client.get("/access-reviews/new")
+
+    assert response.status_code == 403
+
+def test_access_review_manager_can_create_campaign(app, client):
+    """
+    Verify that an access review manager can create a draft campaign.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    response = client.post(
+        "/access-reviews/new",
+        data={
+            "name": "September access review",
+            "reviewer_user_id": "reviewer-123",
+            "due_at": "",
+        },
+    )
+
+    assert response.status_code == 303
+
+    review = db.session.execute(
+        db.select(AccessReview).where(
+            AccessReview.name == "September access review"
+        )
+    ).scalar_one()
+
+    assert review.created_by_user_id == "test-subject"
+    assert review.reviewer_user_id == "reviewer-123"
+    assert review.status == "draft"
+    assert review.due_at is None
+
+    assert response.headers["Location"].endswith(
+        f"/access-reviews/manage/{review.id}"
+    )

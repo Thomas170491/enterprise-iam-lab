@@ -1,5 +1,6 @@
 from flask import (
     Blueprint,
+    json,
     render_template,
     current_app,
     request,
@@ -7,20 +8,29 @@ from flask import (
     url_for,
     abort,
 )
-
+from datetime import datetime, timezone
 from flask_login import login_required,current_user
 from auth.decorators import client_role_required
 from auth.permissions import (
             IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER, 
             AUDIT_LOG_REVIEWER,ROLE_MANAGER,
             ACCESS_REVIEWER,
-            ACCESS_REVIEW_MANAGER
+            ACCESS_REVIEW_MANAGER,
+        
 )
+from models import AccessReview
+from extensions import db
 from services.identity_service import search_identities, get_identity_access
 from services.exceptions import KeycloakAdminAPIError, AuditPersistenceError, AuditQueryError,RoleAdministrationPolicyError
 from services.audit_service import record_audit_event, get_recent_audit_events
 from services.role_service import assign_identity_client_role, remove_identity_client_role,get_managed_roles
-from services.access_review_service import get_access_reviews_for_reviewer,get_access_review_for_reviewer
+from services.access_review_service import( 
+                                           get_access_reviews_for_reviewer,
+                                           get_access_review_for_reviewer,
+                                           create_access_review_with_audit,
+                                           get_access_review_for_manager
+                                           )
+from sqlalchemy.exc import SQLAlchemyError
 
 
 
@@ -343,3 +353,97 @@ def access_review_detail(review_id):
     return render_template(
         "access-review-detail.html", 
         review=review)
+
+@bp_governance.route("/access-reviews/new", methods=["GET", "POST"])
+@login_required
+@client_role_required(ACCESS_REVIEW_MANAGER)
+def create_access_review():
+    """
+    Allow access review managers to create an audited draft campaign.
+    """
+
+    if request.method == "GET":
+        return render_template("access-review-create.html")
+
+    name = request.form.get("name", "")
+    reviewer_user_id = request.form.get("reviewer_user_id", "")
+    due_at_raw = request.form.get("due_at", "").strip()
+
+    due_at = None
+
+    if due_at_raw:
+        try:
+            due_at = datetime.fromisoformat(due_at_raw)
+
+            if due_at.tzinfo is not None:
+                raise ValueError("unexpected_timezone")
+
+            due_at = due_at.replace(tzinfo=timezone.utc)
+
+        except ValueError:
+            return render_template(
+                "access-review-create.html",
+                error="Enter a valid due date and time in UTC.",
+            ), 400
+
+    try:
+        review = create_access_review_with_audit(
+            name=name,
+            created_by_user_id=current_user.get_id(),
+            actor_username=current_user.username,
+            reviewer_user_id=reviewer_user_id,
+            due_at=due_at,
+        )
+
+    except ValueError:
+        return render_template(
+            "access-review-create.html",
+            error="Enter a campaign name and a valid reviewer ID.",
+        ), 400
+
+    except (AuditPersistenceError, SQLAlchemyError) as exc:
+        current_app.logger.exception(
+            json.dumps({
+                "event": "access_review.create",
+                "outcome": "failure",
+                "source": "governance-portal",
+                "actor_user_id": current_user.get_id(),
+                "error_type": type(exc).__name__,
+            })
+        )
+
+        return render_template(
+            "access-review-create.html",
+            error="The campaign could not be saved. Please try again.",
+        ), 500
+
+    return redirect(
+        url_for(
+            "governance.manage_access_review_detail",
+            review_id=review.id,
+        ),
+        303,
+    )
+@bp_governance.get("/access-reviews/manage/<int:review_id>")
+@login_required
+@client_role_required(ACCESS_REVIEW_MANAGER)
+def manage_access_review_detail(review_id):
+    """
+    Display a campaign and its captured access to its access review manager.
+    """
+
+    try:
+        campaign = get_access_review_for_manager(
+            review_id,
+            current_user.get_id(),
+        )
+    except ValueError:
+        abort(404)
+
+    return render_template(
+        "access-review-detail.html",
+        review=campaign,
+        manager_view=True,
+    )
+    
+    

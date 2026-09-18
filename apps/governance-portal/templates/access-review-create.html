@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}
+Create Access Review | NovaSecure IAM Governance
+{% endblock %}
+
+{% block content %}
+<h1>Create access review</h1>
+
+{% if error %}
+<p role="alert">{{ error }}</p>
+{% endif %}
+
+<form method="POST">
+    <input
+        type="hidden"
+        name="csrf_token"
+        value="{{ csrf_token() }}"
+    >
+
+    <p>
+        <label for="name">Campaign name</label><br>
+        <input
+            id="name"
+            name="name"
+            type="text"
+            maxlength="200"
+            value="{{ request.form.get('name', '') }}"
+            required
+        >
+    </p>
+
+    <p>
+        <label for="reviewer_user_id">Reviewer’s Keycloak user ID</label><br>
+        <input
+            id="reviewer_user_id"
+            name="reviewer_user_id"
+            type="text"
+            maxlength="255"
+            value="{{ request.form.get('reviewer_user_id', '') }}"
+            required
+        >
+    </p>
+
+    <p>
+        <label for="due_at">Due date and time (UTC, optional)</label><br>
+        <input
+            id="due_at"
+            name="due_at"
+            type="datetime-local"
+            value="{{ request.form.get('due_at', '') }}"
+        >
+    </p>
+
+    <button type="submit">Create draft campaign</button>
+</form>
+{% endblock %}
