@@ -5,21 +5,86 @@ Profile | NovaSecure Employee Portal
 {% endblock %}
 
 {% block content %}
-<section>
+
+<div class="page-header">
+    <div class="portal-eyebrow">
+        Identity
+    </div>
+
     <h1>My Profile</h1>
 
-    <dl class="profile-details">
-        <dt>Name</dt>
-        <dd>{{ user.name }}</dd>
+    <p>
+        Identity information associated with your authenticated
+        NovaSecure account.
+    </p>
+</div>
 
-        <dt>Username</dt>
-        <dd>{{ user.username }}</dd>
 
-        <dt>Email</dt>
-        <dd>{{ user.email }}</dd>
+<section class="employee-profile-card">
 
-        <dt>OIDC Subject</dt>
-        <dd>{{ user.id }}</dd>
-    </dl>
+    <div class="employee-profile-header">
+
+        <div class="employee-profile-avatar">
+            {{ (user.name or user.username)[0] | upper }}
+        </div>
+
+        <div>
+            <h2>{{ user.name or user.username }}</h2>
+
+            <p>
+                {{ user.username }}
+            </p>
+        </div>
+
+        <span class="status">
+            Authenticated
+        </span>
+
+    </div>
+
+
+    <div class="employee-profile-grid">
+
+        <div class="employee-profile-field">
+            <span>Name</span>
+            <strong>{{ user.name or "—" }}</strong>
+        </div>
+
+        <div class="employee-profile-field">
+            <span>Username</span>
+            <strong>{{ user.username }}</strong>
+        </div>
+
+        <div class="employee-profile-field">
+            <span>Email</span>
+            <strong>{{ user.email or "—" }}</strong>
+        </div>
+
+        <div class="employee-profile-field employee-profile-subject">
+            <span>OIDC Subject</span>
+            <strong>{{ user.id }}</strong>
+        </div>
+
+    </div>
+
 </section>
+
+
+<div class="info-banner">
+
+    <div class="info-banner-icon">
+        IAM
+    </div>
+
+    <div>
+        <strong>Managed by NovaSecure IAM</strong>
+
+        <p>
+            Authentication and identity information are provided securely
+            through the NovaSecure Keycloak identity platform.
+        </p>
+    </div>
+
+</div>
+
 {% endblock %}

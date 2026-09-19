@@ -6,16 +6,154 @@ Home | NovaSecure Employee Portal
 
 {% block content %}
 
-<h1>NovaSecure Employee Portal</h1>
 
 {% if current_user.is_authenticated %}
-    <p>Welcome, {{ current_user.name }}.</p>
-    <p>Signed in as {{ current_user.username }}</p>
+
+<div class="portal-hero">
+
+    <div class="portal-eyebrow">
+        NovaSecure Employee Workspace
+    </div>
+
+    <h1>
+        Welcome back,
+        {{ current_user.name or current_user.username }}
+    </h1>
+
+    <p>
+        Access your NovaSecure identity information,
+        authorized department resources and employee services
+        from one secure workspace.
+    </p>
+
+
+    <div class="welcome-strip">
+
+        <div class="employee-avatar">
+            {{ (current_user.name or current_user.username)[0] | upper }}
+        </div>
+
+        <div class="welcome-identity">
+
+            <strong>
+                {{ current_user.name or current_user.username }}
+            </strong>
+
+            <span>
+                {{ current_user.username }}
+                · Authenticated with NovaSecure IAM
+            </span>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div class="portal-grid">
+
+    <a
+        class="portal-card"
+        href="{{ url_for('portal.profile') }}"
+    >
+
+        <div class="portal-card-icon">
+            ID
+        </div>
+
+        <h2>My Profile</h2>
+
+        <p>
+            View your NovaSecure identity information
+            and authenticated account details.
+        </p>
+
+        <span class="portal-card-arrow">
+            →
+        </span>
+
+    </a>
+
+
+    <a
+        class="portal-card"
+        href="{{ url_for('portal.department') }}"
+    >
+
+        <div class="portal-card-icon">
+            DEPT
+        </div>
+
+        <h2>My Department</h2>
+
+        <p>
+            Access resources available to your
+            authorized organizational department.
+        </p>
+
+        <span class="portal-card-arrow">
+            →
+        </span>
+
+    </a>
+
+
+    {% if "manager-dashboard" in current_user.client_roles %}
+
+    <a
+        class="portal-card"
+        href="{{ url_for('portal.manager') }}"
+    >
+
+        <div class="portal-card-icon">
+            MGR
+        </div>
+
+        <h2>Manager Dashboard</h2>
+
+        <p>
+            Access management information and
+            manager-specific employee services.
+        </p>
+
+        <span class="portal-card-arrow">
+            →
+        </span>
+
+    </a>
+
+    {% endif %}
+
+</div>
+
+
 {% else %}
-    <a href="{{ url_for('auth.login') }}">
+
+<div class="signin-panel">
+
+    <div class="portal-eyebrow">
+        NovaSecure Identity
+    </div>
+
+    <h1>
+        Employee Portal
+    </h1>
+
+    <p>
+        Secure access to your NovaSecure identity,
+        department resources and employee services.
+    </p>
+
+    <a
+        class="primary-button"
+        href="{{ url_for('auth.login') }}"
+    >
         Sign in with NovaSecure
     </a>
-{% endif %}
 
+</div>
+
+{% endif %}
 
 {% endblock %}

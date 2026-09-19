@@ -5,27 +5,108 @@ Department | NovaSecure Employee Portal
 {% endblock %}
 
 {% block content %}
-<section>
+
+<div class="page-header">
+
+    <div class="portal-eyebrow">
+        Authorized Workspace
+    </div>
+
     <h1>{{ department }}</h1>
 
     <p>
-        You are authorized to access this department's resources.
+        Resources available through your current
+        NovaSecure department authorization.
     </p>
 
-    <p>
-        Signed in as {{ current_user.name }}.
-    </p>
+</div>
 
-    <h2>Department Resources</h2>
+
+<div class="department-summary">
+
+    <div class="department-summary-icon">
+        DEPT
+    </div>
+
+    <div>
+        <span class="department-summary-label">
+            Authorized department
+        </span>
+
+        <strong>
+            {{ department }}
+        </strong>
+
+        <p>
+            Signed in as {{ current_user.name or current_user.username }}.
+        </p>
+    </div>
+
+    <span class="status">
+        Access granted
+    </span>
+
+</div>
+
+
+<section>
+
+    <div class="section-heading">
+
+        <div>
+            <h2>Department Resources</h2>
+
+            {% if resources %}
+            <p>
+                {{ resources | length }}
+                {% if resources | length == 1 %}
+                    resource available
+                {% else %}
+                    resources available
+                {% endif %}
+            </p>
+            {% endif %}
+        </div>
+
+    </div>
+
 
     {% if resources %}
-        <ul>
-            {% for resource in resources %}
-                <li>{{ resource }}</li>
-            {% endfor %}
-        </ul>
+
+    <div class="resource-grid">
+
+        {% for resource in resources %}
+
+        <div class="resource-card">
+
+            <div class="resource-icon">
+                R
+            </div>
+
+            <div>
+                <strong>
+                    {{ resource }}
+                </strong>
+
+                <span>
+                    Authorized department resource
+                </span>
+            </div>
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
     {% else %}
-        <p>No department resources are currently available.</p>
+
+    <div class="empty-state">
+        No department resources are currently available.
+    </div>
+
     {% endif %}
+
 </section>
+
 {% endblock %}

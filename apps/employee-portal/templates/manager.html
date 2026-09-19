@@ -5,31 +5,111 @@ Manager Dashboard | NovaSecure Employee Portal
 {% endblock %}
 
 {% block content %}
-<section>
+
+<div class="page-header">
+
+    <div class="portal-eyebrow">
+        Management Workspace
+    </div>
+
     <h1>Manager Dashboard</h1>
 
     <p>
-        Welcome, {{ current_user.name }}.
-        Your manager role has been successfully authorized.
+        Management services available through your
+        authorized NovaSecure manager role.
     </p>
 
-    <div class="manager-dashboard">
+</div>
 
-        <div class="manager-card">
-            <h3>Team Overview</h3>
-            <p>View information related to your team.</p>
+
+<div class="manager-welcome">
+
+    <div class="manager-welcome-avatar">
+        {{ (current_user.name or current_user.username)[0] | upper }}
+    </div>
+
+    <div>
+        <span class="manager-welcome-label">
+            Manager session
+        </span>
+
+        <strong>
+            {{ current_user.name or current_user.username }}
+        </strong>
+
+        <p>
+            Your manager entitlement has been successfully authorized.
+        </p>
+    </div>
+
+    <span class="status">
+        Authorized
+    </span>
+
+</div>
+
+
+<div class="manager-dashboard">
+
+    <div class="manager-card">
+
+        <div class="manager-card-icon">
+            TEAM
         </div>
 
-        <div class="manager-card">
-            <h3>Access Overview</h3>
-            <p>Review access information relevant to your management role.</p>
-        </div>
+        <h3>Team Overview</h3>
 
-        <div class="manager-card">
-            <h3>Approvals</h3>
-            <p>Future access requests and approval workflows will appear here.</p>
-        </div>
+        <p>
+            View information related to your team
+            and organizational responsibilities.
+        </p>
+
+        <span class="feature-label">
+            Employee management
+        </span>
 
     </div>
-</section>
+
+
+    <div class="manager-card">
+
+        <div class="manager-card-icon">
+            IAM
+        </div>
+
+        <h3>Access Overview</h3>
+
+        <p>
+            Review access information relevant to
+            your management responsibilities.
+        </p>
+
+        <span class="feature-label">
+            Access visibility
+        </span>
+
+    </div>
+
+
+    <div class="manager-card">
+
+        <div class="manager-card-icon">
+            APR
+        </div>
+
+        <h3>Approvals</h3>
+
+        <p>
+            Access requests and manager approval
+            workflows will be available here.
+        </p>
+
+        <span class="feature-label feature-label-planned">
+            Planned
+        </span>
+
+    </div>
+
+</div>
+
 {% endblock %}

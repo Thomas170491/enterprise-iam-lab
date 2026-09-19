@@ -23,56 +23,99 @@
 
 <body>
 
-    <header>
-        <nav>
+<header class="site-header">
+
+    <nav class="main-nav">
+
+        <a
+            class="nav-brand"
+            href="{{ url_for('portal.home') }}"
+        >
+            <span class="brand-mark">N</span>
+
+            <span class="brand-text">
+                NovaSecure
+                <small>Employee Portal</small>
+            </span>
+        </a>
+
+
+        {% if current_user.is_authenticated %}
+
+        <div class="nav-links">
 
             <a href="{{ url_for('portal.home') }}">
-                NovaSecure
+                Home
             </a>
 
-            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('portal.profile') }}">
+                Profile
+            </a>
 
-                <a href="{{ url_for('portal.profile') }}">
-                    Profile
-                </a>
+            <a href="{{ url_for('portal.department') }}">
+                Department
+            </a>
 
-                <a href="{{ url_for('portal.department') }}">
-                    Department
-                </a>
+            {% if "manager-dashboard" in current_user.client_roles %}
 
-                {% if "manager-dashboard" in current_user.client_roles %}
-                    <a href="{{ url_for('portal.manager') }}">
-                        Manager Dashboard
-                    </a>
-                {% endif %}
-
-                <form method="POST" action="{{ url_for('auth.logout') }}">
-                    <input
-                        type="hidden"
-                        name="csrf_token"
-                        value="{{ csrf_token() }}"
-                    >
-
-                    <button type="submit">
-                        Logout
-                    </button>
-                </form>
-
-            {% else %}
-
-                <a href="{{ url_for('auth.login') }}">
-                    Sign in
-                </a>
+            <a href="{{ url_for('portal.manager') }}">
+                Manager
+            </a>
 
             {% endif %}
 
-        </nav>
-    </header>
+        </div>
 
-    <main>
-        {% block content %}
-        {% endblock %}
-    </main>
+
+        <div class="nav-account">
+
+            <span class="nav-user">
+                {{ current_user.name or current_user.username }}
+            </span>
+
+            <form
+                method="POST"
+                action="{{ url_for('auth.logout') }}"
+            >
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token() }}"
+                >
+
+                <button
+                    class="logout-button"
+                    type="submit"
+                >
+                    Log out
+                </button>
+
+            </form>
+
+        </div>
+
+
+        {% else %}
+
+        <a
+            class="nav-signin"
+            href="{{ url_for('auth.login') }}"
+        >
+            Sign in
+        </a>
+
+        {% endif %}
+
+    </nav>
+
+</header>
+
+
+<main>
+    {% block content %}
+    {% endblock %}
+</main>
 
 </body>
 
