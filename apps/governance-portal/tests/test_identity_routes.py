@@ -587,7 +587,7 @@ def test_role_manager_sees_managed_role_choices(
     assert response.status_code == 200 
     assert b"finance-data-viewer" in response.data
     assert b"manager-dashboard" in response.data
-    assert b"Assign Role" in response.data
+    assert b"Assign role" in response.data
 
     
 
