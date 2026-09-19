@@ -12,7 +12,9 @@ from services.access_review_service import (add_access_review_item,
 )
 from extensions import db
 from models import AccessReview,AccessReviewItem
-from auth.permissions import ACCESS_REVIEW_MANAGER
+from unittest.mock import Mock
+from services.exceptions import KeycloakAdminAPIError 
+import services.access_review_service as access_review_service
 
 
 
@@ -482,3 +484,183 @@ def test_get_access_reviews_for_manager_returns_empty_list(app):
     result = get_access_reviews_for_manager("manager-456")
     
     assert result == []
+    
+def test_validate_access_review_reviewer_accepts_eligible_user(monkeypatch):
+    """
+    Verify that an enabled user with reviewer access is accepted.
+    """
+    reviewer = {
+        "id": "reviewer-123",
+        "username": "e1005",
+        "enabled": True,
+    }
+
+    fake_get_user = Mock(return_value=reviewer)
+    fake_get_roles = Mock(
+        return_value=[{"name": "access-reviewer"}]
+    )
+
+    monkeypatch.setattr(
+        access_review_service, "get_user", fake_get_user
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        fake_get_roles,
+    )
+
+    result = access_review_service.validate_access_review_reviewer(
+        reviewer_user_id=" reviewer-123 ",
+        admin_api_url="https://keycloak.test/admin",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="test-secret",
+    )
+
+    assert result == reviewer
+
+    fake_get_user.assert_called_once_with(
+        admin_api_url="https://keycloak.test/admin",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="test-secret",
+        user_id="reviewer-123",
+    )
+
+    fake_get_roles.assert_called_once_with(
+        admin_api_url="https://keycloak.test/admin",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="test-secret",
+        user_id="reviewer-123",
+        target_client_name="iam-admin-portal",
+    )
+    
+def test_validate_access_review_reviewer_rejects_disabled_user(monkeypatch):
+    """
+    Verify that a disabled reviewer is rejected before their roles are retrieved.
+    """
+    
+    fake_get_user = Mock(return_value={"enabled" : False})
+    fake_get_roles = Mock()
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user",
+        fake_get_user
+    )
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        fake_get_roles,
+    )
+    
+    with pytest.raises(ValueError, match= "reviewer_not_enabled"):
+        access_review_service.validate_access_review_reviewer(
+                reviewer_user_id=" reviewer-123 ",
+                admin_api_url="https://keycloak.test/admin",
+                token_url="https://keycloak.test/token",
+                client_id="iam-governance-service",
+                client_secret="test-secret",
+        )
+          
+    fake_get_roles.assert_not_called()
+
+def test_validate_access_review_reviewer_rejects_missing_roles(monkeypatch):
+    """
+    Verify that an enabled user without reviewer access is rejected.
+    """
+    
+    fake_get_user = Mock(return_value={"enabled" : True})
+    fake_get_roles = Mock(return_value=[{"name" : "identity-viewer"}])
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user",
+        fake_get_user
+    )
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        fake_get_roles,
+    )
+    
+    with pytest.raises(ValueError, match= "reviewer_missing_required_role"):
+        access_review_service.validate_access_review_reviewer(
+                reviewer_user_id=" reviewer-123 ",
+                admin_api_url="https://keycloak.test/admin",
+                token_url="https://keycloak.test/token",
+                client_id="iam-governance-service",
+                client_secret="test-secret",
+        )
+          
+    fake_get_roles.assert_called_once()
+    
+def test_validate_access_review_reviewer_propagates_lookup_failure(monkeypatch):
+    """
+    Verify that a failed user lookup propagates without retrieving roles.
+    """
+    
+    fake_get_user = Mock(side_effect=KeycloakAdminAPIError("User retrieval failed"))
+    
+    fake_get_roles = Mock()
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user",
+        fake_get_user
+    )
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        fake_get_roles,
+    )
+    
+    with pytest.raises(KeycloakAdminAPIError, match="User retrieval failed"):
+        access_review_service.validate_access_review_reviewer(
+            reviewer_user_id="reviewer-123",
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
+        )
+    
+    fake_get_roles.assert_not_called()
+    
+def test_validate_access_review_reviewer_propagates_role_lookup_failure(monkeypatch):
+    """
+    Verify that a failed role lookup prevents reviewer validation from succeeding.
+    """
+    
+    fake_get_user = Mock(return_value={"enabled" : True})
+    
+    fake_get_roles = Mock(side_effect=KeycloakAdminAPIError("Role retrieval failed"))
+    
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user",
+        fake_get_user
+    )
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        fake_get_roles,
+    )
+    
+    with pytest.raises(KeycloakAdminAPIError, match="Role retrieval failed"):
+        access_review_service.validate_access_review_reviewer(
+            reviewer_user_id="reviewer-123",
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
+        )
+    
+    fake_get_roles.assert_called_once()
+                        
+                        

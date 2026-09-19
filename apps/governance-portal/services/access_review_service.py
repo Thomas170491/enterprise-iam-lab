@@ -3,7 +3,7 @@ from datetime import datetime
 from extensions import db
 from models import AccessReview, AccessReviewItem
 from services.audit_service import record_audit_event
-
+from services.keycloak_admin_service import get_effective_client_roles, get_user
 
 def _validate_required_string(value, field_name, max_length):
     """Return a trimmed required string or raise a field-specific ValueError."""
@@ -222,10 +222,7 @@ def create_access_review_with_audit(
     
     return review
 
-def get_access_review_for_manager(
-    review_id : int,
-    manager_user_id : str,
-) -> AccessReview :
+def get_access_review_for_manager(review_id : int, manager_user_id : str) -> AccessReview :
     """
     Return an access review campaign only when it was created by
     the specified access review manager.
@@ -263,5 +260,40 @@ def get_access_reviews_for_manager(manager_user_id: str) -> list[AccessReview]:
         .order_by(AccessReview.created_at.desc(), AccessReview.id.desc())  
     ).scalars().all()
     
-
+def validate_access_review_reviewer(
+    reviewer_user_id: str,
+    admin_api_url: str,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+)-> dict :
+    """
+    Verify that the assigned reviewer exists, is enabled, and has reviewer access.
+    """
     
+    reviewer_user_id = _validate_required_string(reviewer_user_id,"reviewer_user_id", 255)
+    
+    reviewer = get_user(
+        admin_api_url=admin_api_url,
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        user_id= reviewer_user_id
+    )
+    
+    if  reviewer.get("enabled") is not True:
+        raise ValueError("reviewer_not_enabled")
+    
+    reviewer_roles = get_effective_client_roles(
+        admin_api_url=admin_api_url,
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        user_id=reviewer_user_id,
+        target_client_name="iam-admin-portal",
+    )
+    
+    if not any(role.get("name")== "access-reviewer" for role in reviewer_roles) : 
+        raise ValueError("reviewer_missing_required_role")
+    
+    return reviewer
