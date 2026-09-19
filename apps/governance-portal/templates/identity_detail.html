@@ -1,109 +1,177 @@
 {% extends "base.html" %}
 
+{% block title %}
+{{ identity_access.identity.username }} | NovaSecure IAM Governance
+{% endblock %}
+
 {% block content %}
 
-<div class="identity-detail">
+<div class="identity-profile-header">
 
-    <div class="page-header">
-        <h1>Identity Detail</h1>
-
-        <p>
-            Effective access and identity information
-            retrieved from NovaSecure IAM.
-        </p>
+    <div class="identity-avatar">
+        {{ (identity_access.identity.first_name or identity_access.identity.username)[0] | upper }}
+        {{ (identity_access.identity.last_name or "")[0] | upper }}
     </div>
 
+    <div class="identity-profile-heading">
 
-    <!-- =====================================================
-         Identity Information
-         ===================================================== -->
+        <div class="identity-profile-title">
 
-    <section class="identity-section">
+            <div>
+                <div class="eyebrow">
+                    NovaSecure Identity
+                </div>
 
-        <h2>Identity</h2>
-
-        <table>
-
-            <tr>
-                <th>Username</th>
-                <td>
-                    <a href="{{ url_for(
-                        'governance.identity_detail',
-                        user_id=identity_access.identity.id
-                    ) }}">
-                        {{ identity_access.identity.username }}
-                    </a>
-                </td>
-            </tr>
-
-            <tr>
-                <th>Name</th>
-                <td>
+                <h1>
                     {{ identity_access.identity.first_name or "" }}
                     {{ identity_access.identity.last_name or "" }}
-                </td>
-            </tr>
+                </h1>
 
-            <tr>
-                <th>Email</th>
-                <td>
-                    {{ identity_access.identity.email or "-" }}
-                </td>
-            </tr>
+                <p class="identity-username">
+                    {{ identity_access.identity.username }}
+                </p>
+            </div>
 
-            <tr>
-                <th>Employee ID</th>
-                <td>
-                    {{ identity_access.identity.employee_id or "-" }}
-                </td>
-            </tr>
+            <div class="identity-profile-badges">
 
-            <tr>
-                <th>Job Title</th>
-                <td>
-                    {{ identity_access.identity.job_title or "-" }}
-                </td>
-            </tr>
+                {% if identity_access.identity.enabled %}
+                <span class="badge badge-enabled">
+                    Enabled
+                </span>
+                {% else %}
+                <span class="badge badge-disabled">
+                    Disabled
+                </span>
+                {% endif %}
 
-            <tr>
-                <th>Employment Status</th>
-                <td>
-                    {{ identity_access.identity.employment_status or "-" }}
-                </td>
-            </tr>
 
-            <tr>
-                <th>Risk Level</th>
+                {% if identity_access.identity.risk_level %}
+                <span class="badge badge-risk-{{ identity_access.identity.risk_level | lower }}">
+                    {{ identity_access.identity.risk_level }} risk
+                </span>
+                {% endif %}
 
-                <td>
-                    {% if identity_access.identity.risk_level %}
-                        <span class="badge badge-risk-{{ identity_access.identity.risk_level | lower }}">
-                            {{ identity_access.identity.risk_level }}
-                        </span>
-                    {% else %}
-                        —
-                    {% endif %}
-                </td>
-            </tr>
+            </div>
 
-            <tr>
+        </div>
 
-                <th>Account Enabled</th>
+        <p>
+            Effective identity and access information retrieved from
+            NovaSecure IAM.
+        </p>
 
-                <td>
-                    {% if identity_access.identity.enabled %}
-                        <span class="badge badge-enabled">
-                            Enabled
-                        </span>
-                    {% else %}
-                        <span class="badge badge-disabled">
-                            Disabled
-                        </span>
-                    {% endif %}
-                </td>
-            </tr>
+    </div>
 
-        </table>
+</div>
+
+
+<div class="identity-profile-grid">
+
+    <!-- =====================================================
+         Identity information
+         ===================================================== -->
+
+    <section class="identity-section identity-overview">
+
+        <div class="section-heading">
+            <div>
+                <span class="section-kicker">
+                    Directory
+                </span>
+
+                <h2>Identity information</h2>
+            </div>
+        </div>
+
+        <div class="identity-attributes">
+
+            <div class="identity-attribute">
+                <span class="identity-attribute-label">
+                    Username
+                </span>
+
+                <strong>
+                    {{ identity_access.identity.username }}
+                </strong>
+            </div>
+
+
+            <div class="identity-attribute">
+                <span class="identity-attribute-label">
+                    Employee ID
+                </span>
+
+                <strong>
+                    {{ identity_access.identity.employee_id or "—" }}
+                </strong>
+            </div>
+
+
+            <div class="identity-attribute">
+                <span class="identity-attribute-label">
+                    Email
+                </span>
+
+                <strong>
+                    {{ identity_access.identity.email or "—" }}
+                </strong>
+            </div>
+
+
+            <div class="identity-attribute">
+                <span class="identity-attribute-label">
+                    Job title
+                </span>
+
+                <strong>
+                    {{ identity_access.identity.job_title or "—" }}
+                </strong>
+            </div>
+
+
+            <div class="identity-attribute">
+                <span class="identity-attribute-label">
+                    Employment status
+                </span>
+
+                <strong>
+                    {{ identity_access.identity.employment_status or "—" }}
+                </strong>
+            </div>
+
+
+            <div class="identity-attribute">
+                <span class="identity-attribute-label">
+                    Account state
+                </span>
+
+                {% if identity_access.identity.enabled %}
+                <span class="badge badge-enabled">
+                    Enabled
+                </span>
+                {% else %}
+                <span class="badge badge-disabled">
+                    Disabled
+                </span>
+                {% endif %}
+            </div>
+
+
+            <div class="identity-attribute">
+                <span class="identity-attribute-label">
+                    Risk level
+                </span>
+
+                {% if identity_access.identity.risk_level %}
+                <span class="badge badge-risk-{{ identity_access.identity.risk_level | lower }}">
+                    {{ identity_access.identity.risk_level }}
+                </span>
+                {% else %}
+                <strong>—</strong>
+                {% endif %}
+            </div>
+
+        </div>
 
     </section>
 
@@ -114,25 +182,40 @@
 
     <section class="identity-section">
 
-        <h2>Groups</h2>
+        <div class="section-heading">
+            <div>
+                <span class="section-kicker">
+                    Membership
+                </span>
+
+                <h2>Groups</h2>
+            </div>
+
+            <span class="section-count">
+                {{ identity_access.groups | length }}
+            </span>
+        </div>
+
 
         {% if identity_access.groups %}
 
-            <ul>
+        <div class="role-chip-list">
 
-                {% for group in identity_access.groups %}
+            {% for group in identity_access.groups %}
 
-                    <li>
-                        {{ group.name }}
-                    </li>
+            <span class="role-chip">
+                {{ group.name }}
+            </span>
 
-                {% endfor %}
+            {% endfor %}
 
-            </ul>
+        </div>
 
         {% else %}
 
-            <p>No group memberships.</p>
+        <div class="empty-state">
+            No group memberships.
+        </div>
 
         {% endif %}
 
@@ -140,30 +223,45 @@
 
 
     <!-- =====================================================
-         Realm Roles
+         Realm roles
          ===================================================== -->
 
     <section class="identity-section">
 
-        <h2>Effective Realm Roles</h2>
+        <div class="section-heading">
+            <div>
+                <span class="section-kicker">
+                    Organization
+                </span>
+
+                <h2>Effective realm roles</h2>
+            </div>
+
+            <span class="section-count">
+                {{ identity_access.realm_roles | length }}
+            </span>
+        </div>
+
 
         {% if identity_access.realm_roles %}
 
-            <ul>
+        <div class="role-chip-list">
 
-                {% for role in identity_access.realm_roles %}
+            {% for role in identity_access.realm_roles %}
 
-                    <li>
-                        {{ role.name }}
-                    </li>
+            <span class="role-chip">
+                {{ role.name }}
+            </span>
 
-                {% endfor %}
+            {% endfor %}
 
-            </ul>
+        </div>
 
         {% else %}
 
-            <p>No effective realm roles.</p>
+        <div class="empty-state">
+            No effective realm roles.
+        </div>
 
         {% endif %}
 
@@ -171,79 +269,100 @@
 
 
     <!-- =====================================================
-         Employee Portal Client Roles
+         Client roles
          ===================================================== -->
 
-    <section class="identity-section">
+    <section class="identity-section identity-client-access">
 
-        <h2>Effective Client Roles</h2>
+        <div class="section-heading">
+
+            <div>
+                <span class="section-kicker">
+                    Employee Portal
+                </span>
+
+                <h2>Effective client roles</h2>
+            </div>
+
+            <span class="section-count">
+                {{ identity_access.client_roles | length }}
+            </span>
+
+        </div>
+
 
         {% if identity_access.client_roles %}
 
-            <ul>
+        <div class="access-role-list">
 
-                {% for role in identity_access.client_roles %}
+            {% for role in identity_access.client_roles %}
 
-                    <li>
+            <div class="access-role-row">
 
+                <div class="access-role-info">
+
+                    <span class="access-role-name">
                         {{ role.name }}
+                    </span>
 
-                        {% if role.name in direct_role_names %}
+                    {% if role.name in direct_role_names %}
 
-                            <span class="badge badge-direct">
-                                Direct
-                            </span>
+                    <span class="badge badge-direct">
+                        Direct
+                    </span>
 
-                            <!--
-                            Only ROLE_MANAGER users receive mutation controls.
+                    {% else %}
 
-                            This is only a UI restriction.
-                            The Flask POST route still performs the real
-                            server-side authorization check.
-                            -->
-                            {% if "role-manager" in current_user.client_roles %}
+                    <span class="badge badge-inherited">
+                        Inherited
+                    </span>
 
-                                <form
-                                    method="POST"
-                                    action="{{ url_for(
-                                        'governance.remove_identity_role',
-                                        user_id=identity_access.identity.id,
-                                        role_name=role.name
-                                    ) }}"
-                                    style="display:inline;"
-                                >
+                    {% endif %}
 
-                                    <input
-                                        type="hidden"
-                                        name="csrf_token"
-                                        value="{{ csrf_token() }}"
-                                    >
+                </div>
 
-                                    <button type="submit">
-                                        Remove
-                                    </button>
 
-                                </form>
+                {% if role.name in direct_role_names
+                      and "role-manager" in current_user.client_roles %}
 
-                            {% endif %}
+                <form
+                    class="inline-role-form"
+                    method="POST"
+                    action="{{ url_for(
+                        'governance.remove_identity_role',
+                        user_id=identity_access.identity.id,
+                        role_name=role.name
+                    ) }}"
+                >
 
-                        {% else %}
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token() }}"
+                    >
 
-                           <span class="badge badge-inherited">
-                                Inherited
-                           </span>
+                    <button
+                        class="button-danger"
+                        type="submit"
+                    >
+                        Remove
+                    </button>
 
-                        {% endif %}
+                </form>
 
-                    </li>
+                {% endif %}
 
-                {% endfor %}
+            </div>
 
-            </ul>
+            {% endfor %}
+
+        </div>
 
         {% else %}
 
-            <p>No effective client roles.</p>
+        <div class="empty-state">
+            No effective Employee Portal roles.
+        </div>
 
         {% endif %}
 
@@ -251,28 +370,48 @@
 
 
     <!-- =====================================================
-         Governed Role Assignment
+         Role assignment
          ===================================================== -->
 
     {% if "role-manager" in current_user.client_roles %}
 
-        <section class="identity-section">
+    <section class="identity-section identity-role-management">
 
-            <h2>Assign Role</h2>
+        <div class="section-heading">
 
-            <form
-                method="POST"
-                action="{{ url_for(
-                    'governance.assign_identity_role',
-                    user_id=identity_access.identity.id
-                ) }}"
+            <div>
+                <span class="section-kicker">
+                    Governance
+                </span>
+
+                <h2>Assign managed role</h2>
+            </div>
+
+        </div>
+
+        <p>
+            Assign a Governance-managed Employee Portal role.
+            Server-side policy and segregation-of-duties checks
+            are applied before the assignment is performed.
+        </p>
+
+
+        <form
+            class="role-assignment-form"
+            method="POST"
+            action="{{ url_for(
+                'governance.assign_identity_role',
+                user_id=identity_access.identity.id
+            ) }}"
+        >
+
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
             >
 
-                <input
-                    type="hidden"
-                    name="csrf_token"
-                    value="{{ csrf_token() }}"
-                >
+            <div class="role-assignment-field">
 
                 <label for="role_name">
                     Employee Portal role
@@ -286,25 +425,33 @@
 
                     {% for role_name in managed_roles %}
 
-                        <option value="{{ role_name }}">
-                            {{ role_name }}
-                        </option>
+                    <option value="{{ role_name }}">
+                        {{ role_name }}
+                    </option>
 
                     {% endfor %}
 
                 </select>
 
-                <button type="submit">
-                    Assign Role
-                </button>
+            </div>
 
-            </form>
+            <button type="submit">
+                Assign role
+            </button>
 
-        </section>
+        </form>
+
+    </section>
 
     {% endif %}
 
-
 </div>
+
+
+<p class="page-back-link">
+    <a href="{{ url_for('governance.identities') }}">
+        ← Back to identity search
+    </a>
+</p>
 
 {% endblock %}

@@ -86,6 +86,7 @@ body {
 a {
     color: var(--accent);
     text-decoration: none;
+
     transition:
         color var(--transition),
         opacity var(--transition);
@@ -214,7 +215,9 @@ header {
 
 .nav-link {
     border: 0;
+
     background: transparent;
+
     cursor: pointer;
 }
 
@@ -370,6 +373,12 @@ td a {
     font-weight: 650;
 }
 
+.table-container {
+    width: 100%;
+
+    overflow-x: auto;
+}
+
 
 /* =========================================================
    Forms
@@ -492,6 +501,7 @@ button:hover,
         0 10px 28px rgba(14, 165, 233, 0.22);
 
     color: white;
+
     text-decoration: none;
 }
 
@@ -503,101 +513,7 @@ button:active,
 
 
 /* =========================================================
-   Inline role controls
-   ========================================================= */
-
-.identity-section li form {
-    display: inline-flex;
-
-    margin: 0 0 0 0.7rem;
-}
-
-.identity-section li form button {
-    min-height: 30px;
-
-    padding: 0.3rem 0.6rem;
-
-    border-color: rgba(251, 113, 133, 0.28);
-
-    background: var(--danger-soft);
-
-    color: #fda4af;
-
-    box-shadow: none;
-}
-
-.identity-section li form button:hover {
-    background: rgba(251, 113, 133, 0.2);
-}
-
-
-/* =========================================================
-   Lists / role chips
-   ========================================================= */
-
-.identity-section ul {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.65rem;
-
-    padding: 0;
-    margin: 0;
-
-    list-style: none;
-}
-
-.identity-section li {
-    padding: 0.55rem 0.8rem;
-
-    border: 1px solid var(--border);
-    border-radius: 999px;
-
-    background: rgba(148, 163, 184, 0.055);
-
-    color: #d8e4f3;
-
-    font-size: 0.88rem;
-}
-
-.identity-section li strong {
-    margin-left: 0.4rem;
-
-    color: var(--accent);
-
-    font-size: 0.72rem;
-    text-transform: uppercase;
-}
-
-
-/* =========================================================
-   Identity detail
-   ========================================================= */
-
-.identity-detail {
-    display: grid;
-    gap: 0;
-}
-
-.identity-detail > .page-header {
-    margin-bottom: 1.5rem;
-}
-
-.identity-section table {
-    margin-top: 0;
-}
-
-.identity-section table th {
-    width: 210px;
-
-    color: var(--text-muted);
-
-    text-transform: none;
-    letter-spacing: normal;
-}
-
-
-/* =========================================================
-   Status helper styles
+   Status badges
    ========================================================= */
 
 .status {
@@ -617,6 +533,7 @@ button:active,
 
 .status-draft {
     color: #bae6fd;
+
     background: var(--accent-soft);
 }
 
@@ -624,6 +541,7 @@ button:active,
 .status-enabled,
 .status-success {
     color: #a7f3d0;
+
     background: var(--success-soft);
 }
 
@@ -631,13 +549,86 @@ button:active,
 .status-disabled,
 .status-failure {
     color: #fecdd3;
+
     background: var(--danger-soft);
 }
 
 .status-completed,
 .status-warning {
     color: #fde68a;
+
     background: var(--warning-soft);
+}
+
+
+/* =========================================================
+   Identity badges
+   ========================================================= */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+
+    padding: 0.28rem 0.6rem;
+
+    border-radius: 999px;
+
+    font-size: 0.72rem;
+    font-weight: 700;
+
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+
+    white-space: nowrap;
+}
+
+.badge-enabled {
+    color: #a7f3d0;
+
+    background: var(--success-soft);
+}
+
+.badge-disabled {
+    color: #fecdd3;
+
+    background: var(--danger-soft);
+}
+
+.badge-direct {
+    color: #bae6fd;
+
+    background: var(--accent-soft);
+}
+
+.badge-inherited {
+    color: #cbd5e1;
+
+    background: rgba(148, 163, 184, 0.10);
+}
+
+.badge-risk-low {
+    color: #a7f3d0;
+
+    background: var(--success-soft);
+}
+
+.badge-risk-medium {
+    color: #fde68a;
+
+    background: var(--warning-soft);
+}
+
+.badge-risk-high {
+    color: #fecdd3;
+
+    background: var(--danger-soft);
+}
+
+/* Support the current "elevated" risk value too */
+.badge-risk-elevated {
+    color: #fecdd3;
+
+    background: var(--danger-soft);
 }
 
 
@@ -656,6 +647,20 @@ button:active,
     text-align: center;
 
     background: rgba(148, 163, 184, 0.025);
+}
+
+.empty-state strong {
+    display: block;
+
+    margin-bottom: 0.35rem;
+
+    color: var(--text);
+
+    font-size: 1rem;
+}
+
+.empty-state p {
+    margin: 0;
 }
 
 
@@ -784,152 +789,13 @@ button:active,
 
 
 /* =========================================================
-   Scrollbar
-   ========================================================= */
-
-::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--bg);
-}
-
-::-webkit-scrollbar-thumb {
-    border: 2px solid var(--bg);
-    border-radius: 999px;
-
-    background: #25364d;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #334b68;
-}
-
-
-/* =========================================================
-   Responsive
-   ========================================================= */
-
-@media (max-width: 900px) {
-    main {
-        width: min(100% - 2rem, 1380px);
-        padding-top: 2rem;
-    }
-
-    .main-nav {
-        padding: 1rem;
-        align-items: flex-start;
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-
-    .nav-brand {
-        width: 100%;
-    }
-
-    .nav-links {
-        flex-wrap: wrap;
-    }
-
-    .nav-account {
-        padding-left: 0;
-        border-left: 0;
-    }
-
-    table {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
-    }
-}
-
-
-@media (max-width: 600px) {
-    main {
-        width: min(100% - 1.2rem, 1380px);
-    }
-
-    section,
-    .identity-section,
-    .audit-log,
-    .dashboard-hero {
-        padding: 1rem;
-        border-radius: 14px;
-    }
-
-    .nav-links,
-    .nav-account {
-        width: 100%;
-    }
-
-    input[type="search"] {
-        min-width: 0;
-        max-width: none;
-    }
-}
-/* =========================================================
-   Identity badges
-   ========================================================= */
-
-.badge {
-    display: inline-flex;
-    align-items: center;
-
-    padding: 0.28rem 0.6rem;
-
-    border-radius: 999px;
-
-    font-size: 0.72rem;
-    font-weight: 700;
-
-    letter-spacing: 0.035em;
-    text-transform: uppercase;
-}
-
-.badge-enabled {
-    color: #a7f3d0;
-    background: var(--success-soft);
-}
-
-.badge-disabled {
-    color: #fecdd3;
-    background: var(--danger-soft);
-}
-
-.badge-direct {
-    color: #bae6fd;
-    background: var(--accent-soft);
-}
-
-.badge-inherited {
-    color: #cbd5e1;
-    background: rgba(148, 163, 184, 0.10);
-}
-
-.badge-risk-low {
-    color: #a7f3d0;
-    background: var(--success-soft);
-}
-
-.badge-risk-medium {
-    color: #fde68a;
-    background: var(--warning-soft);
-}
-
-.badge-risk-high {
-    color: #fecdd3;
-    background: var(--danger-soft);
-}
-
-/* =========================================================
    Identity search
    ========================================================= */
 
 .identity-search-form {
     display: flex;
     align-items: flex-end;
+
     gap: 0.8rem;
 
     margin: 0;
@@ -967,36 +833,487 @@ button:active,
     font-size: 0.85rem;
 }
 
-.table-container {
-    width: 100%;
-    overflow-x: auto;
-}
-
 .identity-link {
     font-weight: 700;
 }
 
-.empty-state strong {
+
+/* =========================================================
+   Identity profile header
+   ========================================================= */
+
+.identity-profile-header {
+    display: flex;
+    align-items: center;
+
+    gap: 1.4rem;
+
+    margin-bottom: 1.5rem;
+    padding: 1.7rem;
+
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    border-radius: 20px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(14, 165, 233, 0.10),
+            rgba(99, 102, 241, 0.035),
+            rgba(16, 30, 49, 0.94)
+        );
+
+    box-shadow: var(--shadow);
+}
+
+.identity-avatar {
+    width: 76px;
+    height: 76px;
+
+    flex-shrink: 0;
+
+    display: grid;
+    place-items: center;
+
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    border-radius: 20px;
+
+    color: #bae6fd;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(56, 189, 248, 0.20),
+            rgba(14, 165, 233, 0.05)
+        );
+
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.identity-profile-heading {
+    flex: 1;
+
+    min-width: 0;
+}
+
+.identity-profile-heading h1 {
+    margin-bottom: 0;
+}
+
+.identity-profile-heading > p {
+    margin: 0.7rem 0 0;
+}
+
+.identity-profile-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 1rem;
+}
+
+.identity-profile-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+
+    gap: 0.45rem;
+}
+
+.identity-username {
+    margin: 0.15rem 0 0 !important;
+
+    color: var(--accent) !important;
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        monospace;
+
+    font-size: 0.88rem !important;
+}
+
+.eyebrow,
+.section-kicker {
     display: block;
 
     margin-bottom: 0.35rem;
 
-    color: var(--text);
+    color: var(--accent);
 
-    font-size: 1rem;
-}
+    font-size: 0.7rem;
+    font-weight: 750;
 
-.empty-state p {
-    margin: 0;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
 }
 
 
 /* =========================================================
-   Search responsive layout
+   Identity profile grid
    ========================================================= */
 
-@media (max-width: 650px) {
+.identity-profile-grid {
+    display: grid;
 
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 1.2rem;
+}
+
+.identity-profile-grid .identity-section {
+    margin: 0;
+}
+
+.identity-overview,
+.identity-client-access,
+.identity-role-management {
+    grid-column: 1 / -1;
+}
+
+
+/* =========================================================
+   Identity attributes
+   ========================================================= */
+
+/*
+   minmax(220px, 1fr) prevents attributes from becoming
+   excessively narrow.
+
+   auto-fit automatically moves attributes onto another row
+   when there is not enough horizontal space.
+*/
+
+.identity-attributes {
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fit, minmax(220px, 1fr));
+
+    gap: 0;
+
+    overflow: hidden;
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+
+    background: rgba(7, 17, 31, 0.2);
+}
+
+.identity-attribute {
+    min-width: 0;
+    min-height: 86px;
+
+    padding: 1rem;
+
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.identity-attribute-label {
+    display: block;
+
+    margin-bottom: 0.45rem;
+
+    color: var(--text-subtle);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.identity-attribute strong {
+    display: block;
+
+    max-width: 100%;
+
+    color: var(--text);
+
+    font-size: 0.94rem;
+
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+
+/* =========================================================
+   Section headings
+   ========================================================= */
+
+.section-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 1rem;
+
+    margin-bottom: 1rem;
+}
+
+.section-heading h2 {
+    margin: 0;
+}
+
+.section-count {
+    min-width: 30px;
+    height: 30px;
+
+    display: grid;
+    place-items: center;
+
+    padding: 0 0.5rem;
+
+    border: 1px solid var(--border);
+    border-radius: 999px;
+
+    color: var(--text-muted);
+
+    background: rgba(148, 163, 184, 0.07);
+
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   Role chips
+   ========================================================= */
+
+.role-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 0.55rem;
+}
+
+.role-chip {
+    padding: 0.48rem 0.7rem;
+
+    border: 1px solid var(--border);
+    border-radius: 999px;
+
+    color: #dbeafe;
+
+    background: rgba(148, 163, 184, 0.06);
+
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+
+/* =========================================================
+   Client access list
+   ========================================================= */
+
+.access-role-list {
+    overflow: hidden;
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+
+    background: rgba(7, 17, 31, 0.28);
+}
+
+.access-role-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 1rem;
+
+    min-height: 58px;
+
+    padding: 0.75rem 0.9rem;
+
+    border-bottom: 1px solid var(--border);
+}
+
+.access-role-row:last-child {
+    border-bottom: 0;
+}
+
+.access-role-row:hover {
+    background: rgba(56, 189, 248, 0.035);
+}
+
+.access-role-info {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 0.65rem;
+
+    min-width: 0;
+}
+
+.access-role-name {
+    color: var(--text);
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        monospace;
+
+    font-size: 0.88rem;
+    font-weight: 650;
+
+    overflow-wrap: anywhere;
+}
+
+.inline-role-form {
+    margin: 0;
+}
+
+.button-danger {
+    min-height: 32px;
+
+    padding: 0.35rem 0.7rem;
+
+    border: 1px solid rgba(251, 113, 133, 0.28);
+
+    color: #fda4af;
+
+    background: var(--danger-soft);
+
+    box-shadow: none;
+}
+
+.button-danger:hover {
+    color: #fecdd3;
+
+    background: rgba(251, 113, 133, 0.20);
+
+    box-shadow: none;
+}
+
+
+/* =========================================================
+   Role assignment
+   ========================================================= */
+
+.role-assignment-form {
+    display: flex;
+    align-items: flex-end;
+
+    gap: 0.8rem;
+
+    margin: 1.25rem 0 0;
+}
+
+.role-assignment-field {
+    flex: 1;
+
+    min-width: 0;
+}
+
+.role-assignment-field select {
+    width: 100%;
+}
+
+.role-assignment-form button {
+    flex-shrink: 0;
+}
+
+.page-back-link {
+    margin-top: 1.5rem;
+}
+
+
+/* =========================================================
+   Scrollbar
+   ========================================================= */
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+    border: 2px solid var(--bg);
+    border-radius: 999px;
+
+    background: #25364d;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #334b68;
+}
+
+
+/* =========================================================
+   Responsive
+   ========================================================= */
+
+@media (max-width: 900px) {
+    main {
+        width: min(100% - 2rem, 1380px);
+
+        padding-top: 2rem;
+    }
+
+    .main-nav {
+        padding: 1rem;
+
+        align-items: flex-start;
+        flex-wrap: wrap;
+
+        gap: 1rem;
+    }
+
+    .nav-brand {
+        width: 100%;
+    }
+
+    .nav-links {
+        flex-wrap: wrap;
+    }
+
+    .nav-account {
+        padding-left: 0;
+
+        border-left: 0;
+    }
+
+    table {
+        display: block;
+
+        overflow-x: auto;
+
+        white-space: nowrap;
+    }
+}
+
+
+@media (max-width: 800px) {
+    .identity-profile-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .identity-overview,
+    .identity-client-access,
+    .identity-role-management {
+        grid-column: auto;
+    }
+
+    .identity-profile-title {
+        flex-direction: column;
+    }
+
+    .identity-profile-badges {
+        justify-content: flex-start;
+    }
+}
+
+
+@media (max-width: 650px) {
     .identity-search-form {
         align-items: stretch;
         flex-direction: column;
@@ -1004,5 +1321,57 @@ button:active,
 
     .identity-search-form button {
         width: 100%;
+    }
+}
+
+
+@media (max-width: 600px) {
+    main {
+        width: min(100% - 1.2rem, 1380px);
+    }
+
+    section,
+    .identity-section,
+    .audit-log,
+    .dashboard-hero {
+        padding: 1rem;
+
+        border-radius: 14px;
+    }
+
+    .nav-links,
+    .nav-account {
+        width: 100%;
+    }
+
+    input[type="search"] {
+        min-width: 0;
+        max-width: none;
+    }
+
+    .identity-profile-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .identity-avatar {
+        width: 58px;
+        height: 58px;
+
+        border-radius: 15px;
+    }
+
+    .role-assignment-form {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .role-assignment-form button {
+        width: 100%;
+    }
+
+    .access-role-row {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
