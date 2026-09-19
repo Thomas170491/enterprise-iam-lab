@@ -74,18 +74,31 @@
 
             <tr>
                 <th>Risk Level</th>
+
                 <td>
-                    {{ identity_access.identity.risk_level or "-" }}
+                    {% if identity_access.identity.risk_level %}
+                        <span class="badge badge-risk-{{ identity_access.identity.risk_level | lower }}">
+                            {{ identity_access.identity.risk_level }}
+                        </span>
+                    {% else %}
+                        —
+                    {% endif %}
                 </td>
             </tr>
 
             <tr>
+
                 <th>Account Enabled</th>
+
                 <td>
                     {% if identity_access.identity.enabled %}
-                        Yes
+                        <span class="badge badge-enabled">
+                            Enabled
+                        </span>
                     {% else %}
-                        No
+                        <span class="badge badge-disabled">
+                            Disabled
+                        </span>
                     {% endif %}
                 </td>
             </tr>
@@ -177,7 +190,9 @@
 
                         {% if role.name in direct_role_names %}
 
-                            <strong>Direct</strong>
+                            <span class="badge badge-direct">
+                                Direct
+                            </span>
 
                             <!--
                             Only ROLE_MANAGER users receive mutation controls.
@@ -214,7 +229,9 @@
 
                         {% else %}
 
-                            <strong>Inherited</strong>
+                           <span class="badge badge-inherited">
+                                Inherited
+                           </span>
 
                         {% endif %}
 

@@ -5,16 +5,31 @@ Managed Access Reviews | NovaSecure IAM Governance
 {% endblock %}
 
 {% block content %}
-<h1>Managed access reviews</h1>
+
+<div class="page-header">
+    <h1>Managed access reviews</h1>
+
+    <p>
+        Create and manage access certification campaigns
+        for NovaSecure identities and application entitlements.
+    </p>
+</div>
+
 
 <p>
-    <a href="{{ url_for('governance.create_access_review') }}">
+    <a
+        class="button"
+        href="{{ url_for('governance.create_access_review') }}"
+    >
         Create access review
     </a>
 </p>
 
+
 {% if reviews %}
+
 <table>
+
     <thead>
         <tr>
             <th scope="col">Campaign</th>
@@ -26,8 +41,11 @@ Managed Access Reviews | NovaSecure IAM Governance
     </thead>
 
     <tbody>
+
         {% for review in reviews %}
+
         <tr>
+
             <td>
                 <a href="{{ url_for(
                     'governance.manage_access_review_detail',
@@ -42,27 +60,37 @@ Managed Access Reviews | NovaSecure IAM Governance
             </td>
 
             <td>
-                {{ review.status | capitalize }}
+                <span class="status status-{{ review.status }}">
+                    {{ review.status }}
+                </span>
             </td>
 
             <td>
                 {% if review.due_at %}
                     {{ review.due_at.strftime("%Y-%m-%d %H:%M UTC") }}
                 {% else %}
-                    No due date
+                    —
                 {% endif %}
             </td>
 
             <td>
                 {{ review.created_at.strftime("%Y-%m-%d %H:%M UTC") }}
             </td>
+
         </tr>
+
         {% endfor %}
+
     </tbody>
+
 </table>
 
 {% else %}
-<p>No access review campaigns have been created by you.</p>
+
+<div class="empty-state">
+    No access review campaigns have been created by you.
+</div>
+
 {% endif %}
 
 {% endblock %}

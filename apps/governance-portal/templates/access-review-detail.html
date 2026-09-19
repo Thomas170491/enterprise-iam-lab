@@ -1,3 +1,4 @@
+
 {% extends "base.html" %}
 
 {% block title %}
@@ -5,61 +6,116 @@ Access Review | NovaSecure IAM Governance
 {% endblock %}
 
 {% block content %}
-<h1>{{ review.name }}</h1>
 
-<p>
-    <strong>Status:</strong>
-    {{ review.status | capitalize }}
-</p>
+<div class="page-header">
 
-<p>
-    <strong>Due date:</strong>
-    {% if review.due_at %}
-        {{ review.due_at.strftime("%Y-%m-%d %H:%M UTC") }}
+    <h1>{{ review.name }}</h1>
+
+    <p>
+        Access certification campaign details and captured entitlement snapshot.
+    </p>
+
+</div>
+
+
+<section>
+
+    <h2>Campaign</h2>
+
+    <p>
+        <strong>Status:</strong>
+
+        <span class="status status-{{ review.status }}">
+            {{ review.status }}
+        </span>
+    </p>
+
+    <p>
+        <strong>Due date:</strong>
+
+        {% if review.due_at %}
+            {{ review.due_at.strftime("%Y-%m-%d %H:%M UTC") }}
+        {% else %}
+            No due date
+        {% endif %}
+    </p>
+
+</section>
+
+
+<section>
+
+    <h2>Access under review</h2>
+
+    <p>
+        {% if manager_view | default(false) %}
+
+        <a href="{{ url_for('governance.manage_access_reviews') }}">
+            ← Back to managed access reviews
+        </a>
+
+        {% else %}
+
+        <a href="{{ url_for('governance.access_reviews') }}">
+            ← Back to my access reviews
+        </a>
+
+        {% endif %}
+    </p>
+
+
+    {% if review.items %}
+
+    <table>
+
+        <thead>
+            <tr>
+                <th scope="col">Username</th>
+                <th scope="col">Client</th>
+                <th scope="col">Role</th>
+                <th scope="col">Captured</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for item in review.items %}
+
+            <tr>
+
+                <td>
+                    {{ item.username }}
+                </td>
+
+                <td>
+                    {{ item.client_name }}
+                </td>
+
+                <td>
+                    {{ item.role_name }}
+                </td>
+
+                <td>
+                    {{ item.created_at.strftime("%Y-%m-%d %H:%M UTC") }}
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
     {% else %}
-        No due date
+
+    <div class="empty-state">
+        No access items have been captured for this campaign.
+    </div>
+
     {% endif %}
-</p>
 
-<h2>Access under review</h2>
-
-<p>
-{% if manager_view | default(false) %}
-    <a href="{{ url_for('governance.manage_access_reviews') }}">
-        Back to managed access reviews
-    </a>
-{% else %}
-    <a href="{{ url_for('governance.access_reviews') }}">
-        Back to my access reviews
-    </a>
-{% endif %}
-</p>
-{% if review.items %}
-<table>
-    <thead>
-        <tr>
-            <th scope="col">Username</th>
-            <th scope="col">Client</th>
-            <th scope="col">Role</th>
-            <th scope="col">Captured</th>
-        </tr>
-    </thead>
-
-    <tbody>
-        {% for item in review.items %}
-        <tr>
-            <td>{{ item.username }}</td>
-            <td>{{ item.client_name }}</td>
-            <td>{{ item.role_name }}</td>
-            <td>
-                {{ item.created_at.strftime("%Y-%m-%d %H:%M UTC") }}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>No access items have been captured for this campaign.</p>
-{% endif %}
+</section>
 
 {% endblock %}
+

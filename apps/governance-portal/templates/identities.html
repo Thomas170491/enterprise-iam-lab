@@ -1,36 +1,82 @@
+
 {% extends "base.html" %}
+
+{% block title %}
+Identity Search | NovaSecure IAM Governance
+{% endblock %}
 
 {% block content %}
 
-<section>
+<div class="page-header">
     <h1>Identity Search</h1>
 
-    <form method="get" action="{{ url_for('governance.identities') }}">
-        <label for="search">
-            Search identities
-        </label>
+    <p>
+        Search NovaSecure identities and inspect account status,
+        employment information, risk level and effective access.
+    </p>
+</div>
 
-        <input
-            id="search"
-            name="search"
-            type="search"
-            value="{{ search }}"
-            placeholder="Username, name, or email"
-        >
+
+<section>
+
+    <form
+        class="identity-search-form"
+        method="get"
+        action="{{ url_for('governance.identities') }}"
+    >
+
+        <div class="identity-search-field">
+
+            <label for="search">
+                Search identities
+            </label>
+
+            <input
+                id="search"
+                name="search"
+                type="search"
+                value="{{ search }}"
+                placeholder="Username, name, email or employee ID"
+                autocomplete="off"
+            >
+
+        </div>
 
         <button type="submit">
             Search
         </button>
+
     </form>
+
 </section>
 
 
 <section>
-    <h2>Identities</h2>
+
+    <div class="section-header">
+        <div>
+            <h2>Identities</h2>
+
+            {% if identities %}
+            <p>
+                {{ identities | length }}
+                {% if identities | length == 1 %}
+                    identity found
+                {% else %}
+                    identities found
+                {% endif %}
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
 
     {% if identities %}
 
+    <div class="table-container">
+
         <table>
+
             <thead>
                 <tr>
                     <th>Employee ID</th>
@@ -47,59 +93,106 @@
 
                 {% for identity in identities %}
 
-                    <tr>
-                        <td>
-                            {{ identity.employee_id or "-" }}
-                        </td>
+                <tr>
 
-                        <td>
-                                <a href="{{ url_for('governance.identity_detail', user_id=identity.id) }}">
-                                {{ identity.username }}
-                                </a>
-                    
-                        </td>
+                    <td>
+                        {{ identity.employee_id or "—" }}
+                    </td>
 
-                        <td>
-                            {{ identity.first_name or "" }}
-                            {{ identity.last_name or "" }}
-                        </td>
+                    <td>
+                        <a
+                            class="identity-link"
+                            href="{{ url_for(
+                                'governance.identity_detail',
+                                user_id=identity.id
+                            ) }}"
+                        >
+                            {{ identity.username }}
+                        </a>
+                    </td>
 
-                        <td>
-                            {{ identity.email or "-" }}
-                        </td>
+                    <td>
+                        {{ identity.first_name or "" }}
+                        {{ identity.last_name or "" }}
+                    </td>
 
-                        <td>
-                            {{ identity.job_title or "-" }}
-                        </td>
+                    <td>
+                        {{ identity.email or "—" }}
+                    </td>
 
-                        <td>
-                            {% if identity.enabled %}
-                                Enabled
-                            {% else %}
-                                Disabled
-                            {% endif %}
-                        </td>
+                    <td>
+                        {{ identity.job_title or "—" }}
+                    </td>
 
-                        <td>
-                            {{ identity.risk_level or "-" }}
-                        </td>
-                    </tr>
+                    <td>
+                        {% if identity.enabled %}
+
+                        <span class="badge badge-enabled">
+                            Enabled
+                        </span>
+
+                        {% else %}
+
+                        <span class="badge badge-disabled">
+                            Disabled
+                        </span>
+
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if identity.risk_level %}
+
+                        <span class="badge badge-risk-{{ identity.risk_level | lower }}">
+                            {{ identity.risk_level }}
+                        </span>
+
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                </tr>
 
                 {% endfor %}
 
             </tbody>
+
         </table>
+
+    </div>
+
 
     {% elif search %}
 
-        <p>No identities found.</p>
+    <div class="empty-state">
 
-    {%else%}
+        <strong>No identities found</strong>
 
-        <p>Enter a username, name, or email to search identities.</p>
+        <p>
+            No NovaSecure identities matched
+            "<strong>{{ search }}</strong>".
+        </p>
+
+    </div>
+
+
+    {% else %}
+
+    <div class="empty-state">
+
+        <strong>Search the identity directory</strong>
+
+        <p>
+            Enter a username, name, email address or employee ID
+            to inspect an identity.
+        </p>
+
+    </div>
 
     {% endif %}
 
 </section>
 
 {% endblock %}
+

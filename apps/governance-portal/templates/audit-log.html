@@ -37,7 +37,9 @@
                         </td>
 
                         <td>
-                            {{ event.outcome }}
+                            <span class="status status-{{ event.outcome | lower }}">
+                                {{ event.outcome }}
+                            </span>
                         </td>
 
                         <td>

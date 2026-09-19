@@ -6,44 +6,95 @@ IAM Governance Portal
 
 {% block content %}
 
-<h1>IAM Governance Portal</h1>
+<div class="dashboard-hero">
+    <div class="eyebrow">
+        NovaSecure Security Platform
+    </div>
 
-<p>
-    NovaSecure identity governance and access administration.
-</p>
-
-<section>
-    <h2>Governance Platform</h2>
+    <h1>IAM Governance Portal</h1>
 
     <p>
-        Governance Portal scaffold operational.
+        Centralized identity governance, access administration,
+        certification, segregation-of-duties enforcement and audit visibility.
     </p>
-</section>
+</div>
 
 {% if current_user.is_authenticated %}
-<section>
-    <h2>Authenticated Session</h2>
+
+<div class="dashboard-grid">
+
+    {% if "identity-viewer" in current_user.client_roles %}
+    <a
+        class="dashboard-card"
+        href="{{ url_for('governance.identities') }}"
+    >
+        <h2>Identities</h2>
+
+        <p>
+            Search identities, inspect effective access and review
+            group and role assignments.
+        </p>
+    </a>
+    {% endif %}
+
+
+    {% if "access-review-manager" in current_user.client_roles %}
+    <a
+        class="dashboard-card"
+        href="{{ url_for('governance.manage_access_reviews') }}"
+    >
+        <h2>Access Reviews</h2>
+
+        <p>
+            Create and manage access certification campaigns
+            and captured entitlement snapshots.
+        </p>
+    </a>
+    {% endif %}
+
+
+    {% if "access-reviewer" in current_user.client_roles %}
+    <a
+        class="dashboard-card"
+        href="{{ url_for('governance.access_reviews') }}"
+    >
+        <h2>My Reviews</h2>
+
+        <p>
+            Review access campaigns assigned to your governance identity.
+        </p>
+    </a>
+    {% endif %}
+
+
+    {% if "audit-log-reviewer" in current_user.client_roles %}
+    <a
+        class="dashboard-card"
+        href="{{ url_for('governance.audit_log') }}"
+    >
+        <h2>Audit Log</h2>
+
+        <p>
+            Inspect privileged IAM activity and governance security events.
+        </p>
+    </a>
+    {% endif %}
+
+</div>
+
+
+<section style="margin-top: 1.5rem;">
+    <h2>Session</h2>
 
     <p>
-        Welcome, {{ current_user.name or current_user.username }}.
+        Signed in as
+        <strong>
+            {{ current_user.name or current_user.username }}
+        </strong>
+        · {{ current_user.username }}
     </p>
-
-    <p>
-        Authenticated as:
-        <strong>{{ current_user.username }}</strong>
-    </p>
-
-    <p>
-    Client roles:
-    {{ current_user.client_roles }}
-</p>
-
-<p>
-    Realm roles:
-    {{ current_user.realm_roles }}
-</p>
 </section>
+
 {% endif %}
 
 {% endblock %}
-
