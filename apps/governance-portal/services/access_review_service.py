@@ -1,9 +1,9 @@
 from datetime import datetime
 
 from extensions import db
-from models import AccessReview, AccessReviewItem
+from models import AccessReview, AccessReviewItem, ManagedRole
 from services.audit_service import record_audit_event
-from services.keycloak_admin_service import get_effective_client_roles, get_user
+from services.keycloak_admin_service import get_direct_client_roles, get_effective_client_roles, get_user
 
 def _validate_required_string(value, field_name, max_length):
     """Return a trimmed required string or raise a field-specific ValueError."""
@@ -310,3 +310,89 @@ def validate_access_review_reviewer(
         raise ValueError("reviewer_missing_required_role")
     
     return reviewer
+
+def populate_access_review_from_identity(
+    review_id : int,
+    manager_user_id : str, 
+    user_id :str ,
+    admin_api_url : str,
+    token_url :str,
+    client_id : str,
+    client_secret :str
+) -> list[AccessReviewItem] : 
+    """
+    Capture an identity's direct Employee Portal roles in a manager-owned draft campaign.
+
+    Flush the snapshots without committing; the caller owns the transaction.
+    """
+    
+    campaign = get_access_review_for_manager(
+        review_id=review_id,
+        manager_user_id=manager_user_id
+    )
+    
+    if campaign.status != "draft" :
+        raise ValueError("access_review_not_draft")
+    
+    user_id = _validate_required_string(user_id,"user_id",255 )
+    
+    identity= get_user(
+            admin_api_url = admin_api_url,
+            token_url = token_url,
+            client_id = client_id,
+            client_secret = client_secret,
+            user_id= user_id
+    )
+    
+    direct_roles = get_direct_client_roles(
+                        admin_api_url = admin_api_url,
+                        token_url = token_url,
+                        client_id = client_id,
+                        client_secret = client_secret, 
+                        user_id=user_id,
+                        target_client_name="employee-portal",  
+    )
+    
+    managed_role_names=set( 
+        db.session.execute(
+            db.select(ManagedRole.role_name).where(
+                ManagedRole.client_name == "employee-portal",
+                ManagedRole.enabled.is_(True)
+            )
+        ).scalars().all()
+    )
+    
+    created_items = []
+    
+    for role in direct_roles :
+        name = role.get("name")
+        
+        if name not in managed_role_names :
+            continue
+    
+        existing_item= db.session.execute(
+                            db.select(AccessReviewItem).where(
+                                AccessReviewItem.review_id == campaign.id,
+                                AccessReviewItem.user_id == user_id,
+                                AccessReviewItem.client_name == "employee-portal",
+                                AccessReviewItem.role_id == role.get("id")
+                            )
+        ).scalar_one_or_none()
+        
+        if existing_item is not None :
+            continue
+        
+        created_item = add_access_review_item(
+                            review_id =campaign.id,
+                            user_id =  user_id,
+                            username =identity.get("username"),
+                            client_name = "employee-portal",
+                            role_id = role.get("id"),
+                            role_name = role.get("name"),
+        )
+        
+        created_items.append(created_item)
+    
+    
+    return created_items
+        
