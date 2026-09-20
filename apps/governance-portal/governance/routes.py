@@ -390,6 +390,10 @@ def create_access_review():
             created_by_user_id=current_user.get_id(),
             actor_username=current_user.username,
             reviewer_user_id=reviewer_user_id,
+            admin_api_url= current_app.config["KEYCLOAK_ADMIN_API_URL"],
+            token_url= current_app.config["KEYCLOAK_TOKEN_URL"],
+            client_id= current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
+            client_secret=current_app.config["KEYCLOAK_SERVICE_CLIENT_SECRET"],
             due_at=due_at,
         )
 
@@ -414,6 +418,12 @@ def create_access_review():
             "access-review-create.html",
             error="The campaign could not be saved. Please try again.",
         ), 500
+    
+    except KeycloakAdminAPIError: 
+        return render_template(
+            "access-review-create.html",
+            error="The reviewer could not be verified. Please try again.",
+        ), 503
 
     return redirect(
         url_for(

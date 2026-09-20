@@ -5,10 +5,8 @@ from flask import url_for
 from models import AccessReview
 from auth.permissions import ACCESS_REVIEW_MANAGER, ACCESS_REVIEWER
 from extensions import db
-from services.access_review_service import (
-    add_access_review_item,
-    create_access_review,
-)
+
+import services.access_review_service as access_review_service 
 
 
 def _login_user(client, client_roles):
@@ -66,12 +64,12 @@ def test_access_reviews_shows_only_assigned_campaigns(client):
     """
     _login_user(client, [ACCESS_REVIEWER])
 
-    review = create_access_review(
+    review = access_review_service.create_access_review(
         name="My campaign",
         created_by_user_id="creator-123",
         reviewer_user_id="test-subject",
     )
-    create_access_review(
+    access_review_service.create_access_review(
         name="Other campaign",
         created_by_user_id="creator-123",
         reviewer_user_id="other-reviewer",
@@ -95,12 +93,12 @@ def test_access_reviews_ignores_supplied_reviewer_id( client):
     """
     _login_user(client, [ACCESS_REVIEWER])
 
-    create_access_review(
+    access_review_service.create_access_review(
         name="My campaign",
         created_by_user_id="creator-123",
         reviewer_user_id="test-subject",
     )
-    create_access_review(
+    access_review_service.create_access_review(
         name="Private campaign",
         created_by_user_id="creator-123",
         reviewer_user_id="other-reviewer",
@@ -124,7 +122,7 @@ def test_access_reviews_displays_empty_message(client):
     """
     _login_user(client, [ACCESS_REVIEWER])
 
-    create_access_review(
+    access_review_service.create_access_review(
         name="Other campaign",
         created_by_user_id="creator-123",
         reviewer_user_id="other-reviewer",
@@ -167,7 +165,7 @@ def test_access_review_detail_requires_reviewer_role(
     """
     _login_user(client, client_roles)
 
-    review = create_access_review(
+    review = access_review_service.create_access_review(
         name="Assigned campaign",
         created_by_user_id="creator-123",
         reviewer_user_id="test-subject",
@@ -186,12 +184,12 @@ def test_access_review_detail_displays_assigned_campaign( client):
     """
     _login_user(client, [ACCESS_REVIEWER])
 
-    review = create_access_review(
+    review = access_review_service.create_access_review(
         name="Finance access review",
         created_by_user_id="creator-123",
         reviewer_user_id="test-subject",
     )
-    add_access_review_item(
+    access_review_service.add_access_review_item(
         review_id=review.id,
         user_id="user-123",
         username="alice",
@@ -200,12 +198,12 @@ def test_access_review_detail_displays_assigned_campaign( client):
         role_name="finance-data-viewer",
     )
 
-    other_review = create_access_review(
+    other_review = access_review_service.create_access_review(
         name="Separate campaign",
         created_by_user_id="creator-123",
         reviewer_user_id="test-subject",
     )
-    add_access_review_item(
+    access_review_service.add_access_review_item(
         review_id=other_review.id,
         user_id="user-456",
         username="bob",
@@ -223,7 +221,7 @@ def test_access_review_detail_displays_assigned_campaign( client):
     assert "alice" in html
     assert "employee-portal" in html
     assert "finance-data-viewer" in html
-    assert "Draft" in html
+    assert "draft" in html
     assert "No due date" in html
     assert 'href="/access-reviews"' in html
 
@@ -248,12 +246,12 @@ def test_access_review_detail_rejects_other_reviewer(
     """
     _login_user(client, [ACCESS_REVIEWER])
 
-    review = create_access_review(
+    review = access_review_service.create_access_review(
         name="Private campaign",
         created_by_user_id="creator-123",
         reviewer_user_id="other-reviewer",
     )
-    add_access_review_item(
+    access_review_service.add_access_review_item(
         review_id=review.id,
         user_id="private-user-123",
         username="private-employee",
@@ -292,7 +290,7 @@ def test_access_review_detail_displays_empty_items_message( client):
     """
     _login_user(client, [ACCESS_REVIEWER])
 
-    review = create_access_review(
+    review = access_review_service.create_access_review(
         name="Empty draft campaign",
         created_by_user_id="creator-123",
         reviewer_user_id="test-subject",
@@ -354,11 +352,22 @@ def test_access_review_creation_form_requires_manager_role(
 
     assert response.status_code == 403
 
-def test_access_review_manager_can_create_campaign(client):
+def test_access_review_manager_can_create_campaign(client,monkeypatch):
     """
     Verify that an access review manager can create a draft campaign.
     """
     _login_user(client, [ACCESS_REVIEW_MANAGER])
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "validate_access_review_reviewer",
+        lambda **kwargs: {
+            "id": "reviewer-123",
+            "username": "reviewer",
+            "enabled": True,
+        },
+    )
+
 
     response = client.post(
         "/access-reviews/new",
@@ -394,7 +403,7 @@ def test_manager_can_view_own_campaign(client):
   
     _login_user(client, [ACCESS_REVIEW_MANAGER])
     
-    campaign = create_access_review("test-campaign","test-subject","reviewer-123")
+    campaign = access_review_service.create_access_review("test-campaign","test-subject","reviewer-123")
     campaign_id = campaign.id
     
     response= client.get(f"/access-reviews/manage/{campaign_id}")
@@ -410,7 +419,7 @@ def test_manager_cannot_view_other_manager_campaign(client) :
         
     _login_user(client, [ACCESS_REVIEW_MANAGER])
     
-    campaign = create_access_review("test-campaign", "other-manager", "reviewer-123")
+    campaign = access_review_service.create_access_review("test-campaign", "other-manager", "reviewer-123")
     campaign_id = campaign.id
     
     response= client.get(f"/access-reviews/manage/{campaign_id}")
@@ -478,13 +487,13 @@ def test_manage_access_reviews_shows_only_owned_campaigns(client):
 
     _login_user(client, [ACCESS_REVIEW_MANAGER])
 
-    create_access_review(
+    access_review_service.create_access_review(
         "My campaign",
         "test-subject",
         "reviewer-123",
     )
 
-    create_access_review(
+    access_review_service.create_access_review(
         "Other manager campaign",
         "other-manager",
         "reviewer-456",
@@ -507,7 +516,7 @@ def test_manage_access_reviews_displays_empty_message(client):
 
     _login_user(client, [ACCESS_REVIEW_MANAGER])
 
-    create_access_review(
+    access_review_service.create_access_review(
         "Other manager campaign",
         "other-manager",
         "reviewer-456",

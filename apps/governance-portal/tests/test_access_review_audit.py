@@ -9,7 +9,31 @@ import services.access_review_service as access_review_service
 from services.exceptions import AuditPersistenceError
 
 
-def test_create_access_review_with_audit_records_actor(app):
+@pytest.fixture
+def fake_validate_reviewer(monkeypatch):
+    """
+    Mock successful reviewer validation without contacting Keycloak.
+    """
+    validator = Mock(
+        return_value={
+            "id": "reviewer-456",
+            "enabled": True,
+        }
+    )
+
+    monkeypatch.setattr(
+        access_review_service,
+        "validate_access_review_reviewer",
+        validator,
+    )
+
+    return validator
+
+
+def test_create_access_review_with_audit_records_actor(
+    app,
+    fake_validate_reviewer,
+):
     """
     Verify that campaign creation commits the campaign and its human-actor audit event.
     """
@@ -18,10 +42,21 @@ def test_create_access_review_with_audit_records_actor(app):
         created_by_user_id="operator-123",
         actor_username="leo",
         reviewer_user_id="reviewer-456",
+        admin_api_url="https://keycloak.test/admin",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="test-secret",
     )
     review_id = review.id
 
-    # End any transaction started by reading the returned object.
+    fake_validate_reviewer.assert_called_once_with(
+        reviewer_user_id="reviewer-456",
+        admin_api_url="https://keycloak.test/admin",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="test-secret",
+    )
+
     # Committed records must survive this rollback.
     db.session.rollback()
 
@@ -53,6 +88,7 @@ def test_create_access_review_with_audit_records_actor(app):
 def test_create_access_review_with_audit_rolls_back_on_audit_failure(
     app,
     monkeypatch,
+    fake_validate_reviewer,
 ):
     """
     Verify that an audit failure prevents the campaign from being saved.
@@ -60,6 +96,7 @@ def test_create_access_review_with_audit_rolls_back_on_audit_failure(
     fake_audit = Mock(
         side_effect=AuditPersistenceError("database unavailable")
     )
+
     monkeypatch.setattr(
         access_review_service,
         "record_audit_event",
@@ -72,8 +109,13 @@ def test_create_access_review_with_audit_rolls_back_on_audit_failure(
             created_by_user_id="operator-123",
             actor_username="leo",
             reviewer_user_id="reviewer-456",
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
         )
 
+    fake_validate_reviewer.assert_called_once()
     fake_audit.assert_called_once()
     assert fake_audit.call_args.kwargs["commit"] is False
 
@@ -89,14 +131,19 @@ def test_create_access_review_with_audit_rolls_back_on_audit_failure(
 def test_create_access_review_with_audit_rolls_back_on_commit_failure(
     app,
     monkeypatch,
+    fake_validate_reviewer,
 ):
     """
     Verify that a failed commit rolls back both the campaign and its audit event.
     """
+    fake_commit = Mock(
+        side_effect=SQLAlchemyError("commit failed")
+    )
+
     monkeypatch.setattr(
         db.session,
         "commit",
-        Mock(side_effect=SQLAlchemyError("commit failed")),
+        fake_commit,
     )
 
     with pytest.raises(SQLAlchemyError, match="commit failed"):
@@ -105,7 +152,14 @@ def test_create_access_review_with_audit_rolls_back_on_commit_failure(
             created_by_user_id="operator-123",
             actor_username="leo",
             reviewer_user_id="reviewer-456",
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
         )
+
+    fake_validate_reviewer.assert_called_once()
+    fake_commit.assert_called_once()
 
     assert db.session.execute(
         db.select(AccessReview)
@@ -114,3 +168,37 @@ def test_create_access_review_with_audit_rolls_back_on_commit_failure(
     assert db.session.execute(
         db.select(AuditEvent)
     ).scalars().all() == []
+    
+def test_create_access_review_with_audit_rejects_ineligible_reviewer(
+    app,
+    fake_validate_reviewer,
+):
+    """
+    Verify that reviewer rejection leaves no campaign or audit event saved.
+    """
+    fake_validate_reviewer.side_effect = ValueError(
+        "reviewer_missing_required_role"
+    )
+
+    with pytest.raises(ValueError, match="reviewer_missing_required_role"):
+        access_review_service.create_access_review_with_audit(
+            name="September review",
+            created_by_user_id="operator-123",
+            actor_username="leo",
+            reviewer_user_id="reviewer-456",
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
+        )
+
+    fake_validate_reviewer.assert_called_once()
+
+    assert db.session.execute(
+        db.select(AccessReview)
+    ).scalars().all() == []
+
+    assert db.session.execute(
+        db.select(AuditEvent)
+    ).scalars().all() == []
+    

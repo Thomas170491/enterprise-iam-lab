@@ -189,16 +189,29 @@ def create_access_review_with_audit(
     created_by_user_id :str,
     actor_username : str,
     reviewer_user_id :str,
+    admin_api_url :str,
+    token_url : str,
+    client_id :str,
+    client_secret : str,
     due_at : datetime | None = None
 ) -> AccessReview:
     """
-    Create a draft campaign and its audit event in one transaction.
+    Validate reviewer eligibility, then create a draft campaign and its audit event.
 
-    Commit both together, or roll back if either operation fails.
+    Commit both records together, rolling back on failure.
     """
     
     try:
+        validate_access_review_reviewer(
+            reviewer_user_id= reviewer_user_id,
+            admin_api_url=admin_api_url,
+            token_url=token_url,
+            client_id=client_id,
+            client_secret=client_secret,     
+        )
+        
         review = create_access_review(name, created_by_user_id,reviewer_user_id,due_at)
+        
         record_audit_event(
             actor_user_id=review.created_by_user_id,
             actor_username=actor_username,
