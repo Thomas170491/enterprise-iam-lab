@@ -82,6 +82,32 @@ Access Review | NovaSecure IAM Governance
         </button>
     </form>
 
+    {% if review.items %}
+    <div>
+        <h2>Open campaign</h2>
+
+        <p>
+            Opening the campaign locks the captured snapshot and prevents
+            further access additions.
+        </p>
+
+        <form
+            method="POST"
+            action="{{ url_for('governance.open_access_review', review_id=review.id) }}"
+        >
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
+
+            <button type="submit">
+                Open campaign
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
 </section>
 {% endif %}
 

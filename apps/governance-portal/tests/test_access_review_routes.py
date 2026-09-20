@@ -310,16 +310,24 @@ def test_access_review_detail_displays_empty_items_message(client):
     assert "No access items have been captured for this campaign." in html
 
 
-def test_reviewer_campaign_detail_hides_capture_form(client):
+def test_reviewer_campaign_detail_hides_open_form(client):
     """
-    Verify that the reviewer detail page does not display manager population controls.
+    Verify that the reviewer detail page does not display campaign opening controls.
     """
     _login_user(client, [ACCESS_REVIEWER])
 
     campaign = access_review_service.create_access_review(
-        name="Reviewer draft campaign",
+        name="Reviewer populated campaign",
         created_by_user_id="manager-123",
         reviewer_user_id="test-subject",
+    )
+    access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
     )
     db.session.commit()
 
@@ -327,8 +335,7 @@ def test_reviewer_campaign_detail_hides_capture_form(client):
     html = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert f"/access-reviews/manage/{campaign.id}/populate" not in html
-    assert "Capture access" not in html
+    assert f'action="/access-reviews/manage/{campaign.id}/open"' not in html
 
 
 def test_access_review_creation_form_allows_manager(client):
@@ -465,6 +472,61 @@ def test_manager_draft_campaign_displays_capture_form(client):
     assert 'name="user_id"' in html
     assert 'name="csrf_token"' in html
     assert "Capture access" in html
+    
+
+   
+
+
+def test_manager_nonempty_draft_displays_open_form(client):
+    """
+    Verify that a manager's nonempty draft campaign displays the opening form.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    campaign = access_review_service.create_access_review(
+        "Nonempty draft campaign",
+        "test-subject",
+        "reviewer-123",
+    )
+    access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    db.session.commit()
+
+    response = client.get(f"/access-reviews/manage/{campaign.id}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert f'action="/access-reviews/manage/{campaign.id}/open"' in html
+    assert "Open campaign" in html
+
+def test_manager_empty_draft_hides_open_form(client):
+    """
+    Verify that an empty draft campaign does not display the opening form.
+    """
+    
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    campaign = access_review_service.create_access_review(
+        "Empty draft campaign",
+        "test-subject",
+        "reviewer-123",
+    )
+
+    db.session.commit()
+
+    response = client.get(f"/access-reviews/manage/{campaign.id}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert f'action="/access-reviews/manage/{campaign.id}/open"' not in html
+  
+
 
 
 @pytest.mark.parametrize(
@@ -512,6 +574,39 @@ def test_manager_cannot_view_other_manager_campaign(client):
 
     assert response.status_code == 404
     assert "test-campaign" not in html
+
+
+@pytest.mark.parametrize(
+    "status",
+    ["open", "completed", "cancelled"],
+)
+def test_manager_non_draft_campaign_hides_open_form(client, status):
+    """
+    Verify that non-draft campaigns do not display the opening form.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    campaign = access_review_service.create_access_review(
+        "Non-draft campaign",
+        "test-subject",
+        "reviewer-123",
+    )
+    access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    campaign.status = status
+    db.session.commit()
+
+    response = client.get(f"/access-reviews/manage/{campaign.id}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert f'action="/access-reviews/manage/{campaign.id}/open"' not in html
 
 
 def test_missing_campaign_returns_404(client):
