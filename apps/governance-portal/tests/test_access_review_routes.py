@@ -1,3 +1,4 @@
+from unittest.mock import Mock
 from urllib.parse import urlsplit
 
 import pytest
@@ -5,6 +6,7 @@ from flask import url_for
 from models import AccessReview
 from auth.permissions import ACCESS_REVIEW_MANAGER, ACCESS_REVIEWER
 from extensions import db
+from services.exceptions import KeycloakAdminAPIError 
 
 import services.access_review_service as access_review_service 
 
@@ -529,3 +531,70 @@ def test_manage_access_reviews_displays_empty_message(client):
 
     assert response.status_code == 200
     assert "No access review campaigns have been created by you." in html
+    
+
+def test_create_access_review_rejects_ineligible_reviewer(client,monkeypatch):     
+    """
+    Verify that an ineligible reviewer causes HTTP 400 without saving a campaign.
+    """
+    
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+    
+    fake_validate = Mock(side_effect=ValueError("reviewer_missing_required_role"))
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "validate_access_review_reviewer",
+        fake_validate
+    )
+    
+    response = client.post(
+        "/access-reviews/new",
+        data={
+            "name": "September access review",
+            "reviewer_user_id": "reviewer-123",
+            "due_at": "",
+        },
+    )
+    
+    assert response.status_code == 400
+    assert db.session.execute(
+        db.select(AccessReview)
+    ).scalars().all() == [] 
+    
+    fake_validate.assert_called_once()
+    
+def test_create_access_review_returns_503_when_reviewer_verification_fails(client,monkeypatch):
+    """
+    Verify that a Keycloak verification failure returns HTTP 503 without saving a campaign.
+    """
+
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+    
+    fake_validate = Mock(side_effect=KeycloakAdminAPIError("User retrival failed"))
+    
+    monkeypatch.setattr(
+            access_review_service,
+            "validate_access_review_reviewer",
+            fake_validate
+        )
+    
+    response = client.post(
+        "/access-reviews/new",
+        data={
+            "name": "September access review",
+            "reviewer_user_id": "reviewer-123",
+            "due_at": "",
+        },
+    )
+   
+    html = response.get_data(as_text=True)
+    
+    assert response.status_code == 503
+    assert db.session.execute(
+        db.select(AccessReview)
+    ).scalars().all() == [] 
+    assert "The reviewer could not be verified. Please try again." in html
+    
+    fake_validate.assert_called_once()
+   
