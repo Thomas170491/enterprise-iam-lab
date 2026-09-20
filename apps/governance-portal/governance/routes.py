@@ -1,37 +1,53 @@
+import json
+from datetime import datetime, timezone
+
 from flask import (
     Blueprint,
-    json,
-    render_template,
-    current_app,
-    request,
-    redirect,
-    url_for,
     abort,
+    current_app,
+    redirect,
+    render_template,
+    request,
+    url_for,
 )
-from datetime import datetime, timezone
-from flask_login import login_required,current_user
-from auth.decorators import client_role_required
-from auth.permissions import (
-    IAM_DASHBOARD_ACCESS,IDENTITY_VIEWER, 
-    AUDIT_LOG_REVIEWER,ROLE_MANAGER,
-    ACCESS_REVIEWER,
-    ACCESS_REVIEW_MANAGER,       
-)
-from services.identity_service import search_identities, get_identity_access
-from services.exceptions import KeycloakAdminAPIError, AuditPersistenceError, AuditQueryError,RoleAdministrationPolicyError
-from services.audit_service import record_audit_event, get_recent_audit_events
-from services.role_service import assign_identity_client_role, remove_identity_client_role,get_managed_roles
-from services.access_review_service import( 
-    get_access_reviews_for_reviewer,
-    get_access_review_for_reviewer,
-    create_access_review_with_audit,
-    get_access_review_for_manager,
-    get_access_reviews_for_manager
-)
+from flask_login import current_user, login_required
 from sqlalchemy.exc import SQLAlchemyError
 
-
-
+from auth.decorators import client_role_required
+from auth.permissions import (
+    ACCESS_REVIEW_MANAGER,
+    ACCESS_REVIEWER,
+    AUDIT_LOG_REVIEWER,
+    IAM_DASHBOARD_ACCESS,
+    IDENTITY_VIEWER,
+    ROLE_MANAGER,
+)
+from services.access_review_service import (
+    create_access_review_with_audit,
+    get_access_review_for_manager,
+    get_access_review_for_reviewer,
+    get_access_reviews_for_manager,
+    get_access_reviews_for_reviewer,
+)
+from services.audit_service import (
+    get_recent_audit_events,
+    record_audit_event,
+)
+from services.exceptions import (
+    AuditPersistenceError,
+    AuditQueryError,
+    KeycloakAdminAPIError,
+    RoleAdministrationPolicyError,
+)
+from services.identity_service import (
+    get_identity_access,
+    search_identities,
+)
+from services.role_service import (
+    assign_identity_client_role,
+    get_managed_roles,
+    remove_identity_client_role,
+)
 
 
 bp_governance = Blueprint(
@@ -40,22 +56,53 @@ bp_governance = Blueprint(
 )
 
 
+def _log_governance_event(
+    level,
+    event,
+    outcome,
+    reason,
+    exc=None,
+    **context,
+):
+    """
+    Log a structured governance event without including exception messages or secrets.
+    """
+    payload = {
+        "event": event,
+        "outcome": outcome,
+        "source": "governance-portal",
+        "actor_user_id": current_user.get_id(),
+        "reason": reason,
+    }
+
+    if exc is not None:
+        payload["error_type"] = type(exc).__name__
+
+    payload.update(context)
+
+    current_app.logger.log(
+        level,
+        json.dumps(payload),
+    )
+
+
 @bp_governance.get("/")
 @login_required
 @client_role_required(IAM_DASHBOARD_ACCESS)
 def dashboard():
     """
     Render the Governance Portal dashboard.
-
     """
-    return render_template(
-        "dashboard.html"
-    )
+    return render_template("dashboard.html")
+
 
 @bp_governance.get("/identities")
 @login_required
 @client_role_required(IDENTITY_VIEWER)
 def identities():
+    """
+    Search realm identities and display the matching results.
+    """
     search = request.args.get(
         "search",
         default="",
@@ -63,23 +110,14 @@ def identities():
     ).strip()
 
     has_searched = "search" in request.args
+    identities = []
 
-    identities = [] 
-
-    if has_searched :
+    if has_searched:
         identities = search_identities(
-            admin_api_url=current_app.config[
-                "KEYCLOAK_ADMIN_API_URL"
-            ],
-            token_url=current_app.config[
-                "KEYCLOAK_TOKEN_URL"
-            ],
-            client_id=current_app.config[
-                "KEYCLOAK_SERVICE_CLIENT_ID"
-            ],
-            client_secret=current_app.config[
-                "KEYCLOAK_SERVICE_CLIENT_SECRET"
-            ],
+            admin_api_url=current_app.config["KEYCLOAK_ADMIN_API_URL"],
+            token_url=current_app.config["KEYCLOAK_TOKEN_URL"],
+            client_id=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
+            client_secret=current_app.config["KEYCLOAK_SERVICE_CLIENT_SECRET"],
             search=search,
         )
 
@@ -89,36 +127,47 @@ def identities():
         identities=identities,
     )
 
+
 @bp_governance.get("/identities/<user_id>")
 @login_required
 @client_role_required(IDENTITY_VIEWER)
 def identity_detail(user_id):
+    """
+    Display an identity's effective access and audit the successful view.
+    """
     try:
-        identity_access= get_identity_access(
+        identity_access = get_identity_access(
             admin_api_url=current_app.config["KEYCLOAK_ADMIN_API_URL"],
             token_url=current_app.config["KEYCLOAK_TOKEN_URL"],
             client_id=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
             client_secret=current_app.config["KEYCLOAK_SERVICE_CLIENT_SECRET"],
             user_id=user_id,
-            target_client_name="employee-portal"
+            target_client_name="employee-portal",
         )
 
         direct_role_names = {
-        role["name"] for role in identity_access["direct_client_roles"]
+            role["name"]
+            for role in identity_access["direct_client_roles"]
         }
 
         managed_roles = get_managed_roles("employee-portal")
 
-    except KeycloakAdminAPIError: 
-        current_app.logger.exception("Failed_to_retrieve_identity_access")
+    except KeycloakAdminAPIError as exc:
+        _log_governance_event(
+            level=40,
+            event="identity.view",
+            outcome="failure",
+            reason="identity_access_retrieval_failed",
+            exc=exc,
+            target_id=user_id,
+            client_name="employee-portal",
+        )
 
-        return render_template(
-            "identity-detail-error.html" 
-        ), 502
+        return render_template("identity-detail-error.html"), 502
 
-    try :  
+    try:
         record_audit_event(
-            actor_user_id=current_user.sub,
+            actor_user_id=current_user.get_id(),
             actor_username=current_user.username,
             action="identity.view",
             target_type="identity",
@@ -127,91 +176,93 @@ def identity_detail(user_id):
             outcome="success",
             details={
                 "source": "governance-portal",
-                "service_client": current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"]
+                "service_client": current_app.config[
+                    "KEYCLOAK_SERVICE_CLIENT_ID"
+                ],
             },
         )
-    except AuditPersistenceError:
-        current_app.logger.exception("Failed to persist audit event for identity view")
+
+    except AuditPersistenceError as exc:
+        _log_governance_event(
+            level=40,
+            event="audit.persist",
+            outcome="failure",
+            reason="identity_view_audit_failed",
+            exc=exc,
+            target_id=user_id,
+            audited_action="identity.view",
+        )
 
     return render_template(
         "identity_detail.html",
         identity_access=identity_access,
         direct_role_names=direct_role_names,
-        managed_roles=managed_roles
-
+        managed_roles=managed_roles,
     )
+
+
 @bp_governance.get("/audit")
 @login_required
 @client_role_required(AUDIT_LOG_REVIEWER)
 def audit_log():
+    """
+    Display recent audit events to an authorized audit reviewer.
+    """
     try:
-        events = get_recent_audit_events(
-            limit=100
+        events = get_recent_audit_events(limit=100)
+
+    except AuditQueryError as exc:
+        _log_governance_event(
+            level=40,
+            event="audit.query",
+            outcome="failure",
+            reason="audit_query_failed",
+            exc=exc,
         )
 
-    except AuditQueryError:
-        current_app.logger.exception(
-            "Failed to retrieve audit log"
-        )
-
-        return render_template(
-            "audit-log-error.html"
-        ), 503
+        return render_template("audit-log-error.html"), 503
 
     return render_template(
         "audit-log.html",
         events=events,
     )
 
+
 @bp_governance.post("/identities/<user_id>/roles")
 @login_required
 @client_role_required(ROLE_MANAGER)
 def assign_identity_role(user_id):
     """
-    Assign an Employee Portal client role to an identity.
-
-    Only authenticated users possessing the Governance
-    ROLE_MANAGER permission may perform this operation.
+    Assign an Employee Portal role through the governed role service.
     """
     role_name = request.form.get("role_name", "").strip()
 
-    if not role_name :
+    if not role_name:
         abort(400)
 
-    try :
-        assign_identity_client_role (
-       
-            admin_api_url=current_app.config[
-                "KEYCLOAK_ADMIN_API_URL"
-            ],
-            token_url=current_app.config[
-                "KEYCLOAK_TOKEN_URL"
-            ],
-            client_id=current_app.config[
-                "KEYCLOAK_SERVICE_CLIENT_ID"
-            ],
-            client_secret=current_app.config[
-                "KEYCLOAK_SERVICE_CLIENT_SECRET"
-            ],
+    try:
+        assign_identity_client_role(
+            admin_api_url=current_app.config["KEYCLOAK_ADMIN_API_URL"],
+            token_url=current_app.config["KEYCLOAK_TOKEN_URL"],
+            client_id=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
+            client_secret=current_app.config["KEYCLOAK_SERVICE_CLIENT_SECRET"],
             user_id=user_id,
-
-            # Do NOT trust the browser to choose the client.
-            # The Governance Portal currently administers
-            # Employee Portal application access only.
             target_client_name="employee-portal",
-
             role_name=role_name,
-
-            # The logged-in human remains the audit actor.
-            actor_user_id=current_user.sub,
+            actor_user_id=current_user.get_id(),
             actor_username=current_user.username,
-
         )
-    
+
     except RoleAdministrationPolicyError as exc:
-        current_app.logger.warning(
-            "Role assignment rejected by Governance policy: %s",
-            exc.reason,
+        _log_governance_event(
+            level=30,
+            event="role.assign",
+            outcome="denied",
+            reason=exc.reason,
+            exc=exc,
+            target_id=user_id,
+            client_name="employee-portal",
+            role_name=role_name,
         )
 
         sod_messages = {
@@ -232,107 +283,134 @@ def assign_identity_role(user_id):
             ), 403
 
         abort(403)
-    except AuditPersistenceError:
-        #role service is fail-closed
-        #the Keycloak mutation has not happend when
-        #the initail audit write fails
-        current_app.logger.exception("Role_assignment_blocked_because_audit_persistance_failed")
+
+    except AuditPersistenceError as exc:
+        _log_governance_event(
+            level=40,
+            event="role.assign",
+            outcome="failure",
+            reason="required_audit_persistence_failed",
+            exc=exc,
+            target_id=user_id,
+            client_name="employee-portal",
+            role_name=role_name,
+        )
+
         abort(503)
 
-    except KeycloakAdminAPIError:
-        current_app.logger.exception("Keycloak_role_assignment_failed")
+    except KeycloakAdminAPIError as exc:
+        _log_governance_event(
+            level=40,
+            event="role.assign",
+            outcome="failure",
+            reason="keycloak_role_assignment_failed",
+            exc=exc,
+            target_id=user_id,
+            client_name="employee-portal",
+            role_name=role_name,
+        )
+
         abort(502)
 
     return redirect(
         url_for(
-            "governance.identity_detail", 
-            user_id = user_id
-            )
+            "governance.identity_detail",
+            user_id=user_id,
+        )
     )
+
 
 @bp_governance.post("/identities/<user_id>/roles/<role_name>/remove")
 @login_required
 @client_role_required(ROLE_MANAGER)
-def remove_identity_role(user_id,role_name):
+def remove_identity_role(user_id, role_name):
     """
-    Assign an Employee Portal client role to an identity.
-
-    Only authenticated users possessing the Governance
-    ROLE_MANAGER permission may perform this operation.
+    Remove an Employee Portal role through the governed role service.
     """
-    role_name =  role_name.strip()
+    role_name = role_name.strip()
 
-    if not role_name :
+    if not role_name:
         abort(400)
 
-    try :
-        remove_identity_client_role (
-         
-            admin_api_url=current_app.config[
-                "KEYCLOAK_ADMIN_API_URL"
-            ],
-            token_url=current_app.config[
-                "KEYCLOAK_TOKEN_URL"        
-            ],
-            client_id=current_app.config[
-                "KEYCLOAK_SERVICE_CLIENT_ID"
-            ],
-            client_secret=current_app.config[
-                "KEYCLOAK_SERVICE_CLIENT_SECRET"
-            ],
+    try:
+        remove_identity_client_role(
+            admin_api_url=current_app.config["KEYCLOAK_ADMIN_API_URL"],
+            token_url=current_app.config["KEYCLOAK_TOKEN_URL"],
+            client_id=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
+            client_secret=current_app.config["KEYCLOAK_SERVICE_CLIENT_SECRET"],
             user_id=user_id,
-
-                       # Do NOT trust the browser to choose the client.
-            #
-            # The Governance Portal currently administers
-            # Employee Portal application access only.
             target_client_name="employee-portal",
-
             role_name=role_name,
-
-            # The logged-in human remains the audit actor.
-            actor_user_id=current_user.sub,
+            actor_user_id=current_user.get_id(),
             actor_username=current_user.username,
-
         )
-    
-    except RoleAdministrationPolicyError:
-        current_app.logger.warning("Role_removal_rejected_by_the_Governance_Policy")
+
+    except RoleAdministrationPolicyError as exc:
+        _log_governance_event(
+            level=30,
+            event="role.remove",
+            outcome="denied",
+            reason=exc.reason,
+            exc=exc,
+            target_id=user_id,
+            client_name="employee-portal",
+            role_name=role_name,
+        )
+
         abort(403)
 
-    except AuditPersistenceError:
-        #role service is fail-closed
-        #the Keycloak mutation has not happend when
-        #the initail audit write fails
-        current_app.logger.exception("Role_removal_blocked_because_audit_persistance_failed")
+    except AuditPersistenceError as exc:
+        _log_governance_event(
+            level=40,
+            event="role.remove",
+            outcome="failure",
+            reason="required_audit_persistence_failed",
+            exc=exc,
+            target_id=user_id,
+            client_name="employee-portal",
+            role_name=role_name,
+        )
+
         abort(503)
 
-    except KeycloakAdminAPIError:
-        current_app.logger.exception("Keycloak_role_removal_failed")
+    except KeycloakAdminAPIError as exc:
+        _log_governance_event(
+            level=40,
+            event="role.remove",
+            outcome="failure",
+            reason="keycloak_role_removal_failed",
+            exc=exc,
+            target_id=user_id,
+            client_name="employee-portal",
+            role_name=role_name,
+        )
+
         abort(502)
 
     return redirect(
         url_for(
-            "governance.identity_detail", 
-            user_id = user_id
-            )
+            "governance.identity_detail",
+            user_id=user_id,
+        )
     )
+
 
 @bp_governance.get("/access-reviews")
 @login_required
 @client_role_required(ACCESS_REVIEWER)
-
 def access_reviews():
     """
-    Display access review campaigns assigned to the authenticated reviewer.
+    Display campaigns assigned to the authenticated reviewer.
     """
-    
-    reviews = get_access_reviews_for_reviewer(current_user.get_id())
-    
+    reviews = get_access_reviews_for_reviewer(
+        current_user.get_id()
+    )
+
     return render_template(
         "access-reviews.html",
         reviews=reviews,
     )
+
 
 @bp_governance.get("/access-reviews/<int:review_id>")
 @login_required
@@ -344,22 +422,25 @@ def access_review_detail(review_id):
     try:
         review = get_access_review_for_reviewer(
             review_id,
-            current_user.get_id())
+            current_user.get_id(),
+        )
+
     except ValueError:
         abort(404)
-        
+
     return render_template(
-        "access-review-detail.html", 
-        review=review)
+        "access-review-detail.html",
+        review=review,
+    )
+
 
 @bp_governance.route("/access-reviews/new", methods=["GET", "POST"])
 @login_required
 @client_role_required(ACCESS_REVIEW_MANAGER)
 def create_access_review():
     """
-    Allow access review managers to create an audited draft campaign.
+    Allow managers to create an audited draft campaign with an eligible reviewer.
     """
-
     if request.method == "GET":
         return render_template("access-review-create.html")
 
@@ -390,36 +471,59 @@ def create_access_review():
             created_by_user_id=current_user.get_id(),
             actor_username=current_user.username,
             reviewer_user_id=reviewer_user_id,
-            admin_api_url= current_app.config["KEYCLOAK_ADMIN_API_URL"],
-            token_url= current_app.config["KEYCLOAK_TOKEN_URL"],
-            client_id= current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
+            admin_api_url=current_app.config["KEYCLOAK_ADMIN_API_URL"],
+            token_url=current_app.config["KEYCLOAK_TOKEN_URL"],
+            client_id=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
             client_secret=current_app.config["KEYCLOAK_SERVICE_CLIENT_SECRET"],
             due_at=due_at,
         )
+    
+    
+    except ValueError as exc:
+        reason = str(exc)
 
-    except ValueError:
+        if reason in (
+            "reviewer_not_enabled",
+            "reviewer_missing_required_role",
+        ):
+            _log_governance_event(
+                level=30,
+                event="access_review.create",
+                outcome="denied",
+                reason=reason,
+            )
+
         return render_template(
             "access-review-create.html",
             error="Enter a campaign name and a valid reviewer ID.",
         ), 400
 
+
+
+
     except (AuditPersistenceError, SQLAlchemyError) as exc:
-        current_app.logger.exception(
-            json.dumps({
-                "event": "access_review.create",
-                "outcome": "failure",
-                "source": "governance-portal",
-                "actor_user_id": current_user.get_id(),
-                "error_type": type(exc).__name__,
-            })
+        _log_governance_event(
+            level=40,
+            event="access_review.create",
+            outcome="failure",
+            reason="campaign_persistence_failed",
+            exc=exc,
         )
 
         return render_template(
             "access-review-create.html",
             error="The campaign could not be saved. Please try again.",
         ), 500
-    
-    except KeycloakAdminAPIError: 
+
+    except KeycloakAdminAPIError as exc:
+        _log_governance_event(
+            level=40,
+            event="access_review.create",
+            outcome="failure",
+            reason="reviewer_verification_failed",
+            exc=exc,
+        )
+
         return render_template(
             "access-review-create.html",
             error="The reviewer could not be verified. Please try again.",
@@ -432,15 +536,15 @@ def create_access_review():
         ),
         303,
     )
-    
+
+
 @bp_governance.get("/access-reviews/manage")
 @login_required
 @client_role_required(ACCESS_REVIEW_MANAGER)
 def manage_access_reviews():
     """
-    Display access review campaigns created by the authenticated manager.
+    Display campaigns created by the authenticated access review manager.
     """
-
     reviews = get_access_reviews_for_manager(
         current_user.get_id()
     )
@@ -449,20 +553,21 @@ def manage_access_reviews():
         "access-reviews-manage.html",
         reviews=reviews,
     )
-    
+
+
 @bp_governance.get("/access-reviews/manage/<int:review_id>")
 @login_required
 @client_role_required(ACCESS_REVIEW_MANAGER)
 def manage_access_review_detail(review_id):
     """
-    Display a campaign and its captured access to its access review manager.
+    Display a campaign and its captured access to the manager who created it.
     """
-
     try:
         campaign = get_access_review_for_manager(
             review_id,
             current_user.get_id(),
         )
+
     except ValueError:
         abort(404)
 
@@ -471,6 +576,3 @@ def manage_access_review_detail(review_id):
         review=campaign,
         manager_view=True,
     )
-
-    
-    
