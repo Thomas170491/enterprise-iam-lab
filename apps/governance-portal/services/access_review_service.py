@@ -395,4 +395,54 @@ def populate_access_review_from_identity(
     
     
     return created_items
+
+def populate_access_review_with_audit(
+     review_id : int,
+    manager_user_id : str, 
+    user_id :str ,
+    admin_api_url : str,
+    token_url :str,
+    client_id : str,
+    client_secret :str,
+    actor_username : str 
+):
+    """
+    Capture identity access and record the manager's audit event in one transaction.
+
+    Commit both together, rolling back on failure.
+    """
+    
+    try :
+        created_items= populate_access_review_from_identity(
+                        review_id = review_id,
+                        manager_user_id = manager_user_id, 
+                        user_id = user_id ,
+                        admin_api_url = admin_api_url,
+                        token_url = token_url,
+                        client_id = client_id,
+                        client_secret = client_secret,
+            )
+        record_audit_event(
+            actor_user_id=manager_user_id,
+            actor_username=actor_username,
+            action="access_review.populate",
+            target_type="access_review",
+            target_id=str(review_id),
+            outcome="success",
+            details={
+                "source": "governance-portal",
+                "user_id": user_id,
+                "client_name": "employee-portal",
+                "items_added": len(created_items),
+            },
+            commit=False,
+        )
+
+        db.session.commit()
+
+    except Exception:
+        db.session.rollback()
+        raise
+
+    return created_items
         
