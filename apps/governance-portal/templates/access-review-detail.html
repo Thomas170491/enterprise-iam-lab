@@ -42,6 +42,48 @@ Access Review | NovaSecure IAM Governance
 
 </section>
 
+{% if (manager_view | default(false)) and review.status == "draft" %}
+<section aria-labelledby="capture-access-heading">
+
+    <h2 id="capture-access-heading">Capture identity access</h2>
+
+    <p id="capture-access-help">
+        Capture the identity’s directly assigned Employee Portal roles
+        that are enabled in the managed-role catalogue.
+        Inherited roles are not included.
+    </p>
+
+    <form
+        class="identity-search-form"
+        method="POST"
+        action="{{ url_for('governance.populate_access_review', review_id=review.id) }}"
+    >
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+        <div class="identity-search-field">
+            <label for="capture-user-id">Keycloak user ID</label>
+
+            <input
+                id="capture-user-id"
+                name="user_id"
+                type="text"
+                maxlength="255"
+                aria-describedby="capture-access-help"
+                required
+            >
+        </div>
+
+        <button type="submit">
+            Capture access
+        </button>
+    </form>
+
+</section>
+{% endif %}
 
 <section>
 
