@@ -85,6 +85,225 @@ def test_create_access_review_with_audit_records_actor(
     assert event.details["status"] == "draft"
 
 
+def test_open_access_review_with_audit_records_actor(app):
+    """
+    Verify that opening a campaign commits its status and human-actor audit event.
+    """
+    review = access_review_service.create_access_review(
+        name="Manager review",
+        created_by_user_id="manager-123",
+        reviewer_user_id="reviewer-456",
+    )
+    access_review_service.add_access_review_item(
+        review_id=review.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    db.session.commit()
+
+    review_id = review.id
+
+    opened_review = access_review_service.open_access_review_with_audit(
+        review_id=review_id,
+        manager_user_id="manager-123",
+        actor_username="leo",
+    )
+
+    db.session.rollback()
+
+    saved_review = db.session.get(AccessReview, review_id)
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.open",
+            AuditEvent.target_id == str(review_id),
+        )
+    ).scalar_one_or_none()
+
+    assert opened_review.id == review_id
+    assert saved_review is not None
+    assert saved_review.status == "open"
+    assert event is not None
+    assert event.actor_user_id == "manager-123"
+    assert event.actor_username == "leo"
+    assert event.target_type == "access_review"
+    assert event.target_name == "Manager review"
+    assert event.outcome == "success"
+    assert event.details["source"] == "governance-portal"
+    assert event.details["reviewer_user_id"] == "reviewer-456"
+    assert event.details["previous_status"] == "draft"
+    assert event.details["new_status"] == "open"
+    assert event.details["item_count"] == 1
+
+
+def test_open_access_review_with_audit_rolls_back_on_audit_failure(app, monkeypatch):
+    """
+    Verify that an audit failure rolls back campaign opening and preserves its snapshots.
+    """
+    review = access_review_service.create_access_review(
+        name="Manager review",
+        created_by_user_id="manager-123",
+        reviewer_user_id="reviewer-456",
+    )
+    access_review_service.add_access_review_item(
+        review_id=review.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    db.session.commit()
+
+    review_id = review.id
+    fake_audit = Mock(side_effect=AuditPersistenceError("audit failed"))
+    monkeypatch.setattr(
+        access_review_service,
+        "record_audit_event",
+        fake_audit,
+    )
+
+    with pytest.raises(AuditPersistenceError, match="audit failed"):
+        access_review_service.open_access_review_with_audit(
+            review_id=review_id,
+            manager_user_id="manager-123",
+            actor_username="leo",
+        )
+
+    fake_audit.assert_called_once()
+
+    saved_review = db.session.get(AccessReview, review_id)
+    saved_items = (
+        db.session.execute(
+            db.select(AccessReviewItem).where(
+                AccessReviewItem.review_id == review_id,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    open_event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.open",
+            AuditEvent.target_id == str(review_id),
+        )
+    ).scalar_one_or_none()
+
+    assert saved_review is not None
+    assert saved_review.status == "draft"
+    assert len(saved_items) == 1
+    assert open_event is None
+
+
+def test_open_access_review_with_audit_rolls_back_on_commit_failure(app, monkeypatch):
+    """
+    Verify that a failed commit restores draft status and removes the opening audit event.
+    """
+    review = access_review_service.create_access_review(
+        name="Manager review",
+        created_by_user_id="manager-123",
+        reviewer_user_id="reviewer-456",
+    )
+    access_review_service.add_access_review_item(
+        review_id=review.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    db.session.commit()
+
+    review_id = review.id
+    monkeypatch.setattr(
+        db.session,
+        "commit",
+        Mock(side_effect=SQLAlchemyError("commit failed")),
+    )
+
+    with pytest.raises(SQLAlchemyError, match="commit failed"):
+        access_review_service.open_access_review_with_audit(
+            review_id=review_id,
+            manager_user_id="manager-123",
+            actor_username="leo",
+        )
+
+    saved_review = db.session.get(AccessReview, review_id)
+    saved_items = (
+        db.session.execute(
+            db.select(AccessReviewItem).where(
+                AccessReviewItem.review_id == review_id,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    open_event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.open",
+            AuditEvent.target_id == str(review_id),
+        )
+    ).scalar_one_or_none()
+
+    assert saved_review is not None
+    assert saved_review.status == "draft"
+    assert len(saved_items) == 1
+    assert open_event is None
+
+
+def test_open_access_review_with_audit_rejects_other_manager(app):
+    """
+    Verify that another manager cannot open a campaign or create an opening audit event.
+    """
+    review = access_review_service.create_access_review(
+        name="Manager review",
+        created_by_user_id="manager-123",
+        reviewer_user_id="reviewer-456",
+    )
+    access_review_service.add_access_review_item(
+        review_id=review.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    db.session.commit()
+
+    review_id = review.id
+
+    with pytest.raises(ValueError, match="access_review_not_found"):
+        access_review_service.open_access_review_with_audit(
+            review_id=review_id,
+            manager_user_id="other-manager",
+            actor_username="other-manager-user",
+        )
+
+    saved_review = db.session.get(AccessReview, review_id)
+    saved_items = (
+        db.session.execute(
+            db.select(AccessReviewItem).where(
+                AccessReviewItem.review_id == review_id,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    open_event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.open",
+            AuditEvent.target_id == str(review_id),
+        )
+    ).scalar_one_or_none()
+
+    assert saved_review is not None
+    assert saved_review.status == "draft"
+    assert len(saved_items) == 1
+    assert open_event is None
+
+
 def test_create_access_review_with_audit_rolls_back_on_audit_failure(
     app,
     monkeypatch,

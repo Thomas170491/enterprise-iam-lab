@@ -134,6 +134,51 @@ def open_access_review(review_id: int) -> AccessReview:
     return campaign
 
 
+def open_access_review_with_audit(
+    review_id: int,
+    manager_user_id: str,
+    actor_username: str,
+) -> AccessReview:
+    """
+    Open a manager-owned draft campaign and record its audit event atomically.
+
+    Commit both together, rolling back on failure.
+    """
+    try:
+        campaign = get_access_review_for_manager(
+            review_id=review_id,
+            manager_user_id=manager_user_id,
+        )
+
+        opened_campaign = open_access_review(campaign.id)
+
+        record_audit_event(
+            actor_user_id=manager_user_id,
+            actor_username=actor_username,
+            action="access_review.open",
+            target_type="access_review",
+            target_id=str(campaign.id),
+            target_name=campaign.name,
+            outcome="success",
+            details={
+                "source": "governance-portal",
+                "reviewer_user_id": campaign.reviewer_user_id,
+                "previous_status": "draft",
+                "new_status": "open",
+                "item_count": len(campaign.items),
+            },
+            commit=False,
+        )
+
+        db.session.commit()
+
+    except Exception:
+        db.session.rollback()
+        raise
+
+    return opened_campaign
+
+
 def cancel_access_review(review_id: int) -> AccessReview:
     """
     Cancel a draft or open access review campaign while preserving its items.
