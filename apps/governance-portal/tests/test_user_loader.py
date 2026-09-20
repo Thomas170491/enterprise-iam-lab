@@ -23,9 +23,7 @@ def test_user_loader_reconstructs_user(app):
             ],
         }
 
-        user = login_manager._user_callback(
-            "subject-123"
-        )
+        user = login_manager._user_callback("subject-123")
 
         assert user is not None
 
@@ -35,13 +33,9 @@ def test_user_loader_reconstructs_user(app):
         assert user.name == "Leo Bernard"
         assert user.email == "leo@example.test"
 
-        assert user.client_roles == [
-            "identity-viewer"
-        ]
+        assert user.client_roles == ["identity-viewer"]
 
-        assert user.realm_roles == [
-            "privileged-user"
-        ]
+        assert user.realm_roles == ["privileged-user"]
 
 
 def test_user_loader_rejects_identity_mismatch(
@@ -64,9 +58,7 @@ def test_user_loader_rejects_identity_mismatch(
             "realm_roles": [],
         }
 
-        user = login_manager._user_callback(
-            "subject-B"
-        )
+        user = login_manager._user_callback("subject-B")
 
         assert user is None
 
@@ -82,8 +74,6 @@ def test_user_loader_handles_missing_session(
     """
 
     with app.test_request_context("/"):
-        user = login_manager._user_callback(
-            "subject-123"
-        )
+        user = login_manager._user_callback("subject-123")
 
         assert user is None

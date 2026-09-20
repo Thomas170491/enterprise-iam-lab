@@ -5,13 +5,13 @@ Revises: 95c3578daaf8
 Create Date: 2026-09-09 15:30:17.523135
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 
-
 # revision identifiers, used by Alembic.
-revision = 'c11431e934a2'
-down_revision = '95c3578daaf8'
+revision = "c11431e934a2"
+down_revision = "95c3578daaf8"
 branch_labels = None
 depends_on = None
 
@@ -36,15 +36,19 @@ def upgrade():
                 managed_roles.c.id,
             ).where(
                 managed_roles.c.client_name == "employee-portal",
-                managed_roles.c.role_name.in_([
-                    "hr-data-viewer",
-                    "finance-data-viewer",
-                    "security-data-viewer",
-                ]),
+                managed_roles.c.role_name.in_(
+                    [
+                        "hr-data-viewer",
+                        "finance-data-viewer",
+                        "security-data-viewer",
+                    ]
+                ),
             )
-        ).tuples().all()
+        )
+        .tuples()
+        .all()
     )
-    
+
     required_roles = {
         "hr-data-viewer",
         "finance-data-viewer",
@@ -58,17 +62,21 @@ def upgrade():
             "Cannot seed SoD rules; missing managed roles: "
             + ", ".join(sorted(missing_roles))
         )
-    
-    hr_finance_ids = sorted([
-        role_ids["hr-data-viewer"],
-        role_ids["finance-data-viewer"],
-    ])
 
-    finance_security_ids = sorted([
-        role_ids["finance-data-viewer"],
-        role_ids["security-data-viewer"],
-    ])
-    
+    hr_finance_ids = sorted(
+        [
+            role_ids["hr-data-viewer"],
+            role_ids["finance-data-viewer"],
+        ]
+    )
+
+    finance_security_ids = sorted(
+        [
+            role_ids["finance-data-viewer"],
+            role_ids["security-data-viewer"],
+        ]
+    )
+
     sod_rules = sa.table(
         "sod_rules",
         sa.column("name", sa.String),
@@ -98,6 +106,7 @@ def upgrade():
         ],
     )
 
+
 def downgrade():
     """
     Remove the two Employee Portal SoD rules seeded by this migration.
@@ -109,9 +118,11 @@ def downgrade():
 
     op.execute(
         sod_rules.delete().where(
-            sod_rules.c.name.in_([
-                "employee-portal-hr-finance-deny",
-                "employee-portal-finance-security-review",
-            ])
+            sod_rules.c.name.in_(
+                [
+                    "employee-portal-hr-finance-deny",
+                    "employee-portal-finance-security-review",
+                ]
+            )
         )
     )

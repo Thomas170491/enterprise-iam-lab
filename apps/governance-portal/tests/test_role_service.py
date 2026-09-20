@@ -12,7 +12,7 @@ from services.exceptions import (
 from extensions import db
 from models import ManagedRole
 
-#Add application context
+# Add application context
 pytestmark = pytest.mark.usefixtures("app")
 
 
@@ -30,16 +30,18 @@ def managed_role_catalogue(app):
         "security-data-viewer",
     ]
 
-    db.session.add_all([
-        ManagedRole(
-            client_name="employee-portal",
-            role_name=role_name,
-        )
-        for role_name in role_names
-    ])
+    db.session.add_all(
+        [
+            ManagedRole(
+                client_name="employee-portal",
+                role_name=role_name,
+            )
+            for role_name in role_names
+        ]
+    )
     db.session.commit()
-    
-    
+
+
 # ============================================================
 # Shared test data
 # ============================================================
@@ -58,8 +60,8 @@ def _fake_role():
 
 
 def _patch_role_resolution(
-        monkeypatch,
-        role,
+    monkeypatch,
+    role,
 ):
     """
     Replace the Keycloak client/role lookup operations.
@@ -67,12 +69,8 @@ def _patch_role_resolution(
     These tests exercise the Governance role service,
     not the real Keycloak Admin API.
     """
-    
-    monkeypatch.setattr(
-        role_service,
-        "get_effective_client_roles",
-        lambda **kwargs : []
-    )
+
+    monkeypatch.setattr(role_service, "get_effective_client_roles", lambda **kwargs: [])
 
     monkeypatch.setattr(
         role_service,
@@ -86,22 +84,20 @@ def _patch_role_resolution(
         lambda **kwargs: role,
     )
 
+
 def test_get_managed_roles_returns_sorted_roles():
     """Return enabled catalogue role names in alphabetical order."""
-    roles = role_service.get_managed_roles(
-        "employee-portal"
-    )
+    roles = role_service.get_managed_roles("employee-portal")
 
     assert roles == sorted(roles)
 
     assert "manager-dashboard" in roles
     assert "finance-data-viewer" in roles
 
+
 def test_get_managed_roles_returns_empty_for_unmanaged_client():
     """Return no roles for a client outside the seeded catalogue."""
-    roles = role_service.get_managed_roles(
-        "iam-admin-portal"
-    )
+    roles = role_service.get_managed_roles("iam-admin-portal")
 
     assert roles == []
 
@@ -119,8 +115,6 @@ def test_assign_identity_client_role(monkeypatch):
         monkeypatch,
         role,
     )
-    
-
 
     fake_assign = Mock()
 
@@ -140,9 +134,7 @@ def test_assign_identity_client_role(monkeypatch):
     )
 
     result = role_service.assign_identity_client_role(
-        admin_api_url=(
-            "https://keycloak.test/admin/realms/novasecure"
-        ),
+        admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
@@ -154,9 +146,7 @@ def test_assign_identity_client_role(monkeypatch):
     )
 
     fake_assign.assert_called_once_with(
-        admin_api_url=(
-            "https://keycloak.test/admin/realms/novasecure"
-        ),
+        admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
@@ -204,9 +194,7 @@ def test_remove_identity_client_role(monkeypatch):
     )
 
     result = role_service.remove_identity_client_role(
-        admin_api_url=(
-            "https://keycloak.test/admin/realms/novasecure"
-        ),
+        admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
@@ -218,9 +206,7 @@ def test_remove_identity_client_role(monkeypatch):
     )
 
     fake_remove.assert_called_once_with(
-        admin_api_url=(
-            "https://keycloak.test/admin/realms/novasecure"
-        ),
+        admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
@@ -243,7 +229,7 @@ def test_remove_identity_client_role(monkeypatch):
 
 
 def test_role_administration_rejects_unmanaged_client(
-        monkeypatch,
+    monkeypatch,
 ):
     """
     The Governance Portal must not be able to use this
@@ -258,31 +244,23 @@ def test_role_administration_rejects_unmanaged_client(
         fake_client_lookup,
     )
 
-    with pytest.raises(
-        RoleAdministrationPolicyError
-    ) as exc_info:
+    with pytest.raises(RoleAdministrationPolicyError) as exc_info:
 
         role_service.assign_identity_client_role(
-            admin_api_url=(
-                "https://keycloak.test/admin/realms/novasecure"
-            ),
+            admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
             user_id="user-123",
-
             # Deliberately attempt to modify the
             # Governance Portal itself.
             target_client_name="iam-admin-portal",
-
             role_name="role-manager",
             actor_user_id="leo-sub-123",
             actor_username="e1004",
         )
 
-    assert exc_info.value.reason == (
-        "unmanaged_client"
-    )
+    assert exc_info.value.reason == ("unmanaged_client")
 
     # The request must be rejected before
     # Keycloak is ever contacted.
@@ -295,7 +273,7 @@ def test_role_administration_rejects_unmanaged_client(
 
 
 def test_assign_identity_client_role_audits_human_actor(
-        monkeypatch,
+    monkeypatch,
 ):
     """
     The human administrator must be recorded as the actor.
@@ -325,9 +303,7 @@ def test_assign_identity_client_role_audits_human_actor(
     )
 
     role_service.assign_identity_client_role(
-        admin_api_url=(
-            "https://keycloak.test/admin/realms/novasecure"
-        ),
+        admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
@@ -343,13 +319,9 @@ def test_assign_identity_client_role_audits_human_actor(
 
     sod_event = fake_audit.call_args_list[0].kwargs
 
-    attempted_event = (
-        fake_audit.call_args_list[1].kwargs
-    )
+    attempted_event = fake_audit.call_args_list[1].kwargs
 
-    success_event = (
-        fake_audit.call_args_list[2].kwargs
-    )
+    success_event = fake_audit.call_args_list[2].kwargs
 
     assert sod_event["action"] == "sod.evaluate"
     assert sod_event["outcome"] == "allow"
@@ -365,47 +337,23 @@ def test_assign_identity_client_role_audits_human_actor(
         assert event["details"]["client_name"] == "employee-portal"
     assert success_event["action"] == "role.assign"
 
-    assert attempted_event[
-        "actor_user_id"
-    ] == "leo-sub-123"
+    assert attempted_event["actor_user_id"] == "leo-sub-123"
 
-    assert attempted_event[
-        "actor_username"
-    ] == "e1004"
+    assert attempted_event["actor_username"] == "e1004"
 
-    assert attempted_event[
-        "action"
-    ] == "role.assign"
+    assert attempted_event["action"] == "role.assign"
 
-    assert attempted_event[
-        "target_id"
-    ] == "target-user-123"
+    assert attempted_event["target_id"] == "target-user-123"
 
-    assert attempted_event[
-        "outcome"
-    ] == "attempted"
+    assert attempted_event["outcome"] == "attempted"
 
-    assert attempted_event[
-        "details"
-    ]["service_client"] == (
-        "iam-governance-service"
-    )
+    assert attempted_event["details"]["service_client"] == ("iam-governance-service")
 
-    assert attempted_event[
-        "details"
-    ]["client_name"] == (
-        "employee-portal"
-    )
+    assert attempted_event["details"]["client_name"] == ("employee-portal")
 
-    assert attempted_event[
-        "details"
-    ]["role_name"] == (
-        "finance-data-viewer"
-    )
+    assert attempted_event["details"]["role_name"] == ("finance-data-viewer")
 
-    assert success_event[
-        "outcome"
-    ] == "success"
+    assert success_event["outcome"] == "success"
 
 
 # ============================================================
@@ -414,7 +362,7 @@ def test_assign_identity_client_role_audits_human_actor(
 
 
 def test_remove_identity_client_role_audits_human_actor(
-        monkeypatch,
+    monkeypatch,
 ):
     """Record the human actor and service client for role removal."""
     role = _fake_role()
@@ -439,9 +387,7 @@ def test_remove_identity_client_role_audits_human_actor(
     )
 
     role_service.remove_identity_client_role(
-        admin_api_url=(
-            "https://keycloak.test/admin/realms/novasecure"
-        ),
+        admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
@@ -454,39 +400,21 @@ def test_remove_identity_client_role_audits_human_actor(
 
     assert fake_audit.call_count == 2
 
-    attempted_event = (
-        fake_audit.call_args_list[0].kwargs
-    )
+    attempted_event = fake_audit.call_args_list[0].kwargs
 
-    success_event = (
-        fake_audit.call_args_list[1].kwargs
-    )
+    success_event = fake_audit.call_args_list[1].kwargs
 
-    assert attempted_event[
-        "actor_user_id"
-    ] == "leo-sub-123"
+    assert attempted_event["actor_user_id"] == "leo-sub-123"
 
-    assert attempted_event[
-        "actor_username"
-    ] == "e1004"
+    assert attempted_event["actor_username"] == "e1004"
 
-    assert attempted_event[
-        "action"
-    ] == "role.remove"
+    assert attempted_event["action"] == "role.remove"
 
-    assert attempted_event[
-        "outcome"
-    ] == "attempted"
+    assert attempted_event["outcome"] == "attempted"
 
-    assert attempted_event[
-        "details"
-    ]["service_client"] == (
-        "iam-governance-service"
-    )
+    assert attempted_event["details"]["service_client"] == ("iam-governance-service")
 
-    assert success_event[
-        "outcome"
-    ] == "success"
+    assert success_event["outcome"] == "success"
 
 
 # ============================================================
@@ -495,7 +423,7 @@ def test_remove_identity_client_role_audits_human_actor(
 
 
 def test_assignment_not_performed_when_initial_audit_fails(
-        monkeypatch,
+    monkeypatch,
 ):
     """
     Privileged mutations must fail closed.
@@ -522,20 +450,12 @@ def test_assignment_not_performed_when_initial_audit_fails(
     monkeypatch.setattr(
         role_service,
         "record_audit_event",
-        Mock(
-            side_effect=AuditPersistenceError(
-                "database unavailable"
-            )
-        ),
+        Mock(side_effect=AuditPersistenceError("database unavailable")),
     )
 
-    with pytest.raises(
-        AuditPersistenceError
-    ):
+    with pytest.raises(AuditPersistenceError):
         role_service.assign_identity_client_role(
-            admin_api_url=(
-                "https://keycloak.test/admin/realms/novasecure"
-            ),
+            admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
@@ -555,7 +475,7 @@ def test_assignment_not_performed_when_initial_audit_fails(
 
 
 def test_removal_not_performed_when_initial_audit_fails(
-        monkeypatch,
+    monkeypatch,
 ):
     """Prevent removal when its initial audit event cannot be saved."""
     role = _fake_role()
@@ -576,20 +496,12 @@ def test_removal_not_performed_when_initial_audit_fails(
     monkeypatch.setattr(
         role_service,
         "record_audit_event",
-        Mock(
-            side_effect=AuditPersistenceError(
-                "database unavailable"
-            )
-        ),
+        Mock(side_effect=AuditPersistenceError("database unavailable")),
     )
 
-    with pytest.raises(
-        AuditPersistenceError
-    ):
+    with pytest.raises(AuditPersistenceError):
         role_service.remove_identity_client_role(
-            admin_api_url=(
-                "https://keycloak.test/admin/realms/novasecure"
-            ),
+            admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
@@ -609,7 +521,7 @@ def test_removal_not_performed_when_initial_audit_fails(
 
 
 def test_assignment_failure_is_audited(
-        monkeypatch,
+    monkeypatch,
 ):
     """Record SoD approval, assignment attempt, and Keycloak failure."""
     role = _fake_role()
@@ -622,11 +534,7 @@ def test_assignment_failure_is_audited(
     monkeypatch.setattr(
         role_service,
         "assign_client_role",
-        Mock(
-            side_effect=KeycloakAdminAPIError(
-                "Client role assignment failed"
-            )
-        ),
+        Mock(side_effect=KeycloakAdminAPIError("Client role assignment failed")),
     )
 
     fake_audit = Mock()
@@ -637,13 +545,9 @@ def test_assignment_failure_is_audited(
         fake_audit,
     )
 
-    with pytest.raises(
-        KeycloakAdminAPIError
-    ):
+    with pytest.raises(KeycloakAdminAPIError):
         role_service.assign_identity_client_role(
-            admin_api_url=(
-                "https://keycloak.test/admin/realms/novasecure"
-            ),
+            admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
@@ -672,7 +576,7 @@ def test_assignment_failure_is_audited(
 
 
 def test_removal_failure_is_audited(
-        monkeypatch,
+    monkeypatch,
 ):
     """Record the attempt and failure when Keycloak rejects removal."""
     role = _fake_role()
@@ -685,11 +589,7 @@ def test_removal_failure_is_audited(
     monkeypatch.setattr(
         role_service,
         "remove_client_role",
-        Mock(
-            side_effect=KeycloakAdminAPIError(
-                "Client role removal failed"
-            )
-        ),
+        Mock(side_effect=KeycloakAdminAPIError("Client role removal failed")),
     )
 
     fake_audit = Mock()
@@ -700,13 +600,9 @@ def test_removal_failure_is_audited(
         fake_audit,
     )
 
-    with pytest.raises(
-        KeycloakAdminAPIError
-    ):
+    with pytest.raises(KeycloakAdminAPIError):
         role_service.remove_identity_client_role(
-            admin_api_url=(
-                "https://keycloak.test/admin/realms/novasecure"
-            ),
+            admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
@@ -719,17 +615,9 @@ def test_removal_failure_is_audited(
 
     assert fake_audit.call_count == 2
 
-    assert (
-        fake_audit.call_args_list[0]
-        .kwargs["outcome"]
-        == "attempted"
-    )
+    assert fake_audit.call_args_list[0].kwargs["outcome"] == "attempted"
 
-    assert (
-        fake_audit.call_args_list[1]
-        .kwargs["outcome"]
-        == "failure"
-    )
+    assert fake_audit.call_args_list[1].kwargs["outcome"] == "failure"
 
 
 # ============================================================
@@ -738,7 +626,7 @@ def test_removal_failure_is_audited(
 
 
 def test_assignment_success_not_masked_by_final_audit_failure(
-        monkeypatch,
+    monkeypatch,
 ):
     """
     If Keycloak successfully assigns the role but the final
@@ -767,9 +655,7 @@ def test_assignment_success_not_masked_by_final_audit_failure(
         side_effect=[
             None,
             None,
-            AuditPersistenceError(
-                "database unavailable"
-            ),
+            AuditPersistenceError("database unavailable"),
         ]
     )
 
@@ -780,9 +666,7 @@ def test_assignment_success_not_masked_by_final_audit_failure(
     )
 
     result = role_service.assign_identity_client_role(
-        admin_api_url=(
-            "https://keycloak.test/admin/realms/novasecure"
-        ),
+        admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
@@ -791,13 +675,11 @@ def test_assignment_success_not_masked_by_final_audit_failure(
         role_name="finance-data-viewer",
         actor_user_id="leo-sub-123",
         actor_username="e1004",
-    ) 
+    )
 
     fake_assign.assert_called_once()
 
-    assert result["role_name"] == (
-        "finance-data-viewer"
-    )
+    assert result["role_name"] == ("finance-data-viewer")
     assert fake_audit.call_count == 3
 
 
@@ -807,7 +689,7 @@ def test_assignment_success_not_masked_by_final_audit_failure(
 
 
 def test_removal_success_not_masked_by_final_audit_failure(
-        monkeypatch,
+    monkeypatch,
 ):
     """Preserve successful removal when its final audit write fails."""
     role = _fake_role()
@@ -820,7 +702,7 @@ def test_removal_success_not_masked_by_final_audit_failure(
     fake_remove = Mock()
 
     monkeypatch.setattr(
-        role_service, 
+        role_service,
         "remove_client_role",
         fake_remove,
     )
@@ -828,9 +710,7 @@ def test_removal_success_not_masked_by_final_audit_failure(
     fake_audit = Mock(
         side_effect=[
             None,
-            AuditPersistenceError(
-                "database unavailable"
-            ),
+            AuditPersistenceError("database unavailable"),
         ]
     )
 
@@ -841,9 +721,7 @@ def test_removal_success_not_masked_by_final_audit_failure(
     )
 
     result = role_service.remove_identity_client_role(
-        admin_api_url=(
-            "https://keycloak.test/admin/realms/novasecure"
-        ),
+        admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
@@ -856,39 +734,32 @@ def test_removal_success_not_masked_by_final_audit_failure(
 
     fake_remove.assert_called_once()
 
-    assert result["role_name"] == (
-        "finance-data-viewer"
-    )
+    assert result["role_name"] == ("finance-data-viewer")
 
     assert fake_audit.call_count == 2
+
 
 def test_role_administration_rejects_unmanaged_role(monkeypatch):
     """Reject an unlisted role before contacting Keycloak."""
 
     fake_client_lookup = Mock()
 
-    monkeypatch.setattr( 
+    monkeypatch.setattr(
         role_service,
         "get_client_uuid",
         fake_client_lookup,
     )
-    with pytest.raises(
-        RoleAdministrationPolicyError
-    ) as exc_info:
-        
+    with pytest.raises(RoleAdministrationPolicyError) as exc_info:
+
         role_service.assign_identity_client_role(
-            admin_api_url=(
-                "https://keycloak.test/admin/realms/novasecure"
-            ),
+            admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
             user_id="user-123",
             target_client_name="employee-portal",
-
             # Deliberately not in MANAGED_ROLES.
             role_name="portal-user",
-
             actor_user_id="leo-sub-123",
             actor_username="e1004",
         )
@@ -896,75 +767,62 @@ def test_role_administration_rejects_unmanaged_role(monkeypatch):
     assert exc_info.value.reason == "unmanaged_role"
     fake_client_lookup.assert_not_called()
 
+
 def test_role_administration_rejects_unmanaged_role_removal(monkeypatch):
-        """Reject removal of an unlisted role before contacting Keycloak."""
+    """Reject removal of an unlisted role before contacting Keycloak."""
 
-        fake_client_lookup = Mock()
+    fake_client_lookup = Mock()
 
-        monkeypatch.setattr(
-            role_service,
-            "get_client_uuid",
-            fake_client_lookup,
+    monkeypatch.setattr(
+        role_service,
+        "get_client_uuid",
+        fake_client_lookup,
+    )
+    with pytest.raises(RoleAdministrationPolicyError) as exc_info:
+
+        role_service.remove_identity_client_role(
+            admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="fake-secret",
+            user_id="user-123",
+            target_client_name="employee-portal",
+            # Deliberately not in MANAGED_ROLES.
+            role_name="portal-user",
+            actor_user_id="leo-sub-123",
+            actor_username="e1004",
         )
-        with pytest.raises(
-            RoleAdministrationPolicyError
-        ) as exc_info:
-            
-            role_service.remove_identity_client_role(
-                admin_api_url=(
-                    "https://keycloak.test/admin/realms/novasecure"
-                ),
-                token_url="https://keycloak.test/token",
-                client_id="iam-governance-service",
-                client_secret="fake-secret",
-                user_id="user-123",
-                target_client_name="employee-portal",
 
-                # Deliberately not in MANAGED_ROLES.
-                role_name="portal-user",
+    assert exc_info.value.reason == "unmanaged_role"
+    fake_client_lookup.assert_not_called()
 
-                actor_user_id="leo-sub-123",
-                actor_username="e1004",
-            )
 
-        assert exc_info.value.reason == "unmanaged_role"
-        fake_client_lookup.assert_not_called()
-            
 def test_sod_deny_prevents_keycloak_assignment(monkeypatch):
     """
     Verify that an SoD deny decision prevents the Keycloak assignment.
     """
-    
+
     fake_assign = Mock()
-    
+
     monkeypatch.setattr(
         role_service,
         "get_effective_client_roles",
-        lambda **kwargs :[{
-            "id" : "finance-role-id",
-            "name" : "finance-data-viewer"            
-        }]
+        lambda **kwargs: [{"id": "finance-role-id", "name": "finance-data-viewer"}],
     )
-    
-    monkeypatch.setattr(
-        role_service,
-        "assign_client_role",
-        fake_assign
-    )
-    
+
+    monkeypatch.setattr(role_service, "assign_client_role", fake_assign)
+
     monkeypatch.setattr(
         role_service,
         "evaluate_role_assignment",
-        lambda **kwargs : {
-            "decision" : "deny",
-            "reason" : "sod_rule_matched",
-            "rule_id" : 1
-        } 
+        lambda **kwargs: {
+            "decision": "deny",
+            "reason": "sod_rule_matched",
+            "rule_id": 1,
+        },
     )
-    
-    with pytest.raises(
-        RoleAdministrationPolicyError
-    ) as exc_info:
+
+    with pytest.raises(RoleAdministrationPolicyError) as exc_info:
         role_service.assign_identity_client_role(
             admin_api_url="https://keycloak.test/admin",
             token_url="https://keycloak.test/token",
@@ -977,46 +835,36 @@ def test_sod_deny_prevents_keycloak_assignment(monkeypatch):
             actor_username="leo",
         )
 
-    
     assert exc_info.value.reason == "sod_deny"
     fake_assign.assert_not_called()
-    
+
+
 def test_sod_review_prevents_immediate_keycloak_assignment(monkeypatch):
-    
     """
     Verify that an SoD review decision prevents immediate assignment.
     """
-    
+
     fake_assign = Mock()
-    
+
     monkeypatch.setattr(
         role_service,
         "get_effective_client_roles",
-        lambda **kwargs :[{
-            "id" : "finance-role-id",
-            "name" : "finance-data-viewer"            
-        }]
+        lambda **kwargs: [{"id": "finance-role-id", "name": "finance-data-viewer"}],
     )
-    
-    monkeypatch.setattr(
-        role_service,
-        "assign_client_role",
-        fake_assign
-    )
-    
+
+    monkeypatch.setattr(role_service, "assign_client_role", fake_assign)
+
     monkeypatch.setattr(
         role_service,
         "evaluate_role_assignment",
-        lambda **kwargs : {
-            "decision" : "requires_review",
-            "reason" : "sod_rule_matched",
-            "rule_id" : 1
-        } 
+        lambda **kwargs: {
+            "decision": "requires_review",
+            "reason": "sod_rule_matched",
+            "rule_id": 1,
+        },
     )
-    
-    with pytest.raises(
-        RoleAdministrationPolicyError
-    ) as exc_info:
+
+    with pytest.raises(RoleAdministrationPolicyError) as exc_info:
         role_service.assign_identity_client_role(
             admin_api_url="https://keycloak.test/admin",
             token_url="https://keycloak.test/token",
@@ -1029,10 +877,10 @@ def test_sod_review_prevents_immediate_keycloak_assignment(monkeypatch):
             actor_username="leo",
         )
 
-    
     assert exc_info.value.reason == "sod_requires_review"
     fake_assign.assert_not_called()
-    
+
+
 def test_assignment_not_performed_when_attempt_audit_fails(monkeypatch):
     """
     Prevent assignment when its attempt audit fails after SoD auditing succeeds.
@@ -1056,21 +904,12 @@ def test_assignment_not_performed_when_attempt_audit_fails(monkeypatch):
     monkeypatch.setattr(
         role_service,
         "record_audit_event",
-        Mock(
-            None, 
-            side_effect=AuditPersistenceError(
-                "database unavailable"
-            )
-        ),
+        Mock(None, side_effect=AuditPersistenceError("database unavailable")),
     )
 
-    with pytest.raises(
-        AuditPersistenceError
-    ):
+    with pytest.raises(AuditPersistenceError):
         role_service.assign_identity_client_role(
-            admin_api_url=(
-                "https://keycloak.test/admin/realms/novasecure"
-            ),
+            admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
@@ -1082,5 +921,3 @@ def test_assignment_not_performed_when_attempt_audit_fails(monkeypatch):
         )
 
     fake_assign.assert_not_called()
-    
-    

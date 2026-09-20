@@ -1,18 +1,20 @@
 from sqlalchemy.exc import SQLAlchemyError
 
-from extensions import db 
-from models.audit_event import AuditEvent 
+from extensions import db
+from models.audit_event import AuditEvent
 from services.exceptions import AuditPersistenceError, AuditQueryError
 
-def record_audit_event(actor_user_id :str, 
-                       actor_username :str, 
-                       action :str, 
-                       target_type :str, 
-                       target_id: str | None =None, 
-                       target_name : str | None =None, 
-                       outcome : str | None =None, 
-                       details : dict | None =None,
-                       commit : bool = True                       
+
+def record_audit_event(
+    actor_user_id: str,
+    actor_username: str,
+    action: str,
+    target_type: str,
+    target_id: str | None = None,
+    target_name: str | None = None,
+    outcome: str | None = None,
+    details: dict | None = None,
+    commit: bool = True,
 ):
     """
     Records an audit event in the database.
@@ -34,7 +36,7 @@ def record_audit_event(actor_user_id :str,
     """
     try:
         audit_event = AuditEvent(
-            actor_user_id=actor_user_id, 
+            actor_user_id=actor_user_id,
             actor_username=actor_username,
             action=action,
             target_type=target_type,
@@ -44,19 +46,20 @@ def record_audit_event(actor_user_id :str,
             details=details,
         )
         db.session.add(audit_event)
-        
-        if commit :
+
+        if commit:
             db.session.commit()
-        else :
+        else:
             db.session.flush()
-            
+
     except SQLAlchemyError as e:
         db.session.rollback()
         raise AuditPersistenceError(f"Failed to persist audit event: {str(e)}")
 
     return audit_event
 
-def get_recent_audit_events(limit: int =100):
+
+def get_recent_audit_events(limit: int = 100):
     """
     Retrieves the most recent audit events from the database.
 
@@ -65,7 +68,9 @@ def get_recent_audit_events(limit: int =100):
     Events are returned newest first.
     """
 
-    statement= db.select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(limit)
+    statement = (
+        db.select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(limit)
+    )
 
     try:
         return db.session.execute(statement).scalars().all()

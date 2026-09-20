@@ -8,31 +8,18 @@ from auth.permissions import (
     ROLE_MANAGER,
 )
 
+
 def test_gouvernance_permission_names():
-    assert IAM_DASHBOARD_ACCESS == (
-        "iam-dashboard-access"
-    )
+    assert IAM_DASHBOARD_ACCESS == ("iam-dashboard-access")
 
-    assert IDENTITY_VIEWER == (
-        "identity-viewer"
-    )
+    assert IDENTITY_VIEWER == ("identity-viewer")
 
-    assert IDENTITY_MANAGER == (
-        "identity-manager"
-    )
+    assert IDENTITY_MANAGER == ("identity-manager")
 
-    assert ROLE_MANAGER == (
-        "role-manager"
-    )
+    assert ROLE_MANAGER == ("role-manager")
 
-    assert ACCESS_REVIEWER == (
-        "access-reviewer"
-    )
+    assert ACCESS_REVIEWER == ("access-reviewer")
 
-    assert AUDIT_LOG_REVIEWER == (
-        "audit-log-reviewer"
-    )
+    assert AUDIT_LOG_REVIEWER == ("audit-log-reviewer")
 
-    assert REPORT_EXPORTER == (
-        "report-exporter"
-    )
+    assert REPORT_EXPORTER == ("report-exporter")

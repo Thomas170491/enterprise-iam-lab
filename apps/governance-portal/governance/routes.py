@@ -50,7 +50,6 @@ from services.role_service import (
     remove_identity_client_role,
 )
 
-
 bp_governance = Blueprint(
     "governance",
     __name__,
@@ -147,8 +146,7 @@ def identity_detail(user_id):
         )
 
         direct_role_names = {
-            role["name"]
-            for role in identity_access["direct_client_roles"]
+            role["name"] for role in identity_access["direct_client_roles"]
         }
 
         managed_roles = get_managed_roles("employee-portal")
@@ -177,9 +175,7 @@ def identity_detail(user_id):
             outcome="success",
             details={
                 "source": "governance-portal",
-                "service_client": current_app.config[
-                    "KEYCLOAK_SERVICE_CLIENT_ID"
-                ],
+                "service_client": current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
             },
         )
 
@@ -272,16 +268,18 @@ def assign_identity_role(user_id):
                 "No role was assigned."
             ),
             "sod_requires_review": (
-                "This role assignment requires review. "
-                "No role was assigned."
+                "This role assignment requires review. " "No role was assigned."
             ),
         }
 
         if exc.reason in sod_messages:
-            return render_template(
-                "role-assignment-blocked.html",
-                message=sod_messages[exc.reason],
-            ), 403
+            return (
+                render_template(
+                    "role-assignment-blocked.html",
+                    message=sod_messages[exc.reason],
+                ),
+                403,
+            )
 
         abort(403)
 
@@ -403,9 +401,7 @@ def access_reviews():
     """
     Display campaigns assigned to the authenticated reviewer.
     """
-    reviews = get_access_reviews_for_reviewer(
-        current_user.get_id()
-    )
+    reviews = get_access_reviews_for_reviewer(current_user.get_id())
 
     return render_template(
         "access-reviews.html",
@@ -461,10 +457,13 @@ def create_access_review():
             due_at = due_at.replace(tzinfo=timezone.utc)
 
         except ValueError:
-            return render_template(
-                "access-review-create.html",
-                error="Enter a valid due date and time in UTC.",
-            ), 400
+            return (
+                render_template(
+                    "access-review-create.html",
+                    error="Enter a valid due date and time in UTC.",
+                ),
+                400,
+            )
 
     try:
         review = create_access_review_with_audit(
@@ -478,8 +477,7 @@ def create_access_review():
             client_secret=current_app.config["KEYCLOAK_SERVICE_CLIENT_SECRET"],
             due_at=due_at,
         )
-    
-    
+
     except ValueError as exc:
         reason = str(exc)
 
@@ -494,13 +492,13 @@ def create_access_review():
                 reason=reason,
             )
 
-        return render_template(
-            "access-review-create.html",
-            error="Enter a campaign name and a valid reviewer ID.",
-        ), 400
-
-
-
+        return (
+            render_template(
+                "access-review-create.html",
+                error="Enter a campaign name and a valid reviewer ID.",
+            ),
+            400,
+        )
 
     except (AuditPersistenceError, SQLAlchemyError) as exc:
         _log_governance_event(
@@ -511,10 +509,13 @@ def create_access_review():
             exc=exc,
         )
 
-        return render_template(
-            "access-review-create.html",
-            error="The campaign could not be saved. Please try again.",
-        ), 500
+        return (
+            render_template(
+                "access-review-create.html",
+                error="The campaign could not be saved. Please try again.",
+            ),
+            500,
+        )
 
     except KeycloakAdminAPIError as exc:
         _log_governance_event(
@@ -525,10 +526,13 @@ def create_access_review():
             exc=exc,
         )
 
-        return render_template(
-            "access-review-create.html",
-            error="The reviewer could not be verified. Please try again.",
-        ), 503
+        return (
+            render_template(
+                "access-review-create.html",
+                error="The reviewer could not be verified. Please try again.",
+            ),
+            503,
+        )
 
     return redirect(
         url_for(
@@ -546,9 +550,7 @@ def manage_access_reviews():
     """
     Display campaigns created by the authenticated access review manager.
     """
-    reviews = get_access_reviews_for_manager(
-        current_user.get_id()
-    )
+    reviews = get_access_reviews_for_manager(current_user.get_id())
 
     return render_template(
         "access-reviews-manage.html",
@@ -578,6 +580,7 @@ def manage_access_review_detail(review_id):
         manager_view=True,
     )
 
+
 @bp_governance.post("/access-reviews/manage/<int:review_id>/populate")
 @login_required
 @client_role_required(ACCESS_REVIEW_MANAGER)
@@ -585,75 +588,72 @@ def populate_access_review(review_id):
     """
     Capture an identity's managed direct access in a campaign owned by the current manager.
     """
-    
+
     user_id = request.form.get("user_id", "").strip()
-    
-    try : 
+
+    try:
         populate_access_review_with_audit(
-            review_id = review_id,
-            manager_user_id= current_user.get_id(),
-            user_id= user_id,
+            review_id=review_id,
+            manager_user_id=current_user.get_id(),
+            user_id=user_id,
             admin_api_url=current_app.config["KEYCLOAK_ADMIN_API_URL"],
             token_url=current_app.config["KEYCLOAK_TOKEN_URL"],
             client_id=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
             client_secret=current_app.config["KEYCLOAK_SERVICE_CLIENT_SECRET"],
             actor_username=current_user.username,
         )
-        
-    except ValueError as exc :
-        if str(exc) == "access_review_not_found" :
+
+    except ValueError as exc:
+        if str(exc) == "access_review_not_found":
             _log_governance_event(
                 event="access_review.populate",
                 outcome="denied",
                 level=30,
-                reason  = str(exc),
-                target_id=str(review_id)
+                reason=str(exc),
+                target_id=str(review_id),
             )
-            
+
             abort(404)
-        
+
         elif str(exc) == "access_review_not_draft":
             _log_governance_event(
                 event="access_review.populate",
                 outcome="denied",
                 level=30,
-                reason  = str(exc),
-                target_id=str(review_id)
+                reason=str(exc),
+                target_id=str(review_id),
             )
             abort(409)
-        
-        else : 
+
+        else:
             abort(400)
-            
-    except KeycloakAdminAPIError as exc :
+
+    except KeycloakAdminAPIError as exc:
         _log_governance_event(
-            level = 40,
-            event = "access_review.populate",
-            outcome= "failure",
-            reason= "identity_access_retrieval_failed",
-            exc = exc,
-            target_id = str(review_id)          
+            level=40,
+            event="access_review.populate",
+            outcome="failure",
+            reason="identity_access_retrieval_failed",
+            exc=exc,
+            target_id=str(review_id),
         )
         abort(503)
-    
-    except (AuditPersistenceError,SQLAlchemyError) as exc :
-           _log_governance_event(
-                level = 40,
-                event = "access_review.populate",
-                outcome= "failure",
-                reason= "population_persistence_failed",
-                exc = exc,
-                target_id = str(review_id)          
-            )
-           abort(503)
-    
+
+    except (AuditPersistenceError, SQLAlchemyError) as exc:
+        _log_governance_event(
+            level=40,
+            event="access_review.populate",
+            outcome="failure",
+            reason="population_persistence_failed",
+            exc=exc,
+            target_id=str(review_id),
+        )
+        abort(503)
+
     return redirect(
         url_for(
             "governance.manage_access_review_detail",
-            review_id= review_id,
+            review_id=review_id,
         ),
         303,
     )
-         
-        
-        

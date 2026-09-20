@@ -1,18 +1,11 @@
-from flask import (
-    Blueprint,
-    redirect,
-    render_template,
-    session,
-    url_for,
-    current_app
-)
+from flask import Blueprint, redirect, render_template, session, url_for, current_app
 from flask_login import login_user, login_required, logout_user
-from urllib.parse import urlencode 
+from urllib.parse import urlencode
 
 from auth.user import User
 from extensions import oauth
 
-from services.token_service import    (
+from services.token_service import (
     extract_roles,
     validate_access_token,
 )
@@ -36,9 +29,7 @@ def login():
         _external=True,
     )
 
-    return oauth.keycloak.authorize_redirect(
-        redirect_uri
-    )
+    return oauth.keycloak.authorize_redirect(redirect_uri)
 
 
 @bp_auth.get("/auth/callback")
@@ -52,36 +43,29 @@ def callback():
 
     claims = validate_access_token(
         access_token=token["access_token"],
-        server_url= current_app.config["KEYCLOAK_SERVER_URL"],
-        realm= current_app.config["KEYCLOAK_REALM"],
+        server_url=current_app.config["KEYCLOAK_SERVER_URL"],
+        realm=current_app.config["KEYCLOAK_REALM"],
     )
 
-    realm_roles,client_roles = extract_roles(claims, current_app.config["KEYCLOAK_CLIENT_ID"])
+    realm_roles, client_roles = extract_roles(
+        claims, current_app.config["KEYCLOAK_CLIENT_ID"]
+    )
 
     # Authlib normally extracts OIDC userinfo from
     # the validated ID token.
     userinfo = token.get("userinfo")
 
     if not userinfo:
-        userinfo = oauth.keycloak.userinfo(
-            token=token
-        )
+        userinfo = oauth.keycloak.userinfo(token=token)
 
     if userinfo.get("sub") != claims.get("sub"):
-     raise TokenValidationError(
-        "subject_mismatch"
-    )
-
-    
+        raise TokenValidationError("subject_mismatch")
 
     user = User(
-        sub=userinfo['sub'],
+        sub=userinfo["sub"],
         name=userinfo["name"],
-        username=userinfo.get(
-            "preferred_username"
-        ),
+        username=userinfo.get("preferred_username"),
         email=userinfo.get("email"),
-
         # Role extraction comes in the next step.
         client_roles=client_roles,
         realm_roles=realm_roles,
@@ -99,9 +83,8 @@ def callback():
     login_user(user)
     session["id_token"] = token["id_token"]
 
-    return redirect(
-        url_for("governance.dashboard")
-    )
+    return redirect(url_for("governance.dashboard"))
+
 
 @bp_auth.post("/logout")
 @login_required
@@ -117,7 +100,6 @@ def logout():
         _external=True,
     )
 
-
     logout_user()
     session.clear()
 
@@ -127,20 +109,14 @@ def logout():
     )
 
     parameters = {
-        "client_id": current_app.config[
-            "KEYCLOAK_CLIENT_ID"
-        ],
-        "post_logout_redirect_uri": (
-           post_logout_redirect_uri
-        ),
+        "client_id": current_app.config["KEYCLOAK_CLIENT_ID"],
+        "post_logout_redirect_uri": (post_logout_redirect_uri),
     }
 
     if id_token:
         parameters["id_token_hint"] = id_token
 
-    return redirect(
-        f"{logout_endpoint}?{urlencode(parameters)}"
-    )
+    return redirect(f"{logout_endpoint}?{urlencode(parameters)}")
 
 
 @bp_auth.get("/logged-out")

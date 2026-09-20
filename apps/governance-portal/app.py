@@ -1,23 +1,11 @@
-from flask import Flask,render_template
+from flask import Flask, render_template
 
 from api import blp_health
 from config import Config
-from extensions import (
-    api,
-    login_manager,
-    oauth,
-    session_manager,
-    db,
-    migrate,
-    csrf
-    
-
-)
+from extensions import api, login_manager, oauth, session_manager, db, migrate, csrf
 from governance import bp_governance
-import auth 
-import models 
-
-
+import auth
+import models
 
 
 def create_app():
@@ -30,18 +18,17 @@ def create_app():
     # OIDC
     oauth.init_app(app)
     oauth.register(
-    name="keycloak",
-    client_id=app.config["KEYCLOAK_CLIENT_ID"],
-    client_secret=app.config["KEYCLOAK_CLIENT_SECRET"],
-    server_metadata_url=app.config["KEYCLOAK_METADATA_URL"],
-    client_kwargs={
-        "scope": "openid profile email",
-    },
+        name="keycloak",
+        client_id=app.config["KEYCLOAK_CLIENT_ID"],
+        client_secret=app.config["KEYCLOAK_CLIENT_SECRET"],
+        server_metadata_url=app.config["KEYCLOAK_METADATA_URL"],
+        client_kwargs={
+            "scope": "openid profile email",
+        },
     )
 
-    
-    #CSRF
-    csrf.init_app(app) 
+    # CSRF
+    csrf.init_app(app)
 
     # Flask-Login
     login_manager.init_app(app)
@@ -60,7 +47,7 @@ def create_app():
     # REST API blueprints
     api.register_blueprint(blp_health)
 
-    #Auth blueprints
+    # Auth blueprints
     app.register_blueprint(auth.bp_auth)
 
     @app.errorhandler(403)
@@ -68,8 +55,6 @@ def create_app():
         return render_template("unauthorized.html"), 403
 
     return app
-
-
 
 
 app = create_app()

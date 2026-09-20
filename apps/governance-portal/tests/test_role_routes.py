@@ -11,12 +11,13 @@ from auth.permissions import (
 from services.exceptions import (
     AuditPersistenceError,
     KeycloakAdminAPIError,
-    RoleAdministrationPolicyError
+    RoleAdministrationPolicyError,
 )
 
+
 def _login_user(
-        client,
-        client_roles,
+    client,
+    client_roles,
 ):
     with client.session_transaction() as sess:
         sess["user"] = {
@@ -33,8 +34,8 @@ def _login_user(
 
 
 def test_role_manager_can_assign_role(
-        client,
-        monkeypatch,
+    client,
+    monkeypatch,
 ):
     _login_user(
         client,
@@ -77,9 +78,11 @@ def test_role_manager_can_assign_role(
         actor_user_id="test-subject",
         actor_username="test-user",
     )
+
+
 def test_role_manager_can_remove_role(
-        client,
-        monkeypatch,
+    client,
+    monkeypatch,
 ):
     _login_user(
         client,
@@ -95,10 +98,7 @@ def test_role_manager_can_remove_role(
     )
 
     response = client.post(
-        (
-            "/identities/user-123/roles/"
-            "finance-data-viewer/remove"
-        ),
+        ("/identities/user-123/roles/" "finance-data-viewer/remove"),
         follow_redirects=False,
     )
 
@@ -116,9 +116,10 @@ def test_role_manager_can_remove_role(
         actor_username="test-user",
     )
 
+
 def test_identity_viewer_cannot_assign_role(
-        client,
-        monkeypatch,
+    client,
+    monkeypatch,
 ):
     _login_user(
         client,
@@ -143,9 +144,10 @@ def test_identity_viewer_cannot_assign_role(
     assert response.status_code == 403
     fake_assign.assert_not_called()
 
+
 def test_access_reviewer_cannot_assign_role(
-        client,
-        monkeypatch,
+    client,
+    monkeypatch,
 ):
     _login_user(
         client,
@@ -170,9 +172,10 @@ def test_access_reviewer_cannot_assign_role(
     assert response.status_code == 403
     fake_assign.assert_not_called()
 
+
 def test_role_assignment_requires_login(
-        client,
-        monkeypatch,
+    client,
+    monkeypatch,
 ):
     fake_assign = Mock()
 
@@ -195,9 +198,10 @@ def test_role_assignment_requires_login(
 
     fake_assign.assert_not_called()
 
+
 def test_role_assignment_requires_login(
-        client,
-        monkeypatch,
+    client,
+    monkeypatch,
 ):
     fake_assign = Mock()
 
@@ -219,10 +223,11 @@ def test_role_assignment_requires_login(
     assert "/login" in response.headers["Location"]
 
     fake_assign.assert_not_called()
+
 
 def test_role_assignment_returns_503_when_audit_fails(
-        client,
-        monkeypatch,
+    client,
+    monkeypatch,
 ):
     _login_user(
         client,
@@ -232,11 +237,7 @@ def test_role_assignment_returns_503_when_audit_fails(
     monkeypatch.setattr(
         governance_routes,
         "assign_identity_client_role",
-        Mock(
-            side_effect=AuditPersistenceError(
-                "database unavailable"
-            )
-        ),
+        Mock(side_effect=AuditPersistenceError("database unavailable")),
     )
 
     response = client.post(
@@ -248,10 +249,11 @@ def test_role_assignment_returns_503_when_audit_fails(
 
     assert response.status_code == 503
 
+
 def test_role_assignment_rejects_missing_csrf_token(
-        app,
-        client,
-        monkeypatch,
+    app,
+    client,
+    monkeypatch,
 ):
     app.config["WTF_CSRF_ENABLED"] = True
 
@@ -279,69 +281,51 @@ def test_role_assignment_rejects_missing_csrf_token(
 
     # CSRF rejection happens before our mutation route runs.
     fake_assign.assert_not_called()
-    
-def test_sod_deny_returns_specific_403_message(app,client,monkeypatch) :
+
+
+def test_sod_deny_returns_specific_403_message(app, client, monkeypatch):
     """
     Verify that an SoD denial returns HTTP 403 with a specific conflict explanation.
     """
-    
-    _login_user(
-        client,
-        [ROLE_MANAGER]
-    )
-    
-    
+
+    _login_user(client, [ROLE_MANAGER])
+
     monkeypatch.setattr(
         governance_routes,
         "assign_identity_client_role",
-        Mock(side_effect=RoleAdministrationPolicyError("sod_deny"))
+        Mock(side_effect=RoleAdministrationPolicyError("sod_deny")),
     )
-    
+
     response = client.post(
-        "/identities/user-123/roles",
-        data= {
-            "role_name" : "finance-data-viewer"
-            
-        }
+        "/identities/user-123/roles", data={"role_name": "finance-data-viewer"}
     )
-    
+
     assert response.status_code == 403
     assert (
         "This role combination violates a segregation-of-duties rule."
         in response.get_data(as_text=True)
     )
 
-def test_sod_review_returns_specific_403_message(app,client,monkeypatch) :
+
+def test_sod_review_returns_specific_403_message(app, client, monkeypatch):
     """
     Verify that an SoD review requirement returns HTTP 403 with a specific conflict explanation.
     """
-    
-    _login_user(
-        client,
-        [ROLE_MANAGER]
-    )
-    
-    
+
+    _login_user(client, [ROLE_MANAGER])
+
     monkeypatch.setattr(
         governance_routes,
         "assign_identity_client_role",
-        Mock(side_effect=RoleAdministrationPolicyError("sod_requires_review"))
+        Mock(side_effect=RoleAdministrationPolicyError("sod_requires_review")),
     )
-    
+
     response = client.post(
-        "/identities/user-123/roles",
-        data= {
-            "role_name" : "finance-data-viewer"
-            
-        }
+        "/identities/user-123/roles", data={"role_name": "finance-data-viewer"}
     )
-    
+
     assert response.status_code == 403
     assert (
-        "This role assignment requires review. No role was assigned." 
+        "This role assignment requires review. No role was assigned."
         in response.get_data(as_text=True)
     )
-    
-    
-    
-    

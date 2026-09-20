@@ -1,12 +1,10 @@
 from flask_smorest import Api
 from flask_login import LoginManager
 from authlib.integrations.flask_client import OAuth
-from flask_session import Session 
+from flask_session import Session
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
-
-
 
 # Flask-Smorest API extension.
 #
@@ -24,10 +22,9 @@ login_manager = LoginManager()
 # Server-side Flask sessions
 session_manager = Session()
 
-#Database migrations
-db =SQLAlchemy()
+# Database migrations
+db = SQLAlchemy()
 migrate = Migrate()
 
-#CSRF
-csrf=CSRFProtect()
-
+# CSRF
+csrf = CSRFProtect()

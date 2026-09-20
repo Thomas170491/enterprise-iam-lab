@@ -11,6 +11,7 @@ from auth.permissions import (
     ROLE_MANAGER,
 )
 
+
 def _login_user(
     client,
     client_roles,
@@ -28,16 +29,13 @@ def _login_user(
         sess["_user_id"] = "test-subject"
         sess["_fresh"] = True
 
-def test_forged_unmanaged_role_assignement_is_blocked(client,monkeypatch):
+
+def test_forged_unmanaged_role_assignement_is_blocked(client, monkeypatch):
     _login_user(client, client_roles=[ROLE_MANAGER])
 
     fake_client_lookup = Mock()
 
-    monkeypatch.setattr(
-        role_service,
-        "get_client_uuid",
-        fake_client_lookup
-    )
+    monkeypatch.setattr(role_service, "get_client_uuid", fake_client_lookup)
     response = client.post(
         "/identities/user-123/roles",
         data={
@@ -49,22 +47,19 @@ def test_forged_unmanaged_role_assignement_is_blocked(client,monkeypatch):
     fake_client_lookup.assert_not_called()
 
 
-def test_forged_unmanaged_role_removal_is_blocked(client,monkeypatch):
+def test_forged_unmanaged_role_removal_is_blocked(client, monkeypatch):
     _login_user(client, client_roles=[ROLE_MANAGER])
 
     fake_client_lookup = Mock()
 
-    monkeypatch.setattr(
-        role_service,
-        "get_client_uuid",
-        fake_client_lookup
-    )
+    monkeypatch.setattr(role_service, "get_client_uuid", fake_client_lookup)
     response = client.post(
         "/identities/user-123/roles/portal-user/remove",
     )
 
     assert response.status_code == 403
     fake_client_lookup.assert_not_called()
+
 
 def test_identity_viewer_cannot_forge_role_removal(
     client,
@@ -74,11 +69,7 @@ def test_identity_viewer_cannot_forge_role_removal(
 
     fake_remove = Mock()
 
-    monkeypatch.setattr(
-        governance_routes,
-        "remove_identity_client_role",
-        fake_remove
-    )
+    monkeypatch.setattr(governance_routes, "remove_identity_client_role", fake_remove)
 
     response = client.post(
         "/identities/user-123/roles/finance-data-viewer/remove",
@@ -86,6 +77,7 @@ def test_identity_viewer_cannot_forge_role_removal(
 
     assert response.status_code == 403
     fake_remove.assert_not_called()
+
 
 def test_access_reviewer_cannot_forge_role_removal(
     client,
@@ -110,6 +102,7 @@ def test_access_reviewer_cannot_forge_role_removal(
     assert response.status_code == 403
     fake_remove.assert_not_called()
 
+
 def test_role_removal_rejects_missing_csrf_token(
     app,
     client,
@@ -129,11 +122,11 @@ def test_role_removal_rejects_missing_csrf_token(
 
     response = client.post(
         "/identities/user-123/roles/finance-data-viewer/remove",
-       
     )
 
     assert response.status_code == 400
     fake_remove.assert_not_called()
+
 
 def test_role_removal_rejects_missing_csrf_token(
     app,
@@ -159,16 +152,14 @@ def test_role_removal_rejects_missing_csrf_token(
 
     # Deliberately submit the POST without a csrf_token.
     response = client.post(
-        (
-            "/identities/user-123/roles/"
-            "finance-data-viewer/remove"
-        ),
+        ("/identities/user-123/roles/" "finance-data-viewer/remove"),
     )
 
     # Flask-WTF must reject the request before the
     # privileged mutation service is reached.
     assert response.status_code == 400
     fake_remove.assert_not_called()
+
 
 def test_role_assignment_cannot_override_governed_client(
     client,
@@ -198,7 +189,6 @@ def test_role_assignment_cannot_override_governed_client(
         "/identities/user-123/roles",
         data={
             "role_name": "finance-data-viewer",
-
             # Attacker tries to make the route modify a
             # different Keycloak client.
             "target_client_name": "iam-admin-portal",

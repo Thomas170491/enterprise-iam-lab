@@ -4,7 +4,6 @@ import time
 import requests
 from joserfc.jwk import KeySet
 
-
 _JWKS_CACHE = {}
 _JWKS_CACHE_LOCK = threading.Lock()
 
@@ -21,9 +20,7 @@ def _fetch_key_set(jwks_url):
 
     response.raise_for_status()
 
-    return KeySet.import_key_set(
-        response.json()
-    )
+    return KeySet.import_key_set(response.json())
 
 
 def get_key_set(

@@ -2,7 +2,6 @@ from flask.views import MethodView
 import marshmallow as ma
 from flask_smorest import Blueprint
 
-
 blp_health = Blueprint(
     "health",
     __name__,
@@ -16,13 +15,9 @@ class HealthSchema(ma.Schema):
     Response schema for the health endpoint.
     """
 
-    status = ma.fields.String(
-        required=True
-    )
+    status = ma.fields.String(required=True)
 
-    application = ma.fields.String(
-        required=True
-    )
+    application = ma.fields.String(required=True)
 
 
 @blp_health.route("/health")
@@ -38,7 +33,5 @@ class HealthResource(MethodView):
         """
         return {
             "status": "ok",
-            "application": (
-                "NovaSecure IAM Governance Portal"
-            ),
+            "application": ("NovaSecure IAM Governance Portal"),
         }

@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-import pytest 
+import pytest
 from werkzeug.exceptions import Forbidden
 
 import auth.decorators as decorators
@@ -14,7 +14,6 @@ from auth.permissions import (
     ROLE_MANAGER,
 )
 
-
 # ---------------------------------------------------------
 # Test-only NovaSecure personas
 # ---------------------------------------------------------
@@ -26,8 +25,8 @@ from auth.permissions import (
 # authorization boundaries we designed.
 # ---------------------------------------------------------
 
-LEO_ROLES= [
-        IAM_DASHBOARD_ACCESS,
+LEO_ROLES = [
+    IAM_DASHBOARD_ACCESS,
     IDENTITY_VIEWER,
     IDENTITY_MANAGER,
     ROLE_MANAGER,
@@ -51,31 +50,27 @@ NADIA_ROLES = [
 
 ALICE_ROLES = []
 
-def _run_protected_view(
-        monkeypatch,
-        user_roles,
-        required_role,
-) :
 
+def _run_protected_view(
+    monkeypatch,
+    user_roles,
+    required_role,
+):
     """
     Execute a view protected by client_role_required()
     using a fake authenticated user.
     """
 
-    fake_user = SimpleNamespace(client_roles = user_roles)
+    fake_user = SimpleNamespace(client_roles=user_roles)
 
-    monkeypatch.setattr(
-        decorators,
-        "current_user",
-        fake_user
-    )
+    monkeypatch.setattr(decorators, "current_user", fake_user)
 
     @decorators.client_role_required(required_role)
-
-    def protected_view() :
+    def protected_view():
         return "allowed"
-    
+
     return protected_view()
+
 
 @pytest.mark.parametrize(
     "role",
@@ -85,20 +80,16 @@ def _run_protected_view(
         IDENTITY_MANAGER,
         ROLE_MANAGER,
         REPORT_EXPORTER,
-    ]
+    ],
 )
-
-def test_leo_has_operator_permissions(
-    monkeypatch,
-    role
-) :
- result = _run_protected_view(
+def test_leo_has_operator_permissions(monkeypatch, role):
+    result = _run_protected_view(
         monkeypatch,
         LEO_ROLES,
         role,
     )
 
- assert result == "allowed"
+    assert result == "allowed"
 
 
 @pytest.mark.parametrize(
@@ -144,6 +135,7 @@ def test_nadia_has_security_permissions(
 
     assert result == "allowed"
 
+
 @pytest.mark.parametrize(
     "role",
     [
@@ -162,6 +154,7 @@ def test_leo_cannot_perform_auditor_functions(
             role,
         )
 
+
 @pytest.mark.parametrize(
     "role",
     [
@@ -179,6 +172,7 @@ def test_emma_cannot_administer_access(
             EMMA_ROLES,
             role,
         )
+
 
 @pytest.mark.parametrize(
     "role",
@@ -199,6 +193,7 @@ def test_nadia_cannot_modify_or_certify_access(
             NADIA_ROLES,
             role,
         )
+
 
 @pytest.mark.parametrize(
     "role",

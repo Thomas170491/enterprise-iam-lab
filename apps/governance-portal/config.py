@@ -5,10 +5,11 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
 
-#Load Governance Portal-specific environment variables
-load_dotenv(BASE_DIR/".env")
+# Load Governance Portal-specific environment variables
+load_dotenv(BASE_DIR / ".env")
 
-class Config :
+
+class Config:
 
     # ========================================================
     # FLASK
@@ -21,17 +22,11 @@ class Config :
         threshold=500,
     )
     SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE ='Lax'
+    SESSION_COOKIE_SAMESITE = "Lax"
 
-
-   
     SESSION_COOKIE_SECURE = True
 
     SESSION_COOKIE_NAME = "novasecure_governance_session"
-
-    
-
-
 
     # ========================================================
     # FLASK-SMOREST / OPENAPI
@@ -42,11 +37,10 @@ class Config :
     API_VERSION = "v1"
 
     OPENAPI_VERSION = "3.0.3"
-    
+
     OPENAPI_URL_PREFIX = "/api"
 
     OPENAPI_JSON_PATH = "openapi.json"
-
 
     # --------------------------------------------------
     # Keycloak / OIDC
@@ -67,9 +61,7 @@ class Config :
         "iam-admin-portal",
     )
 
-    KEYCLOAK_CLIENT_SECRET = os.getenv(
-        "KEYCLOAK_CLIENT_SECRET"
-    )
+    KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET")
 
     KEYCLOAK_METADATA_URL = (
         f"{KEYCLOAK_SERVER_URL}"
@@ -77,41 +69,28 @@ class Config :
         "/.well-known/openid-configuration"
     )
 
-    KEYCLOAK_SERVICE_CLIENT_ID = os.environ.get(
-    "KEYCLOAK_SERVICE_CLIENT_ID"
-)
+    KEYCLOAK_SERVICE_CLIENT_ID = os.environ.get("KEYCLOAK_SERVICE_CLIENT_ID")
 
-    KEYCLOAK_SERVICE_CLIENT_SECRET = os.environ.get(
-    "KEYCLOAK_SERVICE_CLIENT_SECRET"
-)
+    KEYCLOAK_SERVICE_CLIENT_SECRET = os.environ.get("KEYCLOAK_SERVICE_CLIENT_SECRET")
     KEYCLOAK_TOKEN_URL = (
-    f"{KEYCLOAK_SERVER_URL}"
-    f"/realms/{KEYCLOAK_REALM}"
-    f"/protocol/openid-connect/token"
-)
-    KEYCLOAK_ADMIN_API_URL = (
-    f"{KEYCLOAK_SERVER_URL}"
-    f"/admin/realms/{KEYCLOAK_REALM}"
-)
+        f"{KEYCLOAK_SERVER_URL}"
+        f"/realms/{KEYCLOAK_REALM}"
+        f"/protocol/openid-connect/token"
+    )
+    KEYCLOAK_ADMIN_API_URL = f"{KEYCLOAK_SERVER_URL}" f"/admin/realms/{KEYCLOAK_REALM}"
     # --------------------------------------------------
     # SQLAlchemy / Database
     # --------------------------------------------------
-    SQLALCHEMY_DATABASE_URI = os.getenv(
-        "DATABASE_URI"
-    )
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URI")
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-#Fail immediately if required configuration is missing
-if not Config.SECRET_KEY :
+
+# Fail immediately if required configuration is missing
+if not Config.SECRET_KEY:
     raise RuntimeError("FLASK_SECRET_KEY cannot be empty")
 
-if not Config.KEYCLOAK_CLIENT_SECRET :
+if not Config.KEYCLOAK_CLIENT_SECRET:
     raise RuntimeError("KEYCLOAK_CLIENT_SECRET cannot be enpty")
 if not Config.SQLALCHEMY_DATABASE_URI:
-    raise RuntimeError(
-        "DATABASE_URL cannot be empty"
-    )
-
-
-    
+    raise RuntimeError("DATABASE_URL cannot be empty")

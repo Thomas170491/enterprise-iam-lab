@@ -3,7 +3,12 @@ from datetime import datetime
 from extensions import db
 from models import AccessReview, AccessReviewItem, ManagedRole
 from services.audit_service import record_audit_event
-from services.keycloak_admin_service import get_direct_client_roles, get_effective_client_roles, get_user
+from services.keycloak_admin_service import (
+    get_direct_client_roles,
+    get_effective_client_roles,
+    get_user,
+)
+
 
 def _validate_required_string(value, field_name, max_length):
     """Return a trimmed required string or raise a field-specific ValueError."""
@@ -104,114 +109,133 @@ def add_access_review_item(
 
     return item
 
-def open_access_review(review_id : int) -> AccessReview :
+
+def open_access_review(review_id: int) -> AccessReview:
     """
     Open an existing draft access review campaign containing at least one item.
 
     Flush the status change without committing; the caller owns the transaction.
     """
-    
+
     campaign = db.session.get(AccessReview, review_id)
-    
-    if campaign is None :
+
+    if campaign is None:
         raise ValueError("access_review_not_found")
-    
-    if campaign.status != "draft" :
+
+    if campaign.status != "draft":
         raise ValueError("access_review_not_draft")
-    
-    if not campaign.items :
+
+    if not campaign.items:
         raise ValueError("access_review_empty")
-    
+
     campaign.status = "open"
     db.session.flush()
-    
-    return campaign 
 
-def cancel_access_review(review_id : int) -> AccessReview :
+    return campaign
+
+
+def cancel_access_review(review_id: int) -> AccessReview:
     """
     Cancel a draft or open access review campaign while preserving its items.
 
     Flush the status change without committing; the caller owns the transaction.
     """
-    
+
     campaign = db.session.get(AccessReview, review_id)
-    
-    if campaign is None :
+
+    if campaign is None:
         raise ValueError("access_review_not_found")
-    
-    if campaign.status not in ("draft", "open" ) :
+
+    if campaign.status not in ("draft", "open"):
         raise ValueError("access_review_not_cancellable")
-    
-    campaign.status ="cancelled"
-    
+
+    campaign.status = "cancelled"
+
     db.session.flush()
-    
+
     return campaign
 
-def get_access_reviews_for_reviewer(reviewer_user_id : str) -> list[AccessReview]:
+
+def get_access_reviews_for_reviewer(reviewer_user_id: str) -> list[AccessReview]:
     """
     Return campaigns assigned to the specified reviewer, newest first.
 
     Include all campaign statuses without modifying the database.
     """
-    
-    reviewer_user_id = _validate_required_string(reviewer_user_id,"reviewer_user_id",255)
-    
-    return db.session.execute(
-        db.select(AccessReview)
-        .where(AccessReview.reviewer_user_id == reviewer_user_id)
-        .order_by(AccessReview.created_at.desc(), AccessReview.id.desc())       
-        
-    ).scalars().all()
-    
-def get_access_review_for_reviewer(review_id : int, reviewer_user_id : str) -> AccessReview :
+
+    reviewer_user_id = _validate_required_string(
+        reviewer_user_id, "reviewer_user_id", 255
+    )
+
+    return (
+        db.session.execute(
+            db.select(AccessReview)
+            .where(AccessReview.reviewer_user_id == reviewer_user_id)
+            .order_by(AccessReview.created_at.desc(), AccessReview.id.desc())
+        )
+        .scalars()
+        .all()
+    )
+
+
+def get_access_review_for_reviewer(
+    review_id: int, reviewer_user_id: str
+) -> AccessReview:
     """
     Return a campaign only when it is assigned to the specified reviewer.
 
     Raise the same not-found error for missing and unassigned campaigns.
     """
-    
-    reviewer_user_id = _validate_required_string(reviewer_user_id,"reviewer_user_id",255,)
-    
+
+    reviewer_user_id = _validate_required_string(
+        reviewer_user_id,
+        "reviewer_user_id",
+        255,
+    )
+
     campaign = db.session.execute(
-        db.select(AccessReview)
-        .where(AccessReview.id == review_id , AccessReview.reviewer_user_id == reviewer_user_id)
+        db.select(AccessReview).where(
+            AccessReview.id == review_id,
+            AccessReview.reviewer_user_id == reviewer_user_id,
+        )
     ).scalar_one_or_none()
-        
-    if campaign is None :
+
+    if campaign is None:
         raise ValueError("access_review_not_found")
-    
+
     return campaign
-    
-    
+
+
 def create_access_review_with_audit(
-    name : str,
-    created_by_user_id :str,
-    actor_username : str,
-    reviewer_user_id :str,
-    admin_api_url :str,
-    token_url : str,
-    client_id :str,
-    client_secret : str,
-    due_at : datetime | None = None
+    name: str,
+    created_by_user_id: str,
+    actor_username: str,
+    reviewer_user_id: str,
+    admin_api_url: str,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+    due_at: datetime | None = None,
 ) -> AccessReview:
     """
     Validate reviewer eligibility, then create a draft campaign and its audit event.
 
     Commit both records together, rolling back on failure.
     """
-    
+
     try:
         validate_access_review_reviewer(
-            reviewer_user_id= reviewer_user_id,
+            reviewer_user_id=reviewer_user_id,
             admin_api_url=admin_api_url,
             token_url=token_url,
             client_id=client_id,
-            client_secret=client_secret,     
+            client_secret=client_secret,
         )
-        
-        review = create_access_review(name, created_by_user_id,reviewer_user_id,due_at)
-        
+
+        review = create_access_review(
+            name, created_by_user_id, reviewer_user_id, due_at
+        )
+
         record_audit_event(
             actor_user_id=review.created_by_user_id,
             actor_username=actor_username,
@@ -228,14 +252,15 @@ def create_access_review_with_audit(
             commit=False,
         )
         db.session.commit()
-        
+
     except Exception:
         db.session.rollback()
         raise
-    
+
     return review
 
-def get_access_review_for_manager(review_id : int, manager_user_id : str) -> AccessReview :
+
+def get_access_review_for_manager(review_id: int, manager_user_id: str) -> AccessReview:
     """
     Return an access review campaign only when it was created by
     the specified access review manager.
@@ -244,7 +269,11 @@ def get_access_review_for_manager(review_id : int, manager_user_id : str) -> Acc
     campaigns to avoid exposing campaign existence.
     """
 
-    manager_user_id = _validate_required_string(manager_user_id,"manager_user_id",255,)
+    manager_user_id = _validate_required_string(
+        manager_user_id,
+        "manager_user_id",
+        255,
+    )
 
     campaign = db.session.execute(
         db.select(AccessReview).where(
@@ -258,45 +287,53 @@ def get_access_review_for_manager(review_id : int, manager_user_id : str) -> Acc
 
     return campaign
 
+
 def get_access_reviews_for_manager(manager_user_id: str) -> list[AccessReview]:
     """
     Return access review campaigns created by the specified manager, newest first.
 
     Include all campaign statuses without modifying the database.
     """
-    
-    manager_user_id=_validate_required_string(manager_user_id,"manager_user_id",255)
-    
-    return db.session.execute(
-        db.select(AccessReview)
-        .where(AccessReview.created_by_user_id == manager_user_id)
-        .order_by(AccessReview.created_at.desc(), AccessReview.id.desc())  
-    ).scalars().all()
-    
+
+    manager_user_id = _validate_required_string(manager_user_id, "manager_user_id", 255)
+
+    return (
+        db.session.execute(
+            db.select(AccessReview)
+            .where(AccessReview.created_by_user_id == manager_user_id)
+            .order_by(AccessReview.created_at.desc(), AccessReview.id.desc())
+        )
+        .scalars()
+        .all()
+    )
+
+
 def validate_access_review_reviewer(
     reviewer_user_id: str,
     admin_api_url: str,
     token_url: str,
     client_id: str,
     client_secret: str,
-)-> dict :
+) -> dict:
     """
     Verify that the assigned reviewer exists, is enabled, and has reviewer access.
     """
-    
-    reviewer_user_id = _validate_required_string(reviewer_user_id,"reviewer_user_id", 255)
-    
+
+    reviewer_user_id = _validate_required_string(
+        reviewer_user_id, "reviewer_user_id", 255
+    )
+
     reviewer = get_user(
         admin_api_url=admin_api_url,
         token_url=token_url,
         client_id=client_id,
         client_secret=client_secret,
-        user_id= reviewer_user_id
+        user_id=reviewer_user_id,
     )
-    
-    if  reviewer.get("enabled") is not True:
+
+    if reviewer.get("enabled") is not True:
         raise ValueError("reviewer_not_enabled")
-    
+
     reviewer_roles = get_effective_client_roles(
         admin_api_url=admin_api_url,
         token_url=token_url,
@@ -305,123 +342,125 @@ def validate_access_review_reviewer(
         user_id=reviewer_user_id,
         target_client_name="iam-admin-portal",
     )
-    
-    if not any(role.get("name")== "access-reviewer" for role in reviewer_roles) : 
+
+    if not any(role.get("name") == "access-reviewer" for role in reviewer_roles):
         raise ValueError("reviewer_missing_required_role")
-    
+
     return reviewer
 
+
 def populate_access_review_from_identity(
-    review_id : int,
-    manager_user_id : str, 
-    user_id :str ,
-    admin_api_url : str,
-    token_url :str,
-    client_id : str,
-    client_secret :str
-) -> list[AccessReviewItem] : 
+    review_id: int,
+    manager_user_id: str,
+    user_id: str,
+    admin_api_url: str,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+) -> list[AccessReviewItem]:
     """
     Capture an identity's direct Employee Portal roles in a manager-owned draft campaign.
 
     Flush the snapshots without committing; the caller owns the transaction.
     """
-    
+
     campaign = get_access_review_for_manager(
-        review_id=review_id,
-        manager_user_id=manager_user_id
+        review_id=review_id, manager_user_id=manager_user_id
     )
-    
-    if campaign.status != "draft" :
+
+    if campaign.status != "draft":
         raise ValueError("access_review_not_draft")
-    
-    user_id = _validate_required_string(user_id,"user_id",255 )
-    
-    identity= get_user(
-            admin_api_url = admin_api_url,
-            token_url = token_url,
-            client_id = client_id,
-            client_secret = client_secret,
-            user_id= user_id
+
+    user_id = _validate_required_string(user_id, "user_id", 255)
+
+    identity = get_user(
+        admin_api_url=admin_api_url,
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        user_id=user_id,
     )
-    
+
     direct_roles = get_direct_client_roles(
-                        admin_api_url = admin_api_url,
-                        token_url = token_url,
-                        client_id = client_id,
-                        client_secret = client_secret, 
-                        user_id=user_id,
-                        target_client_name="employee-portal",  
+        admin_api_url=admin_api_url,
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        user_id=user_id,
+        target_client_name="employee-portal",
     )
-    
-    managed_role_names=set( 
+
+    managed_role_names = set(
         db.session.execute(
             db.select(ManagedRole.role_name).where(
                 ManagedRole.client_name == "employee-portal",
-                ManagedRole.enabled.is_(True)
+                ManagedRole.enabled.is_(True),
             )
-        ).scalars().all()
-    )
-    
-    created_items = []
-    
-    for role in direct_roles :
-        name = role.get("name")
-        
-        if name not in managed_role_names :
-            continue
-    
-        existing_item= db.session.execute(
-                            db.select(AccessReviewItem).where(
-                                AccessReviewItem.review_id == campaign.id,
-                                AccessReviewItem.user_id == user_id,
-                                AccessReviewItem.client_name == "employee-portal",
-                                AccessReviewItem.role_id == role.get("id")
-                            )
-        ).scalar_one_or_none()
-        
-        if existing_item is not None :
-            continue
-        
-        created_item = add_access_review_item(
-                            review_id =campaign.id,
-                            user_id =  user_id,
-                            username =identity.get("username"),
-                            client_name = "employee-portal",
-                            role_id = role.get("id"),
-                            role_name = role.get("name"),
         )
-        
+        .scalars()
+        .all()
+    )
+
+    created_items = []
+
+    for role in direct_roles:
+        name = role.get("name")
+
+        if name not in managed_role_names:
+            continue
+
+        existing_item = db.session.execute(
+            db.select(AccessReviewItem).where(
+                AccessReviewItem.review_id == campaign.id,
+                AccessReviewItem.user_id == user_id,
+                AccessReviewItem.client_name == "employee-portal",
+                AccessReviewItem.role_id == role.get("id"),
+            )
+        ).scalar_one_or_none()
+
+        if existing_item is not None:
+            continue
+
+        created_item = add_access_review_item(
+            review_id=campaign.id,
+            user_id=user_id,
+            username=identity.get("username"),
+            client_name="employee-portal",
+            role_id=role.get("id"),
+            role_name=role.get("name"),
+        )
+
         created_items.append(created_item)
-    
-    
+
     return created_items
 
+
 def populate_access_review_with_audit(
-     review_id : int,
-    manager_user_id : str, 
-    user_id :str ,
-    admin_api_url : str,
-    token_url :str,
-    client_id : str,
-    client_secret :str,
-    actor_username : str 
+    review_id: int,
+    manager_user_id: str,
+    user_id: str,
+    admin_api_url: str,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+    actor_username: str,
 ):
     """
     Capture identity access and record the manager's audit event in one transaction.
 
     Commit both together, rolling back on failure.
     """
-    
-    try :
-        created_items= populate_access_review_from_identity(
-                        review_id = review_id,
-                        manager_user_id = manager_user_id, 
-                        user_id = user_id ,
-                        admin_api_url = admin_api_url,
-                        token_url = token_url,
-                        client_id = client_id,
-                        client_secret = client_secret,
-            )
+
+    try:
+        created_items = populate_access_review_from_identity(
+            review_id=review_id,
+            manager_user_id=manager_user_id,
+            user_id=user_id,
+            admin_api_url=admin_api_url,
+            token_url=token_url,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
         record_audit_event(
             actor_user_id=manager_user_id,
             actor_username=actor_username,
@@ -445,4 +484,3 @@ def populate_access_review_with_audit(
         raise
 
     return created_items
-        

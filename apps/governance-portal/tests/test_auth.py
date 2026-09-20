@@ -4,6 +4,7 @@ from flask import redirect
 from extensions import oauth
 import auth.routes as auth_routes
 
+
 def _login(client):
     with client.session_transaction() as sess:
         sess["user"] = {
@@ -35,29 +36,19 @@ def test_login_starts_oidc_flow(client, monkeypatch):
     """
 
     def fake_authorize_redirect(redirect_uri):
-        assert redirect_uri == (
-            "https://localhost:5001/auth/callback"
-        )
+        assert redirect_uri == ("https://localhost:5001/auth/callback")
 
         return redirect("https://keycloak.test/login")
 
-    monkeypatch.setattr(
-        oauth.keycloak,
-        "authorize_redirect",
-        fake_authorize_redirect
-    )
+    monkeypatch.setattr(oauth.keycloak, "authorize_redirect", fake_authorize_redirect)
 
     response = client.get(
-        "/login",
-        base_url ='https://localhost:5001',
-        follow_redirects=False
+        "/login", base_url="https://localhost:5001", follow_redirects=False
     )
 
     assert response.status_code == 302
 
-    assert response.headers["Location"] == (
-        "https://keycloak.test/login"
-    )
+    assert response.headers["Location"] == ("https://keycloak.test/login")
 
 
 def test_oidc_callback_creates_user_session(
@@ -159,6 +150,7 @@ def test_oidc_callback_creates_user_session(
 
         assert sess["id_token"] == "fake-id-token"
 
+
 def test_authenticated_user_visible_on_dashboard(
     client,
     monkeypatch,
@@ -182,23 +174,19 @@ def test_authenticated_user_visible_on_dashboard(
     fake_claims = {
         "sub": "test-leo-sub",
         "realm_access": {
-            "roles": [
-                "employee",
-                "privileged-user",
-                "iam-dashboard-access"
-            ]
+            "roles": ["employee", "privileged-user", "iam-dashboard-access"]
         },
         "resource_access": {
-        "iam-admin-portal": {
-            "roles": [
-                "iam-dashboard-access",
-                "identity-viewer",
-                "identity-manager",
-                "role-manager",
-                "report-exporter",
-            ]
-        }
-        }
+            "iam-admin-portal": {
+                "roles": [
+                    "iam-dashboard-access",
+                    "identity-viewer",
+                    "identity-manager",
+                    "role-manager",
+                    "report-exporter",
+                ]
+            }
+        },
     }
 
     # Fake Authlib's token exchange.
@@ -208,14 +196,11 @@ def test_authenticated_user_visible_on_dashboard(
         lambda: fake_token,
     )
 
-
     monkeypatch.setattr(
-    auth_routes,
-    "validate_access_token",
-    lambda **kwargs: fake_claims,
-)
-
-    
+        auth_routes,
+        "validate_access_token",
+        lambda **kwargs: fake_claims,
+    )
 
     response = client.get(
         "/auth/callback",
@@ -227,24 +212,25 @@ def test_authenticated_user_visible_on_dashboard(
     assert b"Leo Bernard" in response.data
     assert b"e1004" in response.data
 
+
 def test_logout_requires_authentication(client):
     """
     /logout should require an authenticated user.
     """
 
-
     response = client.post(
         "/logout",
-        base_url='https://localhost:5001',
+        base_url="https://localhost:5001",
         follow_redirects=False,
     )
     assert response.status_code == 302
     assert "/login" in response.headers["Location"]
 
+
 def test_logout_clears_session_and_redirects_to_keycloak(
     client,
 ):
-    """ 
+    """
 
     /logout should clear the session and redirect to Keycloak's
     end-session endpoint with the correct parameters.
@@ -254,26 +240,21 @@ def test_logout_clears_session_and_redirects_to_keycloak(
 
     response = client.post(
         "/logout",
-        base_url='https://localhost:5001',
+        base_url="https://localhost:5001",
         follow_redirects=False,
     )
- 
+
     location = response.headers["Location"]
     parsed_location = urlparse(location)
     parameters = parse_qs(parsed_location.query)
 
     assert parsed_location.path == (
-        "/realms/novasecure/"
-        "protocol/openid-connect/logout"
+        "/realms/novasecure/" "protocol/openid-connect/logout"
     )
 
-    assert parameters["client_id"] == [
-        "iam-admin-portal"
-    ]
+    assert parameters["client_id"] == ["iam-admin-portal"]
 
-    assert parameters["id_token_hint"] == [
-        "fake-id-token"
-    ]
+    assert parameters["id_token_hint"] == ["fake-id-token"]
 
     assert parameters["post_logout_redirect_uri"] == [
         "https://localhost:5001/logged-out"
@@ -283,8 +264,3 @@ def test_logout_clears_session_and_redirects_to_keycloak(
         assert "user" not in sess
         assert "id_token" not in sess
         assert "_user_id" not in sess
-
-
-
-
-

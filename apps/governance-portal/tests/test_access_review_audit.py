@@ -4,9 +4,9 @@ import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
 from extensions import db
-from models import AccessReview, AuditEvent, AccessReviewItem, ManagedRole 
+from models import AccessReview, AuditEvent, AccessReviewItem, ManagedRole
 import services.access_review_service as access_review_service
-from services.exceptions import AuditPersistenceError,KeycloakAdminAPIError
+from services.exceptions import AuditPersistenceError, KeycloakAdminAPIError
 
 
 @pytest.fixture
@@ -93,9 +93,7 @@ def test_create_access_review_with_audit_rolls_back_on_audit_failure(
     """
     Verify that an audit failure prevents the campaign from being saved.
     """
-    fake_audit = Mock(
-        side_effect=AuditPersistenceError("database unavailable")
-    )
+    fake_audit = Mock(side_effect=AuditPersistenceError("database unavailable"))
 
     monkeypatch.setattr(
         access_review_service,
@@ -119,13 +117,9 @@ def test_create_access_review_with_audit_rolls_back_on_audit_failure(
     fake_audit.assert_called_once()
     assert fake_audit.call_args.kwargs["commit"] is False
 
-    assert db.session.execute(
-        db.select(AccessReview)
-    ).scalars().all() == []
+    assert db.session.execute(db.select(AccessReview)).scalars().all() == []
 
-    assert db.session.execute(
-        db.select(AuditEvent)
-    ).scalars().all() == []
+    assert db.session.execute(db.select(AuditEvent)).scalars().all() == []
 
 
 def test_create_access_review_with_audit_rolls_back_on_commit_failure(
@@ -136,9 +130,7 @@ def test_create_access_review_with_audit_rolls_back_on_commit_failure(
     """
     Verify that a failed commit rolls back both the campaign and its audit event.
     """
-    fake_commit = Mock(
-        side_effect=SQLAlchemyError("commit failed")
-    )
+    fake_commit = Mock(side_effect=SQLAlchemyError("commit failed"))
 
     monkeypatch.setattr(
         db.session,
@@ -161,14 +153,11 @@ def test_create_access_review_with_audit_rolls_back_on_commit_failure(
     fake_validate_reviewer.assert_called_once()
     fake_commit.assert_called_once()
 
-    assert db.session.execute(
-        db.select(AccessReview)
-    ).scalars().all() == []
+    assert db.session.execute(db.select(AccessReview)).scalars().all() == []
 
-    assert db.session.execute(
-        db.select(AuditEvent)
-    ).scalars().all() == []
-    
+    assert db.session.execute(db.select(AuditEvent)).scalars().all() == []
+
+
 def test_create_access_review_with_audit_rejects_ineligible_reviewer(
     app,
     fake_validate_reviewer,
@@ -176,9 +165,7 @@ def test_create_access_review_with_audit_rejects_ineligible_reviewer(
     """
     Verify that reviewer rejection leaves no campaign or audit event saved.
     """
-    fake_validate_reviewer.side_effect = ValueError(
-        "reviewer_missing_required_role"
-    )
+    fake_validate_reviewer.side_effect = ValueError("reviewer_missing_required_role")
 
     with pytest.raises(ValueError, match="reviewer_missing_required_role"):
         access_review_service.create_access_review_with_audit(
@@ -194,13 +181,10 @@ def test_create_access_review_with_audit_rejects_ineligible_reviewer(
 
     fake_validate_reviewer.assert_called_once()
 
-    assert db.session.execute(
-        db.select(AccessReview)
-    ).scalars().all() == []
+    assert db.session.execute(db.select(AccessReview)).scalars().all() == []
 
-    assert db.session.execute(
-        db.select(AuditEvent)
-    ).scalars().all() == []
+    assert db.session.execute(db.select(AuditEvent)).scalars().all() == []
+
 
 @pytest.fixture
 def population_setup(app, monkeypatch):
@@ -270,9 +254,7 @@ def test_populate_access_review_with_audit_records_actor(population_setup):
     """
     arguments = population_setup["arguments"]
 
-    items = access_review_service.populate_access_review_with_audit(
-        **arguments
-    )
+    items = access_review_service.populate_access_review_with_audit(**arguments)
 
     assert len(items) == 1
     item_id = items[0].id
@@ -313,26 +295,34 @@ def test_populate_access_review_with_audit_records_zero_new_items(
     arguments = population_setup["arguments"]
 
     access_review_service.populate_access_review_with_audit(**arguments)
-    second_items = access_review_service.populate_access_review_with_audit(
-        **arguments
-    )
+    second_items = access_review_service.populate_access_review_with_audit(**arguments)
 
     assert second_items == []
 
     db.session.rollback()
 
-    saved_items = db.session.execute(
-        db.select(AccessReviewItem).where(
-            AccessReviewItem.review_id == arguments["review_id"],
+    saved_items = (
+        db.session.execute(
+            db.select(AccessReviewItem).where(
+                AccessReviewItem.review_id == arguments["review_id"],
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
-    events = db.session.execute(
-        db.select(AuditEvent).where(
-            AuditEvent.action == "access_review.populate",
-            AuditEvent.target_id == str(arguments["review_id"]),
-        ).order_by(AuditEvent.id)
-    ).scalars().all()
+    events = (
+        db.session.execute(
+            db.select(AuditEvent)
+            .where(
+                AuditEvent.action == "access_review.populate",
+                AuditEvent.target_id == str(arguments["review_id"]),
+            )
+            .order_by(AuditEvent.id)
+        )
+        .scalars()
+        .all()
+    )
 
     assert len(saved_items) == 1
     assert len(events) == 2
@@ -354,9 +344,7 @@ def test_populate_access_review_with_audit_rolls_back_on_persistence_failure(
 
     if failure_stage == "audit":
         expected_error = AuditPersistenceError
-        failure_mock = Mock(
-            side_effect=AuditPersistenceError("audit failed")
-        )
+        failure_mock = Mock(side_effect=AuditPersistenceError("audit failed"))
         monkeypatch.setattr(
             access_review_service,
             "record_audit_event",
@@ -364,9 +352,7 @@ def test_populate_access_review_with_audit_rolls_back_on_persistence_failure(
         )
     else:
         expected_error = SQLAlchemyError
-        failure_mock = Mock(
-            side_effect=SQLAlchemyError("commit failed")
-        )
+        failure_mock = Mock(side_effect=SQLAlchemyError("commit failed"))
         monkeypatch.setattr(
             db.session,
             "commit",
@@ -374,9 +360,7 @@ def test_populate_access_review_with_audit_rolls_back_on_persistence_failure(
         )
 
     with pytest.raises(expected_error, match=f"{failure_stage} failed"):
-        access_review_service.populate_access_review_with_audit(
-            **arguments
-        )
+        access_review_service.populate_access_review_with_audit(**arguments)
 
     failure_mock.assert_called_once()
 
@@ -388,18 +372,28 @@ def test_populate_access_review_with_audit_rolls_back_on_persistence_failure(
     assert campaign is not None
     assert campaign.status == "draft"
 
-    assert db.session.execute(
-        db.select(AccessReviewItem).where(
-            AccessReviewItem.review_id == arguments["review_id"],
+    assert (
+        db.session.execute(
+            db.select(AccessReviewItem).where(
+                AccessReviewItem.review_id == arguments["review_id"],
+            )
         )
-    ).scalars().all() == []
+        .scalars()
+        .all()
+        == []
+    )
 
-    assert db.session.execute(
-        db.select(AuditEvent).where(
-            AuditEvent.action == "access_review.populate",
-            AuditEvent.target_id == str(arguments["review_id"]),
+    assert (
+        db.session.execute(
+            db.select(AuditEvent).where(
+                AuditEvent.action == "access_review.populate",
+                AuditEvent.target_id == str(arguments["review_id"]),
+            )
         )
-    ).scalars().all() == []
+        .scalars()
+        .all()
+        == []
+    )
 
 
 def test_populate_access_review_with_audit_propagates_keycloak_failure(
@@ -429,22 +423,30 @@ def test_populate_access_review_with_audit_propagates_keycloak_failure(
     )
 
     with pytest.raises(KeycloakAdminAPIError, match="Role retrieval failed"):
-        access_review_service.populate_access_review_with_audit(
-            **arguments
-        )
+        access_review_service.populate_access_review_with_audit(**arguments)
 
     fake_audit.assert_not_called()
     fake_commit.assert_not_called()
 
-    assert db.session.execute(
-        db.select(AccessReviewItem).where(
-            AccessReviewItem.review_id == arguments["review_id"],
+    assert (
+        db.session.execute(
+            db.select(AccessReviewItem).where(
+                AccessReviewItem.review_id == arguments["review_id"],
+            )
         )
-    ).scalars().all() == []
+        .scalars()
+        .all()
+        == []
+    )
 
-    assert db.session.execute(
-        db.select(AuditEvent).where(
-            AuditEvent.action == "access_review.populate",
-            AuditEvent.target_id == str(arguments["review_id"]),
+    assert (
+        db.session.execute(
+            db.select(AuditEvent).where(
+                AuditEvent.action == "access_review.populate",
+                AuditEvent.target_id == str(arguments["review_id"]),
+            )
         )
-    ).scalars().all() == []
+        .scalars()
+        .all()
+        == []
+    )

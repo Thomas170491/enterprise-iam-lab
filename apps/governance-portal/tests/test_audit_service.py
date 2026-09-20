@@ -1,13 +1,11 @@
-
-
 import pytest
 import governance.routes as governance_routes
 import services.audit_service as audit_service
 
 from services.exceptions import AuditPersistenceError, AuditQueryError
 from unittest.mock import Mock
-from  extensions import db 
-from models import AuditEvent,AccessReview
+from extensions import db
+from models import AuditEvent, AccessReview
 from services.access_review_service import create_access_review
 
 
@@ -18,9 +16,7 @@ def test_record_audit_event(
 
     fake_event.id = 42
 
-    mock_audit_event = Mock(
-        return_value=fake_event
-    )
+    mock_audit_event = Mock(return_value=fake_event)
 
     monkeypatch.setattr(
         audit_service,
@@ -51,9 +47,7 @@ def test_record_audit_event(
         target_id="user-123",
         target_name="e1004",
         outcome="success",
-        details={
-            "source": "governance-portal"
-        },
+        details={"source": "governance-portal"},
     )
 
     mock_audit_event.assert_called_once_with(
@@ -64,82 +58,70 @@ def test_record_audit_event(
         target_id="user-123",
         target_name="e1004",
         outcome="success",
-        details={
-            "source": "governance-portal"
-        },
+        details={"source": "governance-portal"},
     )
 
-    mock_add.assert_called_once_with(
-        fake_event
-    )
+    mock_add.assert_called_once_with(fake_event)
 
     mock_commit.assert_called_once()
 
     assert event is fake_event
 
+
 def test_record_audit_event_rolls_back_on_failure(monkeypatch):
-        fake_event = Mock()
+    fake_event = Mock()
 
-        monkeypatch.setattr(
-            audit_service,
-            "AuditEvent",
-            Mock(return_value=fake_event),
+    monkeypatch.setattr(
+        audit_service,
+        "AuditEvent",
+        Mock(return_value=fake_event),
+    )
+
+    mock_add = Mock()
+
+    mock_commit = Mock(side_effect=audit_service.SQLAlchemyError("database failure"))
+
+    mock_rollback = Mock()
+
+    monkeypatch.setattr(
+        audit_service.db.session,
+        "add",
+        mock_add,
+    )
+
+    monkeypatch.setattr(
+        audit_service.db.session,
+        "commit",
+        mock_commit,
+    )
+
+    monkeypatch.setattr(
+        audit_service.db.session,
+        "rollback",
+        mock_rollback,
+    )
+
+    with pytest.raises(AuditPersistenceError) as exc_info:
+
+        audit_service.record_audit_event(
+            actor_user_id="actor-123",
+            actor_username="e1001",
+            action="identity.view",
+            target_type="identity",
+            target_id="user-123",
+            target_name="e1004",
+            outcome="success",
         )
 
-        mock_add = Mock()
+    mock_add.assert_called_once_with(fake_event)
 
-        mock_commit = Mock(
-            side_effect=audit_service.SQLAlchemyError(
-                "database failure"
-            )
-        )
+    mock_commit.assert_called_once()
 
-        mock_rollback = Mock()
+    mock_rollback.assert_called_once()
 
-        monkeypatch.setattr(
-            audit_service.db.session,
-            "add",
-            mock_add,
-        )
+    assert exc_info.value.reason == ("Failed to persist audit event: database failure")
 
-        monkeypatch.setattr(
-            audit_service.db.session,
-            "commit",
-            mock_commit,
-        )
 
-        monkeypatch.setattr(
-            audit_service.db.session,
-            "rollback",
-            mock_rollback,
-        )
-
-        with pytest.raises(
-            AuditPersistenceError
-        ) as exc_info:
-
-            audit_service.record_audit_event(
-                actor_user_id="actor-123",
-                actor_username="e1001",
-                action="identity.view",
-                target_type="identity",
-                target_id="user-123",
-                target_name="e1004",
-                outcome="success",
-            )
-
-        mock_add.assert_called_once_with(
-            fake_event
-        )
-
-        mock_commit.assert_called_once()
-
-        mock_rollback.assert_called_once()
-
-        assert exc_info.value.reason == (
-            "Failed to persist audit event: database failure"
-        )
-        
 def test_record_audit_event_without_commit_can_be_rolled_back(app):
     """
     Verify that an audit event recorded without committing can be rolled back.
@@ -161,11 +143,12 @@ def test_record_audit_event_without_commit_can_be_rolled_back(app):
 
     assert db.session.get(AuditEvent, event_id) is None
 
-def test_campaign_and_audit_event_roll_back_together(app) :
+
+def test_campaign_and_audit_event_roll_back_together(app):
     """
     Verify that a campaign and its audit event share the caller's transaction.
     """
-    
+
     review = create_access_review("campaign", "user-123", "reviwer-123")
     event = audit_service.record_audit_event(
         actor_user_id="operator-123",
@@ -177,18 +160,17 @@ def test_campaign_and_audit_event_roll_back_together(app) :
         outcome="success",
         commit=False,
     )
-    
+
     review_id = review.id
     event_id = event.id
-    
+
     db.session.rollback()
-    
+
     assert db.session.get(AccessReview, review_id) is None
     assert db.session.get(AuditEvent, event_id) is None
 
-def test_get_recent_audit_events(
-    monkeypatch
-):
+
+def test_get_recent_audit_events(monkeypatch):
     fake_events = [
         Mock(),
         Mock(),
@@ -198,13 +180,9 @@ def test_get_recent_audit_events(
     fake_scalar_result.all.return_value = fake_events
 
     fake_execute_result = Mock()
-    fake_execute_result.scalars.return_value = (
-        fake_scalar_result
-    )
+    fake_execute_result.scalars.return_value = fake_scalar_result
 
-    mock_execute = Mock(
-        return_value=fake_execute_result
-    )
+    mock_execute = Mock(return_value=fake_execute_result)
 
     monkeypatch.setattr(
         audit_service.db.session,
@@ -212,11 +190,7 @@ def test_get_recent_audit_events(
         mock_execute,
     )
 
-    events = (
-        audit_service.get_recent_audit_events(
-            limit=50
-        )
-    )
+    events = audit_service.get_recent_audit_events(limit=50)
 
     assert events == fake_events
 
@@ -226,13 +200,12 @@ def test_get_recent_audit_events(
 
     fake_scalar_result.all.assert_called_once()
 
+
 def test_get_recent_audit_events_handles_failure(
     monkeypatch,
 ):
     mock_execute = Mock(
-        side_effect=audit_service.SQLAlchemyError(
-            "database unavailable"
-        )
+        side_effect=audit_service.SQLAlchemyError("database unavailable")
     )
 
     mock_rollback = Mock()
@@ -249,13 +222,9 @@ def test_get_recent_audit_events_handles_failure(
         mock_rollback,
     )
 
-    with pytest.raises(
-        AuditQueryError
-    ) as exc_info:
+    with pytest.raises(AuditQueryError) as exc_info:
 
-        audit_service.get_recent_audit_events(
-            limit=50
-        )
+        audit_service.get_recent_audit_events(limit=50)
 
     mock_execute.assert_called_once()
     mock_rollback.assert_called_once()

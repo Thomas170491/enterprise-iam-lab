@@ -1,13 +1,15 @@
 from extensions import db
 
+
 class AuditEvent(db.Model):
     __tablename__ = "audit_event"
 
     id = db.Column(db.Integer, primary_key=True)
-    created_at = db.Column(db.DateTime(timezone=True), 
-                           nullable=False, 
-                           server_default=db.func.now(),
-                           index=True
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        server_default=db.func.now(),
+        index=True,
     )
 
     # Keycloak user ID / OIDC subject of the actor.
@@ -77,5 +79,3 @@ class AuditEvent(db.Model):
             f"action={self.action!r} "
             f"outcome={self.outcome!r}>"
         )
-
-    

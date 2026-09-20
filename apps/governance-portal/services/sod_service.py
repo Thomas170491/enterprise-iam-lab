@@ -1,17 +1,16 @@
-from models import  ManagedRole, SoDRule
-from extensions import db 
-
+from models import ManagedRole, SoDRule
+from extensions import db
 
 SOD_ALLOW = "allow"
 SOD_DENY = "deny"
 SOD_REQUIRES_REVIEW = "requires_review"
 
+
 def evaluate_role_assignment(
-    target_client_name : str,
+    target_client_name: str,
     requested_role_name: str,
-    current_role_names : list,
+    current_role_names: list,
 ):
-    
     """
     Evaluate a requested client-role assignment against enabled SoD rules.
 
@@ -26,11 +25,11 @@ def evaluate_role_assignment(
 
     Requests for unmanaged or disabled roles are denied by default.
     Deny rules take precedence over review rules across all matching role pairs.
-    
+
     Held roles remain subject to SoD checks even when their catalogue
     entries are disabled.
     """
-    
+
     requested_role = db.session.execute(
         db.select(ManagedRole).filter_by(
             client_name=target_client_name,
@@ -38,64 +37,59 @@ def evaluate_role_assignment(
             enabled=True,
         )
     ).scalar_one_or_none()
-    
-    if requested_role is None :
-        return {
-            "decision" : SOD_DENY,
-            "reason" : "role_not_managed",
-            "rule_id" : None
-        }
-    
-    current_roles = db.session.execute(
-        db.select(ManagedRole).where(
-            ManagedRole.client_name == target_client_name,
-            ManagedRole.role_name.in_(current_role_names),
-           
+
+    if requested_role is None:
+        return {"decision": SOD_DENY, "reason": "role_not_managed", "rule_id": None}
+
+    current_roles = (
+        db.session.execute(
+            db.select(ManagedRole).where(
+                ManagedRole.client_name == target_client_name,
+                ManagedRole.role_name.in_(current_role_names),
+            )
         )
-    ).scalars().all()
-    
+        .scalars()
+        .all()
+    )
+
     review_rule = None
-    
-    for role in current_roles :
-        
+
+    for role in current_roles:
+
         current_role_id = role.id
 
-        first_role_id, second_role_id = sorted([current_role_id,requested_role.id])
-      
-        
+        first_role_id, second_role_id = sorted([current_role_id, requested_role.id])
+
         matching_rule = db.session.execute(
             db.select(SoDRule).where(
-            SoDRule.first_role_id == first_role_id,
-            SoDRule.second_role_id == second_role_id,
-            SoDRule.enabled.is_(True),
+                SoDRule.first_role_id == first_role_id,
+                SoDRule.second_role_id == second_role_id,
+                SoDRule.enabled.is_(True),
             )
         ).scalar_one_or_none()
-        
-        if matching_rule is not None :
-            
+
+        if matching_rule is not None:
+
             if matching_rule.outcome == SOD_DENY:
                 return {
-                    "decision" : SOD_DENY,
-                    "reason" : "sod_rule_matched",
-                    "rule_id" : matching_rule.id
+                    "decision": SOD_DENY,
+                    "reason": "sod_rule_matched",
+                    "rule_id": matching_rule.id,
                 }
-                
+
             if matching_rule.outcome == SOD_REQUIRES_REVIEW:
                 review_rule = matching_rule
-                
-            
 
-    if review_rule is not None :
-                
+    if review_rule is not None:
+
         return {
-                "decision": SOD_REQUIRES_REVIEW,
-                "reason" :  "sod_rule_matched",
-                "rule_id": review_rule.id
-        }            
+            "decision": SOD_REQUIRES_REVIEW,
+            "reason": "sod_rule_matched",
+            "rule_id": review_rule.id,
+        }
 
-            
     return {
-        "decision" : SOD_ALLOW,
-        "reason" : "no_sod_conflict",
-        "rule_id" : None,
+        "decision": SOD_ALLOW,
+        "reason": "no_sod_conflict",
+        "rule_id": None,
     }

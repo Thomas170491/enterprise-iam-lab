@@ -1,19 +1,19 @@
 from config import Config
 
-def test_health_endpoint(client) :
+
+def test_health_endpoint(client):
     """
-    The REST health endpoint should return the 
+    The REST health endpoint should return the
     expected JSON structure.
     """
-    response = client.get(
-        "api/v1/health"
-    )
+    response = client.get("api/v1/health")
 
     assert response.status_code == 200
-    assert response.get_json()=={
-        "status" : "ok",
-        "application" : "NovaSecure IAM Governance Portal"    
+    assert response.get_json() == {
+        "status": "ok",
+        "application": "NovaSecure IAM Governance Portal",
     }
+
 
 def test_openapi_document(client):
     """
@@ -33,16 +33,14 @@ def test_openapi_document(client):
 
     assert "/api/v1/health" in document["paths"]
 
+
 def test_expected_routes_are_registered(app):
     """
     Verify the fundamental application routes
     actually exist in Flask.
     """
 
-    routes = {
-        rule.rule 
-        for rule in app.url_map.iter_rules()
-    }
+    routes = {rule.rule for rule in app.url_map.iter_rules()}
 
     assert "/" in routes
     assert "/login" in routes

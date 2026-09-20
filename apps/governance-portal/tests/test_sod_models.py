@@ -1,5 +1,6 @@
-from extensions import db 
+from extensions import db
 from models import ManagedRole, SoDRule
+
 
 def test_sod_rule_links_two_managed_roles(app):
     """
@@ -18,7 +19,7 @@ def test_sod_rule_links_two_managed_roles(app):
         name="Prevent self-review",
         first_role_id=role1.id,
         second_role_id=role2.id,
-        outcome="deny"
+        outcome="deny",
     )
 
     db.session.add(sod_rule)

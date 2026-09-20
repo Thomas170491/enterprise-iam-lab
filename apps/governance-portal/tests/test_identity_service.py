@@ -61,6 +61,7 @@ def test_search_identities_normalizes_keycloak_users(
     assert identity["risk_level"] == "high"
     assert identity["enabled"] is True
 
+
 def test_search_identities_handles_missing_attributes(
     monkeypatch,
 ):
@@ -97,4 +98,4 @@ def test_search_identities_handles_missing_attributes(
     assert identity["employee_id"] is None
     assert identity["employment_status"] is None
     assert identity["job_title"] is None
-    assert identity["risk_level"] is None 
+    assert identity["risk_level"] is None

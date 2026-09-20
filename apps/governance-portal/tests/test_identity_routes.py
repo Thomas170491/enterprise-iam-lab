@@ -1,11 +1,11 @@
 from pytest import MonkeyPatch
 
 import governance.routes as governance_routes
-from unittest.mock import Mock,ANY
+from unittest.mock import Mock, ANY
 from auth.permissions import IDENTITY_VIEWER, ROLE_MANAGER
 from services.exceptions import KeycloakAdminAPIError
-import services.identity_service as identity_service 
- 
+import services.identity_service as identity_service
+
 
 def _login_user(
     client,
@@ -23,6 +23,8 @@ def _login_user(
 
         sess["_user_id"] = "test-subject"
         sess["_fresh"] = True
+
+
 def test_identity_route_access(
     client,
     monkeypatch,
@@ -47,9 +49,7 @@ def test_identity_route_access(
         }
     ]
 
-    fake_search = Mock(
-        return_value=fake_identities
-    )
+    fake_search = Mock(return_value=fake_identities)
 
     monkeypatch.setattr(
         governance_routes,
@@ -67,12 +67,14 @@ def test_identity_route_access(
     assert b"Bernard" in response.data
     assert b"e1004" in response.data
 
+
 def test_identity_route_access_denied(client):
     _login_user(client, [])
 
     response = client.get("/identities")
     assert response.status_code == 403
-   
+
+
 def test_identity_search_requires_login(
     client,
 ):
@@ -84,6 +86,7 @@ def test_identity_search_requires_login(
     assert response.status_code == 302
     assert "/login" in response.headers["Location"]
 
+
 def test_identity_page_does_not_search_without_query(
     client,
     monkeypatch,
@@ -94,9 +97,7 @@ def test_identity_page_does_not_search_without_query(
     )
 
     def fail_if_called(**kwargs):
-        raise AssertionError(
-            "search_identities should not be called"
-        )
+        raise AssertionError("search_identities should not be called")
 
     monkeypatch.setattr(
         governance_routes,
@@ -108,6 +109,7 @@ def test_identity_page_does_not_search_without_query(
 
     assert response.status_code == 200
     assert b"Enter a username" in response.data
+
 
 def test_identity_page_does_not_search_automatically(
     client,
@@ -133,6 +135,7 @@ def test_identity_page_does_not_search_automatically(
 
     assert b"Enter a username" in response.data
 
+
 def test_empty_search_returns_all_identities(
     client,
     monkeypatch,
@@ -150,9 +153,7 @@ def test_empty_search_returns_all_identities(
         {"username": "e1005"},
     ]
 
-    fake_search = Mock(
-        return_value=fake_identities
-    )
+    fake_search = Mock(return_value=fake_identities)
 
     monkeypatch.setattr(
         governance_routes,
@@ -160,9 +161,7 @@ def test_empty_search_returns_all_identities(
         fake_search,
     )
 
-    response = client.get(
-        "/identities?search="
-    )
+    response = client.get("/identities?search=")
 
     assert response.status_code == 200
     fake_search.assert_called_once()
@@ -181,24 +180,23 @@ def test_identity_detail_route_access(
     )
 
     fake_identity_access = {
-    "identity": {
-        "id": "user-123",
-        "username": "e1004",
-        "first_name": "Leo",
-        "last_name": "Bernard",
-        "email": "leo.bernard@novasecure.test",
-        "enabled": True,
-        "employee_id": "e1004",
-        "employment_status": "active",
-        "job_title": "IAM Operator",
-        "risk_level": "low",
-    },
-        
+        "identity": {
+            "id": "user-123",
+            "username": "e1004",
+            "first_name": "Leo",
+            "last_name": "Bernard",
+            "email": "leo.bernard@novasecure.test",
+            "enabled": True,
+            "employee_id": "e1004",
+            "employment_status": "active",
+            "job_title": "IAM Operator",
+            "risk_level": "low",
+        },
         "groups": [
             {
                 "id": "group-123",
                 "name": "IAM Operators",
-            } 
+            }
         ],
         "realm_roles": [
             {
@@ -206,48 +204,39 @@ def test_identity_detail_route_access(
             }
         ],
         "client_roles": [
-             {
+            {
                 "name": "finance-data-viewer",
             },
             {
                 "name": "manager-dashboard",
             },
-        ],  
-
-
+        ],
         "direct_client_roles": [
             {
                 "name": "manager-dashboard",
             }
         ],
-            }
-        
-    mock_get_identity_access=Mock(
-        return_value=fake_identity_access
-    )
+    }
+
+    mock_get_identity_access = Mock(return_value=fake_identity_access)
 
     monkeypatch.setattr(
         governance_routes,
         "get_identity_access",
         mock_get_identity_access,
     )
-    mock_record_audit_event = Mock(
-        return_value=fake_identity_access
-    )
+    mock_record_audit_event = Mock(return_value=fake_identity_access)
 
     monkeypatch.setattr(
         governance_routes,
         "record_audit_event",
         mock_record_audit_event,
-)
-    
-
-    response= client.get(
-        "/identities/user-123"
     )
 
+    response = client.get("/identities/user-123")
+
     assert response.status_code == 200
-    
+
     assert b"finance-data-viewer" in response.data
     assert b"manager-dashboard" in response.data
     assert b"Inherited" in response.data
@@ -258,38 +247,33 @@ def test_identity_detail_route_access(
     assert b"e1004" in response.data
 
     mock_get_identity_access.assert_called_once_with(
-        admin_api_url= ANY,
+        admin_api_url=ANY,
         token_url=ANY,
         client_id=ANY,
         client_secret=ANY,
         user_id="user-123",
         target_client_name="employee-portal",
-)  
+    )
     mock_record_audit_event.assert_called_once_with(
-    actor_user_id="test-subject",
-    actor_username="test-user",
-    action="identity.view",
-    target_type="identity",
-    target_id="user-123",
-    target_name="e1004",
-    outcome="success",
-    details={
-        "source": "governance-portal",
-        "service_client": "iam-governance-service",
-    },
-)
+        actor_user_id="test-subject",
+        actor_username="test-user",
+        action="identity.view",
+        target_type="identity",
+        target_id="user-123",
+        target_name="e1004",
+        outcome="success",
+        details={
+            "source": "governance-portal",
+            "service_client": "iam-governance-service",
+        },
+    )
+
 
 def test_identity_detail_only_allows_direct_role_removal(
-        client,
-        monkeypatch,
-        ):
-    _login_user(
-        client,
-        [
-            IDENTITY_VIEWER,
-            ROLE_MANAGER
-        ]
-    )
+    client,
+    monkeypatch,
+):
+    _login_user(client, [IDENTITY_VIEWER, ROLE_MANAGER])
 
     fake_identity_access = {
         "identity": {
@@ -314,25 +298,18 @@ def test_identity_detail_only_allows_direct_role_removal(
     }
     mock_get_identity_access = Mock(return_value=fake_identity_access)
     monkeypatch.setattr(
-        governance_routes,
-        "get_identity_access",
-        mock_get_identity_access     
+        governance_routes, "get_identity_access", mock_get_identity_access
     )
 
-    monkeypatch.setattr(
-        governance_routes,
-        "record_audit_event",
-        Mock()
-        )
+    monkeypatch.setattr(governance_routes, "record_audit_event", Mock())
 
-    response = client.get(
-        "/identities/user-123"
-    )
+    response = client.get("/identities/user-123")
 
     assert response.status_code == 200
     assert b"/identities/user-123/roles/manager-dashboard/remove" in response.data
     assert b"/identities/user-123/roles/finance-data-viewer/remove" not in response.data
     mock_get_identity_access.assert_called_once()
+
 
 def test_identity_viewer_does_not_see_role_removal_controls(
     client,
@@ -343,7 +320,7 @@ def test_identity_viewer_does_not_see_role_removal_controls(
         [
             IDENTITY_VIEWER,
         ],
-        )
+    )
 
     fake_identity_access = {
         "identity": {
@@ -365,28 +342,21 @@ def test_identity_viewer_does_not_see_role_removal_controls(
     }
 
     mock_get_identity_access = Mock(return_value=fake_identity_access)
-    
-    monkeypatch.setattr(
-        governance_routes,
-        "get_identity_access",
-        mock_get_identity_access
-    )
 
     monkeypatch.setattr(
-        governance_routes,  
-        "record_audit_event",
-        Mock()
+        governance_routes, "get_identity_access", mock_get_identity_access
     )
 
-    response = client.get(
-        "/identities/user-123"
-    )
+    monkeypatch.setattr(governance_routes, "record_audit_event", Mock())
+
+    response = client.get("/identities/user-123")
 
     mock_get_identity_access.assert_called_once()
     assert response.status_code == 200
     assert b"manager-dashboard" in response.data
     assert b"/identities/user-123/roles/manager-dashboard/remove" not in response.data
     assert b"Assign Role" not in response.data
+
 
 def test_identity_detail_handles_keycloak_failure(
     client,
@@ -398,9 +368,7 @@ def test_identity_detail_handles_keycloak_failure(
     )
 
     def fake_get_identity_access(**kwargs):
-        raise KeycloakAdminAPIError(
-            "User retrieval failed"
-        )
+        raise KeycloakAdminAPIError("User retrieval failed")
 
     monkeypatch.setattr(
         governance_routes,
@@ -408,20 +376,14 @@ def test_identity_detail_handles_keycloak_failure(
         fake_get_identity_access,
     )
 
-    response = client.get(
-        "/identities/user-123"
-    )
+    response = client.get("/identities/user-123")
 
     assert response.status_code == 502
 
-    assert (
-        b"Identity Access Unavailable"
-        in response.data
-    )
+    assert b"Identity Access Unavailable" in response.data
 
-def test_get_identity_access(
-     monkeypatch: MonkeyPatch
-):
+
+def test_get_identity_access(monkeypatch: MonkeyPatch):
     monkeypatch.setattr(
         identity_service,
         "get_user",
@@ -473,18 +435,16 @@ def test_get_identity_access(
     )
 
     monkeypatch.setattr(
-    identity_service,
-    "get_direct_client_roles",
-    lambda **kwargs: [
-        {
-            "name": "manager-dashboard",
-        }
-    ],
-)
+        identity_service,
+        "get_direct_client_roles",
+        lambda **kwargs: [
+            {
+                "name": "manager-dashboard",
+            }
+        ],
+    )
     direct_client_roles = identity_service.get_direct_client_roles(
-        admin_api_url=(
-            "https://keycloak.test/admin/realms/novasecure"
-        ),
+        admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
@@ -493,50 +453,32 @@ def test_get_identity_access(
     )
 
     access = identity_service.get_identity_access(
-        admin_api_url=(
-            "https://keycloak.test/admin/realms/novasecure"
-        ),
+        admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
         user_id="user-123",
         target_client_name="iam-admin-portal",
-      
     )
 
     assert access["identity"]["username"] == "e1004"
 
-    assert access["identity"]["job_title"] == (
-        "IAM Operator"
-    )
+    assert access["identity"]["job_title"] == ("IAM Operator")
 
-    assert access["groups"][0]["name"] == (
-        "IAM Operators"
-    )
+    assert access["groups"][0]["name"] == ("IAM Operators")
 
-    assert access["realm_roles"][0]["name"] == (
-        "employee"
-    )
+    assert access["realm_roles"][0]["name"] == ("employee")
 
-    assert access["client_roles"][0]["name"] == (
-        "identity-viewer"
-    )
+    assert access["client_roles"][0]["name"] == ("identity-viewer")
 
-    assert access["direct_client_roles"][0]["name"] == (
-        "manager-dashboard"
-    )
+    assert access["direct_client_roles"][0]["name"] == ("manager-dashboard")
+
 
 def test_role_manager_sees_managed_role_choices(
     client,
     monkeypatch,
 ):
-    _login_user(
-        client,
-        [
-            IDENTITY_VIEWER,
-            ROLE_MANAGER
-        ]
-    )
+    _login_user(client, [IDENTITY_VIEWER, ROLE_MANAGER])
 
     fake_identity_access = {
         "identity": {
@@ -561,9 +503,7 @@ def test_role_manager_sees_managed_role_choices(
     }
 
     monkeypatch.setattr(
-        governance_routes,
-        "get_identity_access",
-        lambda **kwargs: fake_identity_access
+        governance_routes, "get_identity_access", lambda **kwargs: fake_identity_access
     )
 
     monkeypatch.setattr(
@@ -576,25 +516,13 @@ def test_role_manager_sees_managed_role_choices(
         governance_routes,
         "get_managed_roles",
         lambda target_client_name: [
-                "finance-data-viewer",
-                "manager-dashboard",
-            ]
-        ),
-    response = client.get(
-        "/identities/user-123"
-    )
+            "finance-data-viewer",
+            "manager-dashboard",
+        ],
+    ),
+    response = client.get("/identities/user-123")
 
-    assert response.status_code == 200 
+    assert response.status_code == 200
     assert b"finance-data-viewer" in response.data
     assert b"manager-dashboard" in response.data
     assert b"Assign role" in response.data
-
-    
-
-
-
-           
-
-
-
-

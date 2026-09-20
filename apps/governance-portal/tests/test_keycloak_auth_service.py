@@ -24,9 +24,7 @@ def test_get_service_token(monkeypatch):
     ):
         assert url == "https://keycloak.test/token"
 
-        assert data == {
-            "grant_type": "client_credentials"
-        }
+        assert data == {"grant_type": "client_credentials"}
 
         assert auth == (
             "iam-governance-service",
@@ -51,13 +49,12 @@ def test_get_service_token(monkeypatch):
 
     assert token == "fake-service-token"
 
+
 def test_service_authentication_failure(
     monkeypatch,
 ):
     def fake_post(*args, **kwargs):
-        raise requests.ConnectionError(
-            "Keycloak unavailable"
-        )
+        raise requests.ConnectionError("Keycloak unavailable")
 
     monkeypatch.setattr(
         auth_service.requests,
@@ -65,14 +62,13 @@ def test_service_authentication_failure(
         fake_post,
     )
 
-    with pytest.raises(
-        auth_service.KeycloakServiceAuthenticationError
-    ):
+    with pytest.raises(auth_service.KeycloakServiceAuthenticationError):
         auth_service.get_service_access_token(
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
         )
+
 
 def test_missing_service_access_token(
     monkeypatch,
@@ -81,9 +77,7 @@ def test_missing_service_access_token(
 
     fake_response.raise_for_status.return_value = None
 
-    fake_response.json.return_value = {
-        "token_type": "Bearer"
-    }
+    fake_response.json.return_value = {"token_type": "Bearer"}
 
     monkeypatch.setattr(
         auth_service.requests,
@@ -91,9 +85,7 @@ def test_missing_service_access_token(
         lambda *args, **kwargs: fake_response,
     )
 
-    with pytest.raises(
-        auth_service.KeycloakServiceAuthenticationError
-    ):
+    with pytest.raises(auth_service.KeycloakServiceAuthenticationError):
         auth_service.get_service_access_token(
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",

@@ -6,10 +6,9 @@ class ManagedRole(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
+    client_name = db.Column(db.String(100), nullable=False)
 
-    client_name = db.Column(db.String(100),nullable=False)
-
-    role_name= db.Column(db.String(100), nullable=False)
+    role_name = db.Column(db.String(100), nullable=False)
 
     enabled = db.Column(db.Boolean, default=True, nullable=False)
 

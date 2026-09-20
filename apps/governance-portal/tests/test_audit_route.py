@@ -6,6 +6,7 @@ from unittest.mock import Mock
 from auth.permissions import AUDIT_LOG_REVIEWER
 from services.exceptions import AuditQueryError
 
+
 def _login_user(
     client,
     client_roles,
@@ -23,6 +24,7 @@ def _login_user(
 
         sess["_user_id"] = "test-subject"
         sess["_fresh"] = True
+
 
 def test_audit_log_route_access(
     client,
@@ -47,15 +49,11 @@ def test_audit_log_route_access(
             target_id="user-123",
             target_name="e1004",
             outcome="success",
-            details={
-                "source": "governance-portal"
-            },
+            details={"source": "governance-portal"},
         )
     ]
 
-    mock_get_events = Mock(
-        return_value=fake_events
-    )
+    mock_get_events = Mock(return_value=fake_events)
 
     monkeypatch.setattr(
         governance_routes,
@@ -63,9 +61,7 @@ def test_audit_log_route_access(
         mock_get_events,
     )
 
-    response = client.get(
-        "/audit"
-    )
+    response = client.get("/audit")
 
     assert response.status_code == 200
 
@@ -74,9 +70,8 @@ def test_audit_log_route_access(
     assert b"e1004" in response.data
     assert b"success" in response.data
 
-    mock_get_events.assert_called_once_with(
-        limit=100
-    )
+    mock_get_events.assert_called_once_with(limit=100)
+
 
 def test_audit_log_access_denied(
     client,
@@ -86,11 +81,10 @@ def test_audit_log_access_denied(
         [],
     )
 
-    response = client.get(
-        "/audit"
-    )
+    response = client.get("/audit")
 
     assert response.status_code == 403
+
 
 def test_audit_log_requires_login(
     client,
@@ -103,6 +97,7 @@ def test_audit_log_requires_login(
     assert response.status_code == 302
     assert "/login" in response.headers["Location"]
 
+
 def test_audit_log_empty_state(
     client,
     monkeypatch,
@@ -112,9 +107,7 @@ def test_audit_log_empty_state(
         [AUDIT_LOG_REVIEWER],
     )
 
-    mock_get_events = Mock(
-        return_value=[]
-    )
+    mock_get_events = Mock(return_value=[])
 
     monkeypatch.setattr(
         governance_routes,
@@ -122,20 +115,15 @@ def test_audit_log_empty_state(
         mock_get_events,
     )
 
-    response = client.get(
-        "/audit"
-    )
+    response = client.get("/audit")
 
     assert response.status_code == 200
 
-    assert (
-        b"No audit events recorded yet."
-        in response.data
-    )
+    assert b"No audit events recorded yet." in response.data
 
-    mock_get_events.assert_called_once_with(
-        limit=100
-    )
+    mock_get_events.assert_called_once_with(limit=100)
+
+
 def test_audit_log_handles_database_failure(
     client,
     monkeypatch,
@@ -146,9 +134,7 @@ def test_audit_log_handles_database_failure(
     )
 
     mock_get_events = Mock(
-        side_effect=AuditQueryError(
-            "Failed to retrieve audit events"
-        )
+        side_effect=AuditQueryError("Failed to retrieve audit events")
     )
 
     monkeypatch.setattr(
@@ -157,17 +143,10 @@ def test_audit_log_handles_database_failure(
         mock_get_events,
     )
 
-    response = client.get(
-        "/audit"
-    )
+    response = client.get("/audit")
 
     assert response.status_code == 503
 
-    assert (
-        b"Audit Log Unavailable"
-        in response.data
-    )
+    assert b"Audit Log Unavailable" in response.data
 
-    mock_get_events.assert_called_once_with(
-        limit=100
-    )
+    mock_get_events.assert_called_once_with(limit=100)

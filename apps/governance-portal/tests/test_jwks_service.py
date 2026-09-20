@@ -130,9 +130,7 @@ def test_expired_jwks_cache_is_refreshed(
 
     # Artificially age the cache instead of
     # actually waiting five minutes.
-    jwks_service._JWKS_CACHE[
-        url
-    ]["fetched_at"] -= 301
+    jwks_service._JWKS_CACHE[url]["fetched_at"] -= 301
 
     second = jwks_service.get_key_set(
         url,
@@ -165,9 +163,7 @@ def test_fetch_key_set_uses_http_timeout(
             }
 
     def fake_get(url, timeout):
-        assert url == (
-            "http://keycloak.test/certs"
-        )
+        assert url == ("http://keycloak.test/certs")
 
         assert timeout == 5
 
@@ -182,13 +178,9 @@ def test_fetch_key_set_uses_http_timeout(
     monkeypatch.setattr(
         jwks_service.KeySet,
         "import_key_set",
-        staticmethod(
-            lambda data: fake_keyset
-        ),
+        staticmethod(lambda data: fake_keyset),
     )
 
-    result = jwks_service._fetch_key_set(
-        "http://keycloak.test/certs"
-    )
+    result = jwks_service._fetch_key_set("http://keycloak.test/certs")
 
     assert result is fake_keyset

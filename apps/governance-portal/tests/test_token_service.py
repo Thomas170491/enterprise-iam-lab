@@ -56,14 +56,10 @@ def test_extract_roles_handles_missing_roles():
 
 
 def test_missing_subject_is_rejected():
-    with pytest.raises(
-        TokenValidationError
-    ) as exc_info:
+    with pytest.raises(TokenValidationError) as exc_info:
         _validate_subject({})
 
-    assert exc_info.value.reason == (
-        "missing subject"
-    )
+    assert exc_info.value.reason == ("missing subject")
 
 
 def test_valid_subject_is_accepted():
@@ -75,49 +71,27 @@ def test_valid_subject_is_accepted():
 
 
 def test_missing_issuer_is_rejected():
-    with pytest.raises(
-        TokenValidationError
-    ) as exc_info:
+    with pytest.raises(TokenValidationError) as exc_info:
         _validate_issuer(
             {},
-            (
-                "http://localhost:8080"
-                "/realms/novasecure"
-            ),
+            ("http://localhost:8080" "/realms/novasecure"),
         )
 
-    assert exc_info.value.reason == (
-        "missing issuer"
-    )
+    assert exc_info.value.reason == ("missing issuer")
 
 
 def test_wrong_issuer_is_rejected():
-    with pytest.raises(
-        TokenValidationError
-    ) as exc_info:
+    with pytest.raises(TokenValidationError) as exc_info:
         _validate_issuer(
-            {
-                "iss": (
-                    "http://evil.example"
-                    "/realms/fake"
-                )
-            },
-            (
-                "http://localhost:8080"
-                "/realms/novasecure"
-            ),
+            {"iss": ("http://evil.example" "/realms/fake")},
+            ("http://localhost:8080" "/realms/novasecure"),
         )
 
-    assert exc_info.value.reason == (
-        "invalid issuer"
-    )
+    assert exc_info.value.reason == ("invalid issuer")
 
 
 def test_valid_issuer_is_accepted():
-    issuer = (
-        "http://localhost:8080"
-        "/realms/novasecure"
-    )
+    issuer = "http://localhost:8080" "/realms/novasecure"
 
     _validate_issuer(
         {
@@ -149,9 +123,7 @@ def test_list_audience_is_accepted():
 
 
 def test_wrong_audience_is_rejected():
-    with pytest.raises(
-        TokenValidationError
-    ) as exc_info:
+    with pytest.raises(TokenValidationError) as exc_info:
         _validate_audience(
             {
                 "aud": "some-other-client",
@@ -159,20 +131,14 @@ def test_wrong_audience_is_rejected():
             "iam-admin-portal",
         )
 
-    assert exc_info.value.reason == (
-        "invalid_audience"
-    )
+    assert exc_info.value.reason == ("invalid_audience")
 
 
 def test_missing_audience_is_rejected():
-    with pytest.raises(
-        TokenValidationError
-    ) as exc_info:
+    with pytest.raises(TokenValidationError) as exc_info:
         _validate_audience(
             {},
             "iam-admin-portal",
         )
 
-    assert exc_info.value.reason == (
-        "missing audience"
-    )
+    assert exc_info.value.reason == ("missing audience")
