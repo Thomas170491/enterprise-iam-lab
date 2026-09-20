@@ -28,6 +28,7 @@ from services.access_review_service import (
     get_access_review_for_reviewer,
     get_access_reviews_for_manager,
     get_access_reviews_for_reviewer,
+    populate_access_review_with_audit,
 )
 from services.audit_service import (
     get_recent_audit_events,
@@ -576,3 +577,83 @@ def manage_access_review_detail(review_id):
         review=campaign,
         manager_view=True,
     )
+
+@bp_governance.post("/access-reviews/manage/<int:review_id>/populate")
+@login_required
+@client_role_required(ACCESS_REVIEW_MANAGER)
+def populate_access_review(review_id):
+    """
+    Capture an identity's managed direct access in a campaign owned by the current manager.
+    """
+    
+    user_id = request.form.get("user_id", "").strip()
+    
+    try : 
+        populate_access_review_with_audit(
+            review_id = review_id,
+            manager_user_id= current_user.get_id(),
+            user_id= user_id,
+            admin_api_url=current_app.config["KEYCLOAK_ADMIN_API_URL"],
+            token_url=current_app.config["KEYCLOAK_TOKEN_URL"],
+            client_id=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
+            client_secret=current_app.config["KEYCLOAK_SERVICE_CLIENT_SECRET"],
+            actor_username=current_user.username,
+        )
+        
+    except ValueError as exc :
+        if str(exc) == "access_review_not_found" :
+            _log_governance_event(
+                event="access_review.populate",
+                outcome="denied",
+                level=30,
+                reason  = str(exc),
+                target_id=str(review_id)
+            )
+            
+            abort(404)
+        
+        elif str(exc) == "access_review_not_draft":
+            _log_governance_event(
+                event="access_review.populate",
+                outcome="denied",
+                level=30,
+                reason  = str(exc),
+                target_id=str(review_id)
+            )
+            abort(409)
+        
+        else : 
+            abort(400)
+            
+    except KeycloakAdminAPIError as exc :
+        _log_governance_event(
+            level = 40,
+            event = "access_review.populate",
+            outcome= "failure",
+            reason= "identity_access_retrieval_failed",
+            exc = exc,
+            target_id = str(review_id)          
+        )
+        abort(503)
+    
+    except (AuditPersistenceError,SQLAlchemyError) as exc :
+           _log_governance_event(
+                level = 40,
+                event = "access_review.populate",
+                outcome= "failure",
+                reason= "population_persistence_failed",
+                exc = exc,
+                target_id = str(review_id)          
+            )
+           abort(503)
+    
+    return redirect(
+        url_for(
+            "governance.manage_access_review_detail",
+            review_id= review_id,
+        ),
+        303,
+    )
+         
+        
+        

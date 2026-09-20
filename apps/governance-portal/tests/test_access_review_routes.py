@@ -3,12 +3,14 @@ from urllib.parse import urlsplit
 
 import pytest
 from flask import url_for
-from models import AccessReview
+from sqlalchemy.exc import SQLAlchemyError
+from models import AccessReview, ManagedRole, AccessReviewItem, AuditEvent
 from auth.permissions import ACCESS_REVIEW_MANAGER, ACCESS_REVIEWER
 from extensions import db
-from services.exceptions import KeycloakAdminAPIError 
+from services.exceptions import AuditPersistenceError, KeycloakAdminAPIError 
 
 import services.access_review_service as access_review_service 
+import governance.routes as governance_routes
 
 
 def _login_user(client, client_roles):
@@ -597,4 +599,266 @@ def test_create_access_review_returns_503_when_reviewer_verification_fails(clien
     assert "The reviewer could not be verified. Please try again." in html
     
     fake_validate.assert_called_once()
+    
+def test_manager_can_populate_own_access_review(client,monkeypatch):
+    """
+    Verify that a manager can capture access in their campaign and receives the correct redirect.
+    """
+    _login_user(client,[ACCESS_REVIEW_MANAGER])
+    
+    campaign = access_review_service.create_access_review("test campaign", "test-subject", "user-456")
+    
+    db.session.add(
+        ManagedRole(
+            client_name="employee-portal",
+            role_name="finance-data-viewer",
+            enabled=True,
+        )
+)   
+    db.session.flush()
+    
+    monkeypatch.setattr(
+    access_review_service,
+    "get_user",
+    lambda **kwagrs :{
+                        "id": "user-123",
+                        "username": "alice",
+                        }
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        lambda  **kwargs : [{
+                             "id": "finance-role-id",
+                             "name": "finance-data-viewer",
+                            }]                    
+    )
+    
+    response = client.post(
+        f"/access-reviews/manage/{campaign.id}/populate",
+        data = {
+            "user_id" : "user-123"
+        }
+    )
+    
+    assert response.status_code == 303
+    assert response.headers["Location"] == f"/access-reviews/manage/{campaign.id}"
+    
+    item = db.session.execute(
+        db.select(AccessReviewItem).where(
+            AccessReviewItem.review_id  == campaign.id
+        )
+    ).scalar_one_or_none()
+    
+    assert item is not None
+    assert item.user_id == "user-123"
+    assert item.role_id == "finance-role-id"
+    assert item.role_name == "finance-data-viewer"
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.populate",
+            AuditEvent.target_id == str(campaign.id),
+        )
+    ).scalar_one_or_none()
+
+    assert event is not None
+    assert event.actor_user_id == "test-subject"
+    assert event.outcome == "success"
+    assert event.details["items_added"] == 1
+    
+def test_manager_cannot_populate_another_managers_review(client,monkeypatch):
+    """
+    Verify that a manager cannot populate another manager's campaign.
+    """
+    
+    _login_user(client,[ACCESS_REVIEW_MANAGER])
+    
+    campaign = access_review_service.create_access_review("test campaign", "other-manager", "user-456")
+    
+    db.session.add(
+        ManagedRole(
+            client_name="employee-portal",
+            role_name="finance-data-viewer",
+            enabled=True,
+        )
+    )   
+    db.session.flush()
+    
+    fake_get_user = Mock()
+    fake_get_roles = Mock()
+
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user",
+        fake_get_user,
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        fake_get_roles,
+)
+    
+    response = client.post(
+        f"/access-reviews/manage/{campaign.id}/populate",
+        data = {
+            "user_id" : "user-123"
+        }
+    )
+    
+    assert response.status_code == 404
+    
+    
+    item = db.session.execute(
+        db.select(AccessReviewItem).where(
+            AccessReviewItem.review_id  == campaign.id
+        )
+    ).scalar_one_or_none()
+    
+    assert item is  None
+
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.populate",
+            AuditEvent.target_id == str(campaign.id),
+        )
+    ).scalar_one_or_none()
+
+    assert event is  None
    
+    fake_get_user.assert_not_called()
+    fake_get_roles.assert_not_called()
+    
+def test_populate_access_review_requires_manager_role(client,monkeypatch):
+    """
+    Verify that a reviewer without manager access cannot populate a campaign.
+    """
+    
+    _login_user(client,[ACCESS_REVIEWER])
+    
+    campaign = access_review_service.create_access_review("test campaign", "test-subject", "user-456")
+    
+    fake_populate = Mock()
+
+    monkeypatch.setattr(
+        governance_routes,
+        "populate_access_review_with_audit",
+        fake_populate
+    )
+  
+    response = client.post(
+        f"/access-reviews/manage/{campaign.id}/populate",
+        data = {
+            "user_id" : "user-123"
+        }
+    )
+    
+    assert response.status_code == 403 
+    fake_populate.assert_not_called()
+
+def test_populate_access_review_returns_409_for_non_draft_campaign(client, monkeypatch):
+    """
+    Verify that population of a non-draft campaign returns HTTP 409.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    campaign = access_review_service.create_access_review("test campaign","test-subject","reviewer-456")
+    campaign.status = "cancelled"
+    db.session.flush()
+
+    fake_get_user = Mock()
+    fake_get_roles = Mock()
+
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user",
+        fake_get_user,
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        fake_get_roles,
+    )
+
+    response = client.post(
+        f"/access-reviews/manage/{campaign.id}/populate",
+        data={"user_id": "user-123"},
+    )
+
+    assert response.status_code == 409
+    fake_get_user.assert_not_called()
+    fake_get_roles.assert_not_called()
+
+def test_populate_access_review_returns_503_on_keycloak_failure(client,monkeypatch):
+    """
+    Verify that a Keycloak failure returns HTTP 503 without saving snapshots.
+    """
+    _login_user(client,[ACCESS_REVIEW_MANAGER])
+    
+    campaign = access_review_service.create_access_review("Test campaign", "test-subject", "test-reviewer")
+    
+    fake_get_user = Mock(side_effect=KeycloakAdminAPIError("User retrieval failed"))
+    fake_get_direct_roles = Mock()
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user",
+        fake_get_user
+    )
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        fake_get_direct_roles
+    )
+    
+    response = client.post(
+        f"/access-reviews/manage/{campaign.id}/populate",
+        data={"user_id": "user-123"},
+    )
+    
+    assert response.status_code == 503
+    saved_items = db.session.execute(
+        db.select(AccessReviewItem).where(
+            AccessReviewItem.review_id == campaign.id
+        )
+    ).scalars().all()
+    
+    assert saved_items == []
+    fake_get_direct_roles.assert_not_called()
+    
+@pytest.mark.parametrize(
+    "error_type",
+    [AuditPersistenceError, SQLAlchemyError],
+)      
+def test_populate_access_review_returns_503_on_persistence_failure(client,monkeypatch,error_type):
+    """
+    Verify that audit or database failures during population return HTTP 503.
+    """
+    
+    _login_user(client,[ACCESS_REVIEW_MANAGER])
+    
+    
+    fake_route = Mock(side_effect=error_type("population_persistence_failed")
+)
+   
+    
+    monkeypatch.setattr(
+        governance_routes,
+        "populate_access_review_with_audit",
+        fake_route
+    )
+    
+
+    
+    response = client.post(
+        f"/access-reviews/manage/123/populate",
+        data={"user_id": "user-123"},
+    )
+    
+    assert response.status_code == 503
+ 
+    fake_route.assert_called_once()
+    
+    
