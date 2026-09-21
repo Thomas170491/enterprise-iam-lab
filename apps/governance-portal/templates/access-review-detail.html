@@ -1,51 +1,43 @@
-
 {% extends "base.html" %}
 
 {% block title %}
-Access Review | NovaSecure IAM Governance
+{{ review.name }} | NovaSecure IAM Governance
 {% endblock %}
 
 {% block content %}
-
-<div class="page-header">
-
+<header class="page-header">
     <h1>{{ review.name }}</h1>
-
-    <p>
-        Access certification campaign details and captured entitlement snapshot.
-    </p>
-
-</div>
-
+    <p>Review campaign details and captured access.</p>
+</header>
 
 <section>
-
-    <h2>Campaign</h2>
+    <h2>Campaign details</h2>
 
     <p>
         <strong>Status:</strong>
-
         <span class="status status-{{ review.status }}">
             {{ review.status }}
         </span>
     </p>
 
     <p>
-        <strong>Due date:</strong>
-
-        {% if review.due_at %}
-            {{ review.due_at.strftime("%Y-%m-%d %H:%M UTC") }}
-        {% else %}
-            No due date
-        {% endif %}
+        <strong>Assigned reviewer:</strong>
+        {{ review.reviewer_user_id }}
     </p>
 
+    <p>
+        <strong>Due date:</strong>
+        {% if review.due_at %}
+            {{ review.due_at }}
+        {% else %}
+            Not specified
+        {% endif %}
+    </p>
 </section>
 
 {% if (manager_view | default(false)) and review.status == "draft" %}
-<section aria-labelledby="capture-access-heading">
-
-    <h2 id="capture-access-heading">Capture identity access</h2>
+<section>
+    <h2>Capture identity access</h2>
 
     <p id="capture-access-help">
         Capture the identity’s directly assigned Employee Portal roles
@@ -65,12 +57,14 @@ Access Review | NovaSecure IAM Governance
         >
 
         <div class="identity-search-field">
-            <label for="capture-user-id">Keycloak user ID</label>
+            <label for="capture-user-id">
+                Identity ID
+            </label>
 
             <input
+                type="text"
                 id="capture-user-id"
                 name="user_id"
-                type="text"
                 maxlength="255"
                 aria-describedby="capture-access-help"
                 required
@@ -107,83 +101,74 @@ Access Review | NovaSecure IAM Governance
         </form>
     </div>
     {% endif %}
-
 </section>
 {% endif %}
 
 <section>
-
     <h2>Access under review</h2>
 
-    <p>
-        {% if manager_view | default(false) %}
-
-        <a href="{{ url_for('governance.manage_access_reviews') }}">
-            ← Back to managed access reviews
-        </a>
-
-        {% else %}
-
-        <a href="{{ url_for('governance.access_reviews') }}">
-            ← Back to my access reviews
-        </a>
-
-        {% endif %}
-    </p>
-
-
     {% if review.items %}
-
     <table>
-
         <thead>
             <tr>
                 <th scope="col">Username</th>
+                <th scope="col">Identity ID</th>
                 <th scope="col">Client</th>
                 <th scope="col">Role</th>
-                <th scope="col">Captured</th>
             </tr>
         </thead>
 
         <tbody>
-
             {% for item in review.items %}
-
             <tr>
-
-                <td>
-                    {{ item.username }}
-                </td>
-
-                <td>
-                    {{ item.client_name }}
-                </td>
-
-                <td>
-                    {{ item.role_name }}
-                </td>
-
-                <td>
-                    {{ item.created_at.strftime("%Y-%m-%d %H:%M UTC") }}
-                </td>
-
+                <td>{{ item.username }}</td>
+                <td>{{ item.user_id }}</td>
+                <td>{{ item.client_name }}</td>
+                <td>{{ item.role_name }}</td>
             </tr>
-
             {% endfor %}
-
         </tbody>
-
     </table>
-
     {% else %}
-
-    <div class="empty-state">
-        No access items have been captured for this campaign.
-    </div>
-
+    <p>No access items have been captured for this campaign.</p>
     {% endif %}
-
 </section>
 
-{% endblock %}
+{% if (manager_view | default(false)) and review.status in ("draft", "open") %}
+<section>
+    <h2>Cancel campaign</h2>
 
+    <p>
+        Cancelling ends this campaign and preserves its captured access
+        items. It does not revoke any access.
+    </p>
+
+    <form
+        method="POST"
+        action="{{ url_for('governance.cancel_access_review', review_id=review.id) }}"
+    >
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+        <button type="submit" class="button-danger">
+            Cancel campaign
+        </button>
+    </form>
+</section>
+{% endif %}
+
+<p>
+    {% if manager_view | default(false) %}
+    <a href="/access-reviews/manage">
+        Back to managed access reviews
+    </a>
+    {% else %}
+    <a href="/access-reviews">
+        Back to my access reviews
+    </a>
+    {% endif %}
+</p>
+{% endblock %}

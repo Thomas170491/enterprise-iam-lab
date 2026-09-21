@@ -1216,3 +1216,231 @@ def test_open_access_review_returns_503_on_persistence_failure(
 
     assert response.status_code == 503
     fake_open.assert_called_once()
+    
+@pytest.mark.parametrize("status", ["draft", "open"])
+def test_manager_can_cancel_own_access_review(client, status):
+    """
+    Verify that a manager can cancel their campaign while preserving snapshots and recording the actor.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    campaign = access_review_service.create_access_review(
+        "Campaign to cancel",
+        "test-subject",
+        "reviewer-123",
+    )
+
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+
+    campaign.status = status
+    db.session.commit()
+
+    campaign_id = campaign.id
+    item_id = item.id
+
+    response = client.post(
+        f"/access-reviews/manage/{campaign_id}/cancel"
+    )
+
+    assert response.status_code == 303
+    assert response.headers["Location"] == (
+        f"/access-reviews/manage/{campaign_id}"
+    )
+
+    # Committed changes must survive rollback.
+    db.session.rollback()
+
+    saved_campaign = db.session.get(AccessReview, campaign_id)
+    saved_item = db.session.get(AccessReviewItem, item_id)
+
+    assert saved_campaign is not None
+    assert saved_campaign.status == "cancelled"
+
+    assert saved_item is not None
+    assert saved_item.review_id == campaign_id
+    assert saved_item.user_id == "user-123"
+    assert saved_item.role_id == "finance-role-id"
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.cancel",
+            AuditEvent.target_id == str(campaign_id),
+        )
+    ).scalar_one_or_none()
+
+    assert event is not None
+    assert event.actor_user_id == "test-subject"
+    assert event.actor_username == "test-user"
+    assert event.target_type == "access_review"
+    assert event.target_name == "Campaign to cancel"
+    assert event.outcome == "success"
+    assert event.details["source"] == "governance-portal"
+    assert event.details["reviewer_user_id"] == "reviewer-123"
+    assert event.details["previous_status"] == status
+    assert event.details["new_status"] == "cancelled"
+    assert event.details["item_count"] == 1
+    
+def test_manager_cannot_cancel_another_managers_review(client):
+    """
+    Verify that another manager cannot cancel a campaign or change its captured access.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    campaign = access_review_service.create_access_review(
+        "Other manager campaign",
+        "other-manager",
+        "reviewer-123",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    db.session.commit()
+
+    campaign_id = campaign.id
+    item_id = item.id
+
+    response = client.post(
+        f"/access-reviews/manage/{campaign_id}/cancel"
+    )
+
+    assert response.status_code == 404
+
+    saved_campaign = db.session.get(AccessReview, campaign_id)
+    saved_item = db.session.get(AccessReviewItem, item_id)
+
+    assert saved_campaign is not None
+    assert saved_campaign.status == "draft"
+    assert saved_item is not None
+    assert saved_item.review_id == campaign_id
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.cancel",
+            AuditEvent.target_id == str(campaign_id),
+        )
+    ).scalar_one_or_none()
+
+    assert event is None
+
+
+@pytest.mark.parametrize("client_roles", [[], [ACCESS_REVIEWER]])
+def test_cancel_access_review_requires_manager_role(
+    client,
+    monkeypatch,
+    client_roles,
+):
+    """
+    Verify that users without manager access cannot trigger campaign cancellation.
+    """
+    _login_user(client, client_roles)
+
+    fake_cancel = Mock()
+    monkeypatch.setattr(
+        governance_routes,
+        "cancel_access_review_with_audit",
+        fake_cancel,
+    )
+
+    response = client.post("/access-reviews/manage/123/cancel")
+
+    assert response.status_code == 403
+    fake_cancel.assert_not_called()
+
+
+@pytest.mark.parametrize("status", ["completed", "cancelled"])
+def test_cancel_access_review_returns_409_for_invalid_status(
+    client,
+    status,
+):
+    """
+    Verify that completed or cancelled campaigns reject cancellation without changes.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    campaign = access_review_service.create_access_review(
+        "Terminal campaign",
+        "test-subject",
+        "reviewer-123",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+
+    campaign.status = status
+    db.session.commit()
+
+    campaign_id = campaign.id
+    item_id = item.id
+
+    response = client.post(
+        f"/access-reviews/manage/{campaign_id}/cancel"
+    )
+
+    assert response.status_code == 409
+
+    saved_campaign = db.session.get(AccessReview, campaign_id)
+    saved_item = db.session.get(AccessReviewItem, item_id)
+
+    assert saved_campaign is not None
+    assert saved_campaign.status == status
+    assert saved_item is not None
+    assert saved_item.review_id == campaign_id
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.cancel",
+            AuditEvent.target_id == str(campaign_id),
+        )
+    ).scalar_one_or_none()
+
+    assert event is None
+
+
+@pytest.mark.parametrize(
+    "error_type",
+    [AuditPersistenceError, SQLAlchemyError],
+)
+def test_cancel_access_review_returns_503_on_persistence_failure(
+    client,
+    monkeypatch,
+    error_type,
+):
+    """
+    Verify that audit or database failures during cancellation return HTTP 503.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    fake_cancel = Mock(
+        side_effect=error_type("cancellation persistence failed")
+    )
+    monkeypatch.setattr(
+        governance_routes,
+        "cancel_access_review_with_audit",
+        fake_cancel,
+    )
+
+    response = client.post("/access-reviews/manage/123/cancel")
+
+    assert response.status_code == 503
+    fake_cancel.assert_called_once_with(
+        review_id=123,
+        manager_user_id="test-subject",
+        actor_username="test-user",
+    )
