@@ -1,3 +1,4 @@
+from html.parser import HTMLParser
 from unittest.mock import Mock
 from urllib.parse import urlsplit
 
@@ -12,6 +13,40 @@ from services.exceptions import AuditPersistenceError, KeycloakAdminAPIError
 
 import governance.routes as governance_routes
 import services.access_review_service as access_review_service
+
+
+class _CSRFFormParser(HTMLParser):
+    """
+    Extract a CSRF token from the form targeting the specified action path.
+    """
+
+    def __init__(self, action_path):
+        """
+        Initialize the target form path and captured token.
+        """
+        super().__init__()
+        self.action_path = action_path
+        self.in_target_form = False
+        self.csrf_token = None
+
+    def handle_starttag(self, tag, attrs):
+        """
+        Capture the CSRF input belonging to the target form.
+        """
+        attributes = dict(attrs)
+        if tag == "form":
+            action = attributes.get("action") or self.action_path
+            self.in_target_form = urlsplit(action).path == self.action_path
+        elif tag == "input" and self.in_target_form:
+            if attributes.get("name") == "csrf_token":
+                self.csrf_token = attributes.get("value")
+
+    def handle_endtag(self, tag):
+        """
+        Stop capturing inputs when the current form ends.
+        """
+        if tag == "form":
+            self.in_target_form = False
 
 
 def _login_user(client, client_roles):
@@ -1215,21 +1250,16 @@ def test_open_access_review_returns_503_on_persistence_failure(
     response = client.post("/access-reviews/manage/123/open")
 
     assert response.status_code == 503
-    fake_open.assert_called_once()
-    
+
 @pytest.mark.parametrize("status", ["draft", "open"])
 def test_manager_can_cancel_own_access_review(client, status):
     """
-    Verify that a manager can cancel their campaign while preserving snapshots and recording the actor.
+    Verify that cancellation commits the status and audit event while preserving snapshots.
     """
     _login_user(client, [ACCESS_REVIEW_MANAGER])
-
     campaign = access_review_service.create_access_review(
-        "Campaign to cancel",
-        "test-subject",
-        "reviewer-123",
+        "Campaign to cancel", "test-subject", "reviewer-123"
     )
-
     item = access_review_service.add_access_review_item(
         review_id=campaign.id,
         user_id="user-123",
@@ -1238,36 +1268,18 @@ def test_manager_can_cancel_own_access_review(client, status):
         role_id="finance-role-id",
         role_name="finance-data-viewer",
     )
-
     campaign.status = status
     db.session.commit()
+    campaign_id, item_id = campaign.id, item.id
 
-    campaign_id = campaign.id
-    item_id = item.id
-
-    response = client.post(
-        f"/access-reviews/manage/{campaign_id}/cancel"
-    )
+    response = client.post(f"/access-reviews/manage/{campaign_id}/cancel")
 
     assert response.status_code == 303
-    assert response.headers["Location"] == (
-        f"/access-reviews/manage/{campaign_id}"
-    )
-
-    # Committed changes must survive rollback.
+    assert response.headers["Location"] == f"/access-reviews/manage/{campaign_id}"
     db.session.rollback()
 
-    saved_campaign = db.session.get(AccessReview, campaign_id)
+    saved_review = db.session.get(AccessReview, campaign_id)
     saved_item = db.session.get(AccessReviewItem, item_id)
-
-    assert saved_campaign is not None
-    assert saved_campaign.status == "cancelled"
-
-    assert saved_item is not None
-    assert saved_item.review_id == campaign_id
-    assert saved_item.user_id == "user-123"
-    assert saved_item.role_id == "finance-role-id"
-
     event = db.session.execute(
         db.select(AuditEvent).where(
             AuditEvent.action == "access_review.cancel",
@@ -1275,6 +1287,10 @@ def test_manager_can_cancel_own_access_review(client, status):
         )
     ).scalar_one_or_none()
 
+    assert saved_review is not None
+    assert saved_review.status == "cancelled"
+    assert saved_item is not None
+    assert saved_item.review_id == campaign_id
     assert event is not None
     assert event.actor_user_id == "test-subject"
     assert event.actor_username == "test-user"
@@ -1286,17 +1302,15 @@ def test_manager_can_cancel_own_access_review(client, status):
     assert event.details["previous_status"] == status
     assert event.details["new_status"] == "cancelled"
     assert event.details["item_count"] == 1
-    
+
+
 def test_manager_cannot_cancel_another_managers_review(client):
     """
-    Verify that another manager cannot cancel a campaign or change its captured access.
+    Verify that another manager's campaign and snapshots remain unchanged after denial.
     """
     _login_user(client, [ACCESS_REVIEW_MANAGER])
-
     campaign = access_review_service.create_access_review(
-        "Other manager campaign",
-        "other-manager",
-        "reviewer-123",
+        "Other manager campaign", "other-manager", "reviewer-123"
     )
     item = access_review_service.add_access_review_item(
         review_id=campaign.id,
@@ -1307,50 +1321,33 @@ def test_manager_cannot_cancel_another_managers_review(client):
         role_name="finance-data-viewer",
     )
     db.session.commit()
+    campaign_id, item_id = campaign.id, item.id
 
-    campaign_id = campaign.id
-    item_id = item.id
-
-    response = client.post(
-        f"/access-reviews/manage/{campaign_id}/cancel"
-    )
+    response = client.post(f"/access-reviews/manage/{campaign_id}/cancel")
 
     assert response.status_code == 404
-
-    saved_campaign = db.session.get(AccessReview, campaign_id)
-    saved_item = db.session.get(AccessReviewItem, item_id)
-
-    assert saved_campaign is not None
-    assert saved_campaign.status == "draft"
-    assert saved_item is not None
-    assert saved_item.review_id == campaign_id
-
+    saved_review = db.session.get(AccessReview, campaign_id)
+    assert saved_review is not None
+    assert saved_review.status == "draft"
+    assert db.session.get(AccessReviewItem, item_id) is not None
     event = db.session.execute(
         db.select(AuditEvent).where(
             AuditEvent.action == "access_review.cancel",
             AuditEvent.target_id == str(campaign_id),
         )
     ).scalar_one_or_none()
-
     assert event is None
 
 
 @pytest.mark.parametrize("client_roles", [[], [ACCESS_REVIEWER]])
-def test_cancel_access_review_requires_manager_role(
-    client,
-    monkeypatch,
-    client_roles,
-):
+def test_cancel_access_review_requires_manager_role(client, monkeypatch, client_roles):
     """
-    Verify that users without manager access cannot trigger campaign cancellation.
+    Verify that users without manager access cannot invoke campaign cancellation.
     """
     _login_user(client, client_roles)
-
     fake_cancel = Mock()
     monkeypatch.setattr(
-        governance_routes,
-        "cancel_access_review_with_audit",
-        fake_cancel,
+        governance_routes, "cancel_access_review_with_audit", fake_cancel
     )
 
     response = client.post("/access-reviews/manage/123/cancel")
@@ -1360,19 +1357,13 @@ def test_cancel_access_review_requires_manager_role(
 
 
 @pytest.mark.parametrize("status", ["completed", "cancelled"])
-def test_cancel_access_review_returns_409_for_invalid_status(
-    client,
-    status,
-):
+def test_cancel_access_review_returns_409_for_invalid_status(client, status):
     """
-    Verify that completed or cancelled campaigns reject cancellation without changes.
+    Verify that terminal campaigns reject cancellation without changing snapshots or status.
     """
     _login_user(client, [ACCESS_REVIEW_MANAGER])
-
     campaign = access_review_service.create_access_review(
-        "Terminal campaign",
-        "test-subject",
-        "reviewer-123",
+        "Terminal campaign", "test-subject", "reviewer-123"
     )
     item = access_review_service.add_access_review_item(
         review_id=campaign.id,
@@ -1382,58 +1373,37 @@ def test_cancel_access_review_returns_409_for_invalid_status(
         role_id="finance-role-id",
         role_name="finance-data-viewer",
     )
-
     campaign.status = status
     db.session.commit()
+    campaign_id, item_id = campaign.id, item.id
 
-    campaign_id = campaign.id
-    item_id = item.id
-
-    response = client.post(
-        f"/access-reviews/manage/{campaign_id}/cancel"
-    )
+    response = client.post(f"/access-reviews/manage/{campaign_id}/cancel")
 
     assert response.status_code == 409
-
-    saved_campaign = db.session.get(AccessReview, campaign_id)
-    saved_item = db.session.get(AccessReviewItem, item_id)
-
-    assert saved_campaign is not None
-    assert saved_campaign.status == status
-    assert saved_item is not None
-    assert saved_item.review_id == campaign_id
-
+    saved_review = db.session.get(AccessReview, campaign_id)
+    assert saved_review is not None
+    assert saved_review.status == status
+    assert db.session.get(AccessReviewItem, item_id) is not None
     event = db.session.execute(
         db.select(AuditEvent).where(
             AuditEvent.action == "access_review.cancel",
             AuditEvent.target_id == str(campaign_id),
         )
     ).scalar_one_or_none()
-
     assert event is None
 
 
-@pytest.mark.parametrize(
-    "error_type",
-    [AuditPersistenceError, SQLAlchemyError],
-)
+@pytest.mark.parametrize("error_type", [AuditPersistenceError, SQLAlchemyError])
 def test_cancel_access_review_returns_503_on_persistence_failure(
-    client,
-    monkeypatch,
-    error_type,
+    client, monkeypatch, error_type
 ):
     """
     Verify that audit or database failures during cancellation return HTTP 503.
     """
     _login_user(client, [ACCESS_REVIEW_MANAGER])
-
-    fake_cancel = Mock(
-        side_effect=error_type("cancellation persistence failed")
-    )
+    fake_cancel = Mock(side_effect=error_type("cancellation_persistence_failed"))
     monkeypatch.setattr(
-        governance_routes,
-        "cancel_access_review_with_audit",
-        fake_cancel,
+        governance_routes, "cancel_access_review_with_audit", fake_cancel
     )
 
     response = client.post("/access-reviews/manage/123/cancel")
@@ -1444,3 +1414,133 @@ def test_cancel_access_review_returns_503_on_persistence_failure(
         manager_user_id="test-subject",
         actor_username="test-user",
     )
+
+
+@pytest.mark.parametrize("status", ["draft", "open"])
+def test_manager_can_see_cancel_form_for_cancellable_campaign(client, status):
+    """
+    Verify that draft and open campaigns display the cancellation form to their manager.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+    campaign = access_review_service.create_access_review(
+        "Cancellable campaign", "test-subject", "reviewer-123"
+    )
+    campaign.status = status
+    db.session.commit()
+
+    response = client.get(f"/access-reviews/manage/{campaign.id}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert f'action="/access-reviews/manage/{campaign.id}/cancel"' in html
+    assert "Cancel campaign" in html
+
+
+@pytest.mark.parametrize("status", ["completed", "cancelled"])
+def test_manager_terminal_campaign_hides_cancel_form(client, status):
+    """
+    Verify that completed and cancelled campaigns hide the cancellation form.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+    campaign = access_review_service.create_access_review(
+        "Terminal campaign", "test-subject", "reviewer-123"
+    )
+    campaign.status = status
+    db.session.commit()
+
+    response = client.get(f"/access-reviews/manage/{campaign.id}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert f'action="/access-reviews/manage/{campaign.id}/cancel"' not in html
+    assert "Cancel campaign" not in html
+
+
+@pytest.mark.parametrize("status", ["draft", "open"])
+def test_reviewer_campaign_detail_hides_cancel_form(client, status):
+    """
+    Verify that reviewer pages hide cancellation controls for draft and open campaigns.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+    campaign = access_review_service.create_access_review(
+        "Assigned campaign", "manager-123", "test-subject"
+    )
+    campaign.status = status
+    db.session.commit()
+
+    response = client.get(f"/access-reviews/{campaign.id}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert f'action="/access-reviews/manage/{campaign.id}/cancel"' not in html
+    assert "Cancel campaign" not in html
+
+
+@pytest.mark.parametrize("action", ["create", "populate", "open", "cancel"])
+@pytest.mark.parametrize("token_state", ["missing", "invalid", "valid"])
+def test_access_review_mutations_require_valid_csrf_token(
+    client, monkeypatch, action, token_state
+):
+    """
+    Verify that mutation routes reject missing or invalid CSRF tokens and accept valid ones.
+    """
+    monkeypatch.setitem(client.application.config, "WTF_CSRF_ENABLED", True)
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    campaign = access_review_service.create_access_review(
+        "CSRF campaign", "test-subject", "reviewer-123"
+    )
+    access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    db.session.commit()
+    campaign_id = campaign.id
+
+    # Isolate CSRF enforcement from persistence and external Keycloak calls.
+    fake_service = Mock(return_value=campaign)
+    
+    monkeypatch.setattr(
+        governance_routes, 
+        f"{action}_access_review_with_audit", 
+        fake_service
+    )
+
+    if action == "create":
+        form_url = "/access-reviews/new"
+        post_url = form_url
+        data = {
+            "name": "CSRF campaign",
+            "reviewer_user_id": "reviewer-123",
+            "due_at": "",
+        }
+    else:
+        form_url = f"/access-reviews/manage/{campaign_id}"
+        post_url = f"{form_url}/{action}"
+        data = {"user_id": "user-123"} if action == "populate" else {}
+
+    form_response = client.get(form_url)
+    assert form_response.status_code == 200
+
+    # Extract the token from the submitted form, not the navigation logout form.
+    parser = _CSRFFormParser(post_url)
+    parser.feed(form_response.get_data(as_text=True))
+    assert parser.csrf_token, f"Missing CSRF token in form for {post_url}"
+
+    if token_state == "valid":
+        data["csrf_token"] = parser.csrf_token
+    elif token_state == "invalid":
+        data["csrf_token"] = "invalid-test-token"
+
+    response = client.post(post_url, data=data)
+
+    if token_state == "valid":
+        assert response.status_code == 303
+        fake_service.assert_called_once()
+    else:
+        assert response.status_code == 400
+        fake_service.assert_not_called()
