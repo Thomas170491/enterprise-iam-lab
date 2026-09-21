@@ -615,6 +615,242 @@ def test_populate_access_review_with_audit_rolls_back_on_persistence_failure(
     )
 
 
+@pytest.mark.parametrize("previous_status", ["draft", "open"])
+def test_cancel_access_review_with_audit_records_actor(app, previous_status):
+    """
+    Verify that cancellation preserves snapshots and commits the actor and previous status.
+    """
+    review = access_review_service.create_access_review(
+        name="September review",
+        created_by_user_id="manager-123",
+        reviewer_user_id="reviewer-456",
+    )
+    access_review_service.add_access_review_item(
+        review_id=review.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    review.status = previous_status
+    db.session.commit()
+
+    review_id = review.id
+    cancelled_review = access_review_service.cancel_access_review_with_audit(
+        review_id=review_id,
+        manager_user_id="manager-123",
+        actor_username="leo",
+    )
+
+    db.session.rollback()
+
+    saved_review = db.session.get(AccessReview, review_id)
+    saved_items = (
+        db.session.execute(
+            db.select(AccessReviewItem).where(
+                AccessReviewItem.review_id == review_id,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.cancel",
+            AuditEvent.target_id == str(review_id),
+        )
+    ).scalar_one_or_none()
+
+    assert cancelled_review.id == review_id
+    assert saved_review is not None
+    assert saved_review.status == "cancelled"
+    assert len(saved_items) == 1
+    assert saved_items[0].user_id == "user-123"
+    assert event is not None
+    assert event.actor_user_id == "manager-123"
+    assert event.actor_username == "leo"
+    assert event.target_type == "access_review"
+    assert event.target_name == "September review"
+    assert event.outcome == "success"
+    assert event.details["previous_status"] == previous_status
+    assert event.details["new_status"] == "cancelled"
+
+
+@pytest.mark.parametrize("previous_status", ["draft", "open"])
+def test_cancel_access_review_with_audit_rolls_back_on_audit_failure(
+    app,
+    monkeypatch,
+    previous_status,
+):
+    """
+    Verify that an audit failure restores the campaign's previous status and preserves its snapshots.
+    """
+    review = access_review_service.create_access_review(
+        name="September review",
+        created_by_user_id="manager-123",
+        reviewer_user_id="reviewer-456",
+    )
+    access_review_service.add_access_review_item(
+        review_id=review.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    review.status = previous_status
+    db.session.commit()
+
+    fake_audit = Mock(side_effect=AuditPersistenceError("audit failed"))
+    monkeypatch.setattr(
+        access_review_service,
+        "record_audit_event",
+        fake_audit,
+    )
+
+    with pytest.raises(AuditPersistenceError, match="audit failed"):
+        access_review_service.cancel_access_review_with_audit(
+            review_id=review.id,
+            manager_user_id="manager-123",
+            actor_username="leo",
+        )
+
+    saved_review = db.session.get(AccessReview, review.id)
+    saved_items = (
+        db.session.execute(
+            db.select(AccessReviewItem).where(
+                AccessReviewItem.review_id == review.id,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    cancel_event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.cancel",
+            AuditEvent.target_id == str(review.id),
+        )
+    ).scalar_one_or_none()
+
+    fake_audit.assert_called_once()
+    assert saved_review is not None
+    assert saved_review.status == previous_status
+    assert len(saved_items) == 1
+    assert saved_items[0].user_id == "user-123"
+    assert cancel_event is None
+
+
+def test_cancel_access_review_with_audit_rejects_other_manager(app):
+    """
+    Verify that another manager cannot cancel a campaign or create a cancellation audit event.
+    """
+    review = access_review_service.create_access_review(
+        name="September review",
+        created_by_user_id="manager-123",
+        reviewer_user_id="reviewer-456",
+    )
+    access_review_service.add_access_review_item(
+        review_id=review.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    db.session.commit()
+
+    with pytest.raises(ValueError, match="access_review_not_found"):
+        access_review_service.cancel_access_review_with_audit(
+            review_id=review.id,
+            manager_user_id="other-manager",
+            actor_username="other-manager-user",
+        )
+
+    saved_review = db.session.get(AccessReview, review.id)
+    saved_items = (
+        db.session.execute(
+            db.select(AccessReviewItem).where(
+                AccessReviewItem.review_id == review.id,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    cancel_event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.cancel",
+            AuditEvent.target_id == str(review.id),
+        )
+    ).scalar_one_or_none()
+
+    assert saved_review is not None
+    assert saved_review.status == "draft"
+    assert len(saved_items) == 1
+    assert saved_items[0].user_id == "user-123"
+    assert cancel_event is None
+
+
+@pytest.mark.parametrize("previous_status", ["draft", "open"])
+def test_cancel_access_review_with_audit_rolls_back_on_commit_failure(
+    app,
+    monkeypatch,
+    previous_status,
+):
+    """
+    Verify that a commit failure restores the campaign's previous status and preserves its snapshots.
+    """
+    review = access_review_service.create_access_review(
+        name="September review",
+        created_by_user_id="manager-123",
+        reviewer_user_id="reviewer-456",
+    )
+    access_review_service.add_access_review_item(
+        review_id=review.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    review.status = previous_status
+    db.session.commit()
+
+    fake_commit = Mock(side_effect=SQLAlchemyError("commit failed"))
+    monkeypatch.setattr(db.session, "commit", fake_commit)
+
+    with pytest.raises(SQLAlchemyError, match="commit failed"):
+        access_review_service.cancel_access_review_with_audit(
+            review_id=review.id,
+            manager_user_id="manager-123",
+            actor_username="leo",
+        )
+
+    saved_review = db.session.get(AccessReview, review.id)
+    saved_items = (
+        db.session.execute(
+            db.select(AccessReviewItem).where(
+                AccessReviewItem.review_id == review.id,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    cancel_event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.cancel",
+            AuditEvent.target_id == str(review.id),
+        )
+    ).scalar_one_or_none()
+
+    fake_commit.assert_called_once()
+    assert saved_review is not None
+    assert saved_review.status == previous_status
+    assert len(saved_items) == 1
+    assert saved_items[0].user_id == "user-123"
+    assert cancel_event is None
+
+
 def test_populate_access_review_with_audit_propagates_keycloak_failure(
     population_setup,
     monkeypatch,
@@ -669,3 +905,6 @@ def test_populate_access_review_with_audit_propagates_keycloak_failure(
         .all()
         == []
     )
+    
+
+
