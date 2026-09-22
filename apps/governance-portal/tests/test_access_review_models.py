@@ -39,6 +39,7 @@ def test_access_review_item_links_to_review(app):
         client_name="employee-portal",
         role_name="testrole",
         role_id="fake-id",
+        assignment_source="direct",
     )
 
     db.session.add_all([access_review, access_review_item])
@@ -70,6 +71,35 @@ def test_access_review_rejects_invalid_status(app):
     db.session.rollback()
 
 
+def test_access_review_item_rejects_invalid_assignment_source(app):
+    """
+    Verify that the database rejects an invalid assignment source.
+    """
+
+    access_review = AccessReview(
+        name="test_review",
+        created_by_user_id="testuser1",
+        reviewer_user_id="testuser2",
+    )
+
+    access_review_item = AccessReviewItem(
+        review=access_review,
+        user_id="testuser31",
+        username="testuser",
+        client_name="employee-portal",
+        role_name="testrole",
+        role_id="fake-id",
+        assignment_source="unknown",
+    )
+
+    db.session.add_all([access_review, access_review_item])
+
+    with pytest.raises(IntegrityError, match="ck_access_review_items_valid_assignment_source",):
+        db.session.flush()
+
+    db.session.rollback()
+
+
 def test_access_review_rejects_duplicate_items(app):
     """
     Verify that a campaign cannot contain duplicate entries for the same identity, client, and role.
@@ -86,6 +116,7 @@ def test_access_review_rejects_duplicate_items(app):
         client_name="employee-portal",
         role_name="testrole",
         role_id="fake-id",
+        assignment_source="direct",
     )
 
     db.session.add_all([access_review, access_review_item])
@@ -98,6 +129,7 @@ def test_access_review_rejects_duplicate_items(app):
         client_name="employee-portal",
         role_name="testrole",
         role_id="fake-id",
+        assignment_source="direct",
     )
 
     db.session.add(access_review_item2)

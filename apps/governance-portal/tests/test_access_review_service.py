@@ -118,6 +118,84 @@ def test_add_access_review_item_creates_snapshot(app):
     assert item.role_name == "finance-data-viewer"
 
 
+def test_add_access_review_item_defaults_to_direct(app):
+    """
+    Verify that a snapshot defaults to a direct assignment source.
+    """
+
+    review = create_access_review(
+        name="September review",
+        created_by_user_id="creator-123",
+        reviewer_user_id="reviewer-456",
+    )
+
+    item = add_access_review_item(
+        review_id=review.id,
+        user_id="  user-123  ",
+        username="  alice  ",
+        client_name="  employee-portal  ",
+        role_id="  finance-role-id  ",
+        role_name="  finance-data-viewer  ",
+    )
+
+    assert item.assignment_source == "direct"
+    
+@pytest.mark.parametrize("assignment_source", ["direct", "inherited", "both"])
+def test_add_access_review_item_preserves_assignment_source(app, assignment_source):
+    """
+    Verify that a snapshot preserves its supplied assignment source.
+    """
+    
+    review = create_access_review(
+        name="September review",
+        created_by_user_id="creator-123",
+        reviewer_user_id="reviewer-456",
+    )
+    
+    item = add_access_review_item(
+        review_id=review.id,
+        user_id="  user-123  ",
+        username="  alice  ",
+        client_name="  employee-portal  ",
+        role_id="  finance-role-id  ",
+        role_name="  finance-data-viewer  ",
+        assignment_source= assignment_source,
+    )
+    
+    assert item.assignment_source == assignment_source
+    
+@pytest.mark.parametrize("assignment_source", ["unknown", "", None])
+def test_add_access_review_item_rejects_invalid_assignment_source(
+    app, assignment_source
+):
+    """
+    Verify that an invalid assignment source is rejected without saving an item.
+    """
+    
+    review = create_access_review(
+        name="September review",
+        created_by_user_id="creator-123",
+        reviewer_user_id="reviewer-456",
+    )
+    with pytest.raises(ValueError, match="invalid_assignment_source"):
+        add_access_review_item(
+            review_id=review.id,
+            user_id="  user-123  ",
+            username="  alice  ",
+            client_name="  employee-portal  ",
+            role_id="  finance-role-id  ",
+            role_name="  finance-data-viewer  ",
+            assignment_source= assignment_source,
+        )
+        
+    items = db.session.execute(
+        db.select(AccessReviewItem)
+        .where(
+            AccessReviewItem.review_id== review.id
+                )).scalars().all()
+    
+    assert items == []
+    
 @pytest.mark.parametrize("status", ["open", "completed", "cancelled"])
 def test_add_access_review_item_rejects_non_draft_campaign(app, status):
     """

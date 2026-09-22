@@ -29,6 +29,8 @@ class AccessReviewItem(db.Model):
     role_id = db.Column(db.String(255), nullable=False)
 
     role_name = db.Column(db.String(100), nullable=False)
+    
+    assignment_source = db.Column(db.String(20), nullable=False)
 
     created_at = db.Column(
         db.DateTime(timezone=True),
@@ -48,5 +50,9 @@ class AccessReviewItem(db.Model):
             "client_name",
             "role_id",
             name="uq_access_review_items_review_user_client_role",
+        ),
+        db.CheckConstraint(
+        "assignment_source IN ('direct', 'inherited', 'both')",
+        name="ck_access_review_items_valid_assignment_source",        
         ),
     )

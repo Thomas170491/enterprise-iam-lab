@@ -73,6 +73,7 @@ def add_access_review_item(
     client_name: str,
     role_id: str,
     role_name: str,
+    assignment_source: str = "direct"
 ) -> AccessReviewItem:
     """
     Add an identity-role snapshot to an existing draft review campaign.
@@ -88,6 +89,9 @@ def add_access_review_item(
 
     if campaign.status != "draft":
         raise ValueError("access_review_not_draft")
+    
+    if assignment_source not in ("direct", "inherited", "both"):
+        raise ValueError("invalid_assignment_source")
 
     user_id = _validate_required_string(user_id, "user_id", 255)
     username = _validate_required_string(username, "username", 255)
@@ -102,6 +106,7 @@ def add_access_review_item(
         client_name=client_name,
         role_id=role_id,
         role_name=role_name,
+        assignment_source=assignment_source,
     )
 
     db.session.add(item)
