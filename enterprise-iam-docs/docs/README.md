@@ -10,7 +10,7 @@ Start with the [project README](../README.md#start-here), which links each topic
 | Employee features and API | [employee-portal.md](employee-portal.md) |
 | Governance boundaries | [governance-portal.md](governance-portal.md) |
 | Assignment policies | [segregation-of-duties.md](segregation-of-duties.md) |
-|  | [G11 — Access review workflows](guides/g11-access-review-workflows.md) |
+| Access review workflows | [G11 — Access review workflows](guides/g11-access-review-workflows.md) |
 | Authentication and security | [security-controls.md](security-controls.md) |
 | Tests and CI | [testing.md](testing.md) |
 | Milestones | [roadmap.md](roadmap.md) |

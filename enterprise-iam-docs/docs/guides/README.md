@@ -2,7 +2,7 @@
 
 [Documentation index](../README.md) · [Roadmap](../roadmap.md)
 
-These guides explain G1–G10 as implemented at the G11 documentation checkpoint. They document purpose, implementation, validation and boundaries. They are not a reconstruction of historical commits or a claim that every current helper existed when its original milestone was completed.
+These guides explain G1–G11 as implemented at the G11 documentation checkpoint. They document purpose, implementation, validation and boundaries. They are not a reconstruction of historical commits or a claim that every current helper existed when its original milestone was completed.
 
 The source and test links are pinned to the reviewed commit `b6072773931b2b593a7264c375fd6ab1035686fa` so the referenced implementation remains reviewable. Run the focused commands against your current checkout; a documentation review is not a fresh test run.
 

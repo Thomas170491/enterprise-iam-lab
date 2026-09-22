@@ -44,7 +44,7 @@
                  |                       Service
                  v                          |
           Governance DB                    |
-          PostgreSQL :5434                 |
+          PostgreSQL                       |
             |     |     |                  |
             |     |     |                  |
             v     v     v                  v
@@ -57,3 +57,5 @@
                                          |
                                          v
                                       Keycloak
+´´´
+See the [Mermaid architecture diagram](iam-governance-portal-architecture-flowchart.md) for the runtime and transaction boundaries.
