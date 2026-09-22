@@ -1,6 +1,6 @@
-# G11 â€” Access review workflows
+# G11 - Access review workflows
 
-[Milestone index](README.md) Â· [Documentation index](../README.md)
+[Milestone index](README.md) · [Documentation index](../README.md)
 
 ## Purpose
 
@@ -168,4 +168,4 @@ These commands cover the service, audit wrappers and routes. They were not execu
 - [Governance Portal](../governance-portal.md)
 - [Testing](../testing.md)
 
-Previous: [G10 â€” Segregation of Duties](g10-segregation-of-duties.md) Â· Next: [G12 â€” Certification decisions (planned)](../roadmap.md)
+Previous: [G10 - Segregation of Duties](g10-segregation-of-duties.md) Â· Next: [G12 - Certification decisions (planned)](../roadmap.md)

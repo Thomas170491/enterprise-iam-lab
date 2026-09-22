@@ -38,9 +38,9 @@ Architecture: [Employee Portal](diagrams/employee-portal-architecture.md) · [Go
 | --- | --- |
 | `apps/employee-portal/` | Employee-facing Flask application and Bearer API test script |
 | `apps/governance-portal/` | Governance application, models, migrations and pytest suite |
-| `docs/` | Topic-specific documentation |
-| `diagrams/` | Architecture references |
-| `portfolio/` | Configuration and workflow evidence |
+| `enterprise-iam-docs/docs/` | Topic-specific documentation |
+| `enterprise-iam-docs/diagrams/` | Architecture references |
+| `enterprise-iam-docs/portfolio/` | Configuration and workflow evidence |
 | `compose.yaml` | Keycloak and its PostgreSQL database, plus Employee Portal PostgreSQL |
 | `.github/workflows/ci.yml` | Governance tests, Bandit and dependency auditing |
 

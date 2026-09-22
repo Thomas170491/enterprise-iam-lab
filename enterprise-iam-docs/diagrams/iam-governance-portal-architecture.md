@@ -57,5 +57,5 @@
                                          |
                                          v
                                       Keycloak
-´´´
+```
 See the [Mermaid architecture diagram](iam-governance-portal-architecture-flowchart.md) for the runtime and transaction boundaries.
