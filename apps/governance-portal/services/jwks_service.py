@@ -8,7 +8,7 @@ _JWKS_CACHE = {}
 _JWKS_CACHE_LOCK = threading.Lock()
 
 
-def _fetch_key_set(jwks_url):
+def _fetch_key_set(jwks_url: str) -> KeySet:
     """
     Download Keycloak's current public signing keys.
     """
@@ -24,10 +24,10 @@ def _fetch_key_set(jwks_url):
 
 
 def get_key_set(
-    jwks_url,
-    ttl_seconds=300,
-    force_refresh=False,
-):
+    jwks_url: str,
+    ttl_seconds: int = 300,
+    force_refresh: bool = False,
+) -> KeySet:
     """
     Return Keycloak's public signing keys.
 

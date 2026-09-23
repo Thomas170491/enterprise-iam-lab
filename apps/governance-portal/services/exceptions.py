@@ -6,7 +6,7 @@ class TokenValidationError(Exception):
     The raw JWT must never be stored in this exception.
     """
 
-    def __init__(self, reason):
+    def __init__(self, reason: str) -> None:
         self.reason = reason
 
         super().__init__(f"Access token validation failed: {reason}")
@@ -27,7 +27,7 @@ class KeycloakAdminAPIError(Exception):
     Keycloak Admin REST API fails.
     """
 
-    def __init__(self, reason):
+    def __init__(self, reason: str) -> None:
         self.reason = reason
         super().__init__(f"Keycloak Admin API request failed: {reason}")
 
@@ -37,7 +37,7 @@ class AuditPersistenceError(Exception):
     Raised when an audit event cannot be persisted to the database.
     """
 
-    def __init__(self, reason):
+    def __init__(self, reason: str) -> None:
         self.reason = reason
         super().__init__(reason)
 
@@ -48,7 +48,7 @@ class AuditQueryError(Exception):
     from the database.
     """
 
-    def __init__(self, reason):
+    def __init__(self, reason: str) -> None:
         self.reason = reason
         super().__init__(reason)
 
@@ -59,7 +59,7 @@ class RoleAdministrationPolicyError(Exception):
     violates Governance Portal policy.
     """
 
-    def __init__(self, reason):
+    def __init__(self, reason: str) -> None:
         self.reason = reason
 
         super().__init__(f"Role administration policy denied : {reason}")

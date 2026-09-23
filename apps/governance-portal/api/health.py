@@ -1,6 +1,7 @@
 from flask.views import MethodView
 import marshmallow as ma
 from flask_smorest import Blueprint
+from typing import Any
 
 blp_health = Blueprint(
     "health",
@@ -27,7 +28,7 @@ class HealthResource(MethodView):
         200,
         HealthSchema,
     )
-    def get(self):
+    def get(self) -> dict[str, str]:
         """
         Check Governance Portal availability.
         """

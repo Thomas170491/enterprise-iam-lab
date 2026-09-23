@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from services.audit_service import record_audit_event
 from services.exceptions import (
@@ -33,15 +34,15 @@ logger = logging.getLogger(__name__)
 
 
 def _record_role_audit_event(
-    actor_user_id,
-    actor_username,
-    action,
-    user_id,
-    target_client_name,
-    role,
-    service_client_id,
-    outcome,
-):
+    actor_user_id: str,
+    actor_username: str,
+    action: str,
+    user_id: str,
+    target_client_name: str,
+    role: dict[str],
+    service_client_id: str,
+    outcome: str,
+) -> Any:
     """
     Persist an audit record for a privileged role mutation.
 
@@ -68,7 +69,7 @@ def _record_role_audit_event(
     )
 
 
-def _ensure_managed_client(target_client_name):
+def _ensure_managed_client(target_client_name: str) -> None:
     """
     Reject role changes for clients that are outside the
     Governance Portal's administration scope.
@@ -87,7 +88,7 @@ def _ensure_managed_client(target_client_name):
         raise RoleAdministrationPolicyError("unmanaged_client")
 
 
-def _ensure_managed_role(target_client_name, role_name):
+def _ensure_managed_role(target_client_name: str, role_name: str) -> None:
     """
     Reject role changes for roles that are outside the
     Governance Portal's administration scope.
@@ -105,15 +106,15 @@ def _ensure_managed_role(target_client_name, role_name):
 
 
 def _record_sod_audit_event(
-    actor_user_id,
-    actor_username,
-    user_id,
-    target_client_name,
-    requested_role_name,
-    current_role_names,
-    service_client_id,
-    sod_result,
-):
+    actor_user_id: str,
+    actor_username: str,
+    user_id: str,
+    target_client_name: str,
+    requested_role_name: str,
+    current_role_names: list[str],
+    service_client_id: str,
+    sod_result: dict[str],
+) -> None:
     """
     Persist the SoD evaluation result for a requested role assignment.
     """
@@ -139,8 +140,8 @@ def _record_sod_audit_event(
 
 
 def get_managed_roles(
-    target_client_name,
-):
+    target_client_name: str,
+) -> list[str]:
     """
     Return the roles that Governance is allowed
     to administer for a managed client.
@@ -161,16 +162,16 @@ def get_managed_roles(
 
 
 def assign_identity_client_role(
-    admin_api_url,
-    token_url,
-    client_id,
-    client_secret,
-    user_id,
-    target_client_name,
-    role_name,
-    actor_user_id,
-    actor_username,
-):
+    admin_api_url: str,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+    user_id: str,
+    target_client_name: str,
+    role_name: str,
+    actor_user_id: str,
+    actor_username: str,
+) -> dict[str]:
     """
     Assign a managed client role to an identity.
 
@@ -350,16 +351,16 @@ def assign_identity_client_role(
 
 
 def remove_identity_client_role(
-    admin_api_url,
-    token_url,
-    client_id,
-    client_secret,
-    user_id,
-    target_client_name,
-    role_name,
-    actor_user_id,
-    actor_username,
-):
+    admin_api_url: str,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+    user_id: str,
+    target_client_name: str,
+    role_name: str,
+    actor_user_id: str,
+    actor_username: str,
+) -> dict[str, str]:
     """
     Remove a managed client role from an identity.
 

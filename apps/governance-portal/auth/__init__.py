@@ -5,7 +5,7 @@ from extensions import login_manager
 
 
 @login_manager.user_loader
-def load_user(user_id):
+def load_user(user_id: str) -> User | None:
     user_data = session.get("user")
 
     if not user_data:

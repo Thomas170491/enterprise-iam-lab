@@ -10,7 +10,7 @@ def evaluate_role_assignment(
     target_client_name: str,
     requested_role_name: str,
     current_role_names: list,
-):
+) -> dict[str]:
     """
     Evaluate a requested client-role assignment against enabled SoD rules.
 

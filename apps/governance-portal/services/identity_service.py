@@ -1,3 +1,5 @@
+from typing import Any, Mapping
+
 from services.keycloak_admin_service import (
     search_users,
     get_user,
@@ -8,7 +10,7 @@ from services.keycloak_admin_service import (
 )
 
 
-def _first_attribute(attributes, name):
+def _first_attribute(attributes: Mapping[str, list[str]], name: str) -> str | None:
     """
     Keycloak custom attributes are normally returned
     as lists of strings.
@@ -30,7 +32,7 @@ def _first_attribute(attributes, name):
     return values[0]
 
 
-def _normalize_identity(user):
+def _normalize_identity(user: Mapping[str, Any]) -> dict[str, Any]:
     attributes = user.get("attributes", {})
 
     return {
@@ -48,8 +50,13 @@ def _normalize_identity(user):
 
 
 def search_identities(
-    admin_api_url, token_url, client_id, client_secret, search=None, max_results=20
-):
+    admin_api_url: str,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+    search: str | None = None,
+    max_results: int = 20,
+) -> list[dict[str, Any]]:
     """
     Search identities in Keycloak and convert the raw
     Keycloak UserRepresentation objects into the simpler
@@ -75,8 +82,13 @@ def search_identities(
 
 
 def get_identity_access(
-    admin_api_url, token_url, client_id, client_secret, user_id, target_client_name
-):
+    admin_api_url: str,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+    user_id: str,
+    target_client_name: str,
+) -> dict[str, Any]:
     """
     Retrieve and aggregate the effective access of
     a specific identity.

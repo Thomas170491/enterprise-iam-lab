@@ -3,7 +3,9 @@ import requests
 from services.exceptions import KeycloakServiceAuthenticationError
 
 
-def get_service_access_token(token_url, client_id, client_secret):
+def get_service_access_token(
+    token_url: str, client_id: str, client_secret: str
+) -> str:
     """
     Authenticate the Governance backend to Keycloak using
     the OAuth 2.0 Client Credentials grant.

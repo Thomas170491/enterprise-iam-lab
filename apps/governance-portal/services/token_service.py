@@ -1,4 +1,6 @@
 from joserfc import jwt
+from joserfc.jwk import KeySet
+from typing import Any, Mapping
 from joserfc.errors import (
     BadSignatureError,
     DecodeError,
@@ -15,7 +17,7 @@ from services.exceptions import TokenValidationError
 from services.jwks_service import get_key_set
 
 
-def _decode_token(access_token, key_set):
+def _decode_token(access_token: str, key_set: KeySet) -> Any:
     """
     Verify the JWT signature and decode its claims.
 
@@ -41,7 +43,7 @@ def _decode_token(access_token, key_set):
         raise TokenValidationError("token decode failed") from exc
 
 
-def _validate_expiration(claims):
+def _validate_expiration(claims: Mapping[str, Any]) -> None:
     """
     Require a valid and non-expired exp claim.
     """
@@ -63,7 +65,7 @@ def _validate_expiration(claims):
         raise TokenValidationError("invalid_expiration") from exc
 
 
-def _validate_subject(claims):
+def _validate_subject(claims: Mapping[str, Any]) -> None:
     """
     Require the token to identify a subject
     """
@@ -72,7 +74,7 @@ def _validate_subject(claims):
         raise TokenValidationError("missing subject")
 
 
-def _validate_issuer(claims, expected_issuer):
+def _validate_issuer(claims: Mapping[str, Any], expected_issuer: str) -> None:
     """
     Require the issuer match our keycloak realm
     """
@@ -86,7 +88,9 @@ def _validate_issuer(claims, expected_issuer):
         raise TokenValidationError("invalid issuer")
 
 
-def _validate_audience(claims, expected_audience):
+def _validate_audience(
+    claims: Mapping[str, Any], expected_audience: str
+) -> None:
 
     audience = claims.get("aud")
 
@@ -107,8 +111,12 @@ def _validate_audience(claims, expected_audience):
 
 
 def validate_access_token(
-    access_token, server_url, realm, audience=None, jwks_cache_ttl_seconds=300
-):
+    access_token: str,
+    server_url: str,
+    realm: str,
+    audience: str | None = None,
+    jwks_cache_ttl_seconds: int = 300,
+) -> Mapping[str, Any]:
     """
     Verify and validate a Keycloak access token.
     """
@@ -143,7 +151,9 @@ def validate_access_token(
     return claims
 
 
-def extract_roles(claims, client_id):
+def extract_roles(
+    claims: Mapping[str, Any], client_id: str
+) -> tuple[list[str], list[str]]:
 
     realm_roles = claims.get("realm_access", {}).get("roles", [])
     client_roles = claims.get("resource_access", {}).get(client_id, {}).get("roles", [])

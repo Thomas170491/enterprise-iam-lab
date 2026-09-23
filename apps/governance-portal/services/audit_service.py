@@ -1,4 +1,5 @@
 from sqlalchemy.exc import SQLAlchemyError
+from typing import Any
 
 from extensions import db
 from models.audit_event import AuditEvent
@@ -13,9 +14,9 @@ def record_audit_event(
     target_id: str | None = None,
     target_name: str | None = None,
     outcome: str | None = None,
-    details: dict | None = None,
+    details: dict[str, Any] | None = None,
     commit: bool = True,
-):
+) -> AuditEvent:
     """
     Records an audit event in the database.
 
@@ -59,7 +60,7 @@ def record_audit_event(
     return audit_event
 
 
-def get_recent_audit_events(limit: int = 100):
+def get_recent_audit_events(limit: int = 100) -> list[AuditEvent]:
     """
     Retrieves the most recent audit events from the database.
 

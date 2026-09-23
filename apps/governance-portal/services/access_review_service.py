@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from extensions import db
 from models import AccessReview, AccessReviewItem, ManagedRole
@@ -10,7 +11,7 @@ from services.keycloak_admin_service import (
 )
 
 
-def _validate_required_string(value, field_name, max_length):
+def _validate_required_string(value: Any, field_name: str, max_length: int) -> str:
     """Return a trimmed required string or raise a field-specific ValueError."""
     if not isinstance(value, str):
         raise ValueError(f"invalid_{field_name}")
@@ -73,7 +74,7 @@ def add_access_review_item(
     client_name: str,
     role_id: str,
     role_name: str,
-    assignment_source: str = "direct"
+    assignment_source: str = "direct",
 ) -> AccessReviewItem:
     """
     Add an identity-role snapshot to an existing draft review campaign.
@@ -453,7 +454,7 @@ def validate_access_review_reviewer(
     token_url: str,
     client_id: str,
     client_secret: str,
-) -> dict:
+) -> dict[str]:
     """
     Verify that the assigned reviewer exists, is enabled, and has reviewer access.
     """
