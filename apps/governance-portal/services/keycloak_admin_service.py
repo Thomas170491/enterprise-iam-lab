@@ -323,10 +323,59 @@ def get_group_ancestors(
         ancestors.append(parent_group)
         starting_group = parent_group
     
-   
+def get_user_groups_with_ancestors(
+    admin_api_url: str,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+    user_id: str,
+) -> list[dict[str, Any]]:
+    """
+    Retrieve a user's groups and their ancestors without duplicate group IDs.
+    """   
         
-
+    membership = get_user_groups(
+        admin_api_url=admin_api_url,
+        token_url= token_url,
+        client_id= client_id,
+        client_secret= client_secret,
+        user_id= user_id
+    )
     
+    groups = []
+    seen_ids = set()
+    
+    for member in membership :
+        
+        group_id = member.get("id")
+        
+        if not isinstance(group_id, str) or not group_id.strip():
+            raise KeycloakAdminAPIError("Invalid user group ID")
+        
+        if group_id not in seen_ids:
+            groups.append(member)
+            seen_ids.add(group_id)
+
+        ancestors = get_group_ancestors(
+                    admin_api_url= admin_api_url,
+                    token_url= token_url,
+                    client_id= client_id,
+                    client_secret= client_secret,
+                    group_id = group_id
+                )
+        
+        for ancestor in ancestors:
+            
+         ancestor_id = ancestor.get("id")        
+        
+        if not isinstance(ancestor_id, str) or not ancestor_id.strip() :
+            raise KeycloakAdminAPIError("Invalid ancestor group ID")
+
+        if ancestor["id"] not in seen_ids:
+            groups.append(ancestor)
+            seen_ids.add(ancestor_id)
+    
+    return groups
     
       
 def get_effective_realm_roles(
