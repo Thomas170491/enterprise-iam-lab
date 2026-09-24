@@ -460,12 +460,65 @@ def get_effective_client_roles(
         raise KeycloakAdminAPIError("Effective client roles retrieval failed") from exc
 
     try:
-        roles = response.json()
+        roles = response.json() 
 
     except ValueError as exc:
         raise KeycloakAdminAPIError("Invalid JSON response") from exc
 
     return _parse_dict_list(roles, "Unexpected effective client roles response")
+
+def get_group_effective_client_roles(
+    admin_api_url: str,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+    group_id: str,
+    target_client_name: str,
+) -> list[dict[str, Any]]:
+    """
+    Retrieve a group's effective roles for the target client, including composite roles.
+    """
+    
+    client_uuid= get_client_uuid(
+            admin_api_url=admin_api_url,
+            token_url=token_url,
+            client_id=client_id,
+            client_secret=client_secret,
+            client_name= target_client_name,
+    )
+    
+    access_token = get_service_access_token(
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+    
+    
+    try :
+        response = requests.get(
+            f"{admin_api_url}/groups/{group_id}"
+            f"/role-mappings/clients/{client_uuid}/composite",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/json",
+            },
+            timeout=5,
+        )
+        response.raise_for_status()
+    
+    except requests.RequestException as exc:
+        raise KeycloakAdminAPIError("Group effective client roles retrieval failed") from exc
+    
+    try :
+        roles = response.json()
+        
+    except  ValueError as exc: 
+        raise KeycloakAdminAPIError("Invalid JSON response") from exc
+    
+    return _parse_dict_list(roles, "Unexpected group effective client role response")
+
+    
+
 
 
 def get_client_role(
