@@ -25,6 +25,7 @@ The September 22, 2026 manual walkthrough exercised campaign creation, capture, 
 | [Governance Portal](docs/governance-portal.md) | Administrative boundaries, service account, role changes and audit logging |
 | [Segregation of duties](docs/segregation-of-duties.md) | Seeded policies, precedence, blocking behavior and limitations |
 | [Access reviews](docs/guides/g11-access-review-workflows.md) | G11 workflow, permissions, snapshots, audit trail and manual evidence |
+| [access-review-role-sources.md](access-review-role-sources.md) |Access review role sources (G12 design) | 
 | [Security controls](docs/security-controls.md) | OIDC, sessions, JWT validation, CSRF and deployment limits |
 | [Testing](docs/testing.md) | Automated tests, CI and integration checks |
 | [Roadmap](docs/roadmap.md) | G1–G17 progress and later enterprise-lab phases |
