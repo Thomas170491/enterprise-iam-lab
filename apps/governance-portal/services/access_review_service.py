@@ -8,11 +8,16 @@ from services.keycloak_admin_service import (
     get_direct_client_roles,
     get_effective_client_roles,
     get_user,
+    get_user_groups,
+    get_group_ancestors,
+    get_group_role_mappings,
 )
 
 
 def _validate_required_string(value: Any, field_name: str, max_length: int) -> str:
-    """Return a trimmed required string or raise a field-specific ValueError."""
+    """
+    Return a trimmed required string or raise a field-specific ValueError.
+    """
     if not isinstance(value, str):
         raise ValueError(f"invalid_{field_name}")
 
@@ -206,6 +211,122 @@ def cancel_access_review(review_id: int) -> AccessReview:
 
     return campaign
 
+def resolve_user_client_role_sources(
+    admin_api_url: str,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+    user_id: str,
+    target_client_name: str,
+) -> list[dict[str, Any]]:
+    """
+    Identify the direct and group sources of a user's effective client roles.
+    """
+    
+    direct_roles= get_direct_client_roles(
+                    admin_api_url = admin_api_url,
+                    token_url = token_url,
+                    client_id = client_id,
+                    client_secret = client_secret,
+                    user_id = user_id,
+                    target_client_name = target_client_name,
+                ) 
+    
+    effective_roles = get_effective_client_roles(
+                        admin_api_url = admin_api_url,
+                        token_url = token_url,
+                        client_id = client_id,
+                        client_secret = client_secret,
+                        user_id = user_id,
+                        target_client_name = target_client_name,       
+                    )
+    
+    
+    memberships = get_user_groups(
+                    admin_api_url = admin_api_url,
+                    token_url = token_url,
+                    client_id = client_id,
+                    client_secret = client_secret,
+                    user_id = user_id,   
+   )
+    
+    group_paths = []
+    
+    for membership in memberships :
+        ancestors = get_group_ancestors(
+                            admin_api_url = admin_api_url,
+                            token_url = token_url,
+                            client_id = client_id,
+                            client_secret = client_secret,
+                            group_id = membership["id"]
+                        )
+        
+        group_paths.append((membership,membership))
+        
+        for ancestor in ancestors :
+            group_paths.append((ancestor,membership))
+               
+    group_grants_by_role_id = {}
+            
+    for group, membership in group_paths:
+        mappings = get_group_role_mappings(
+                admin_api_url=admin_api_url,
+                token_url=token_url,
+                client_id=client_id,
+                client_secret=client_secret,
+                group_id=group["id"],
+            )
+            
+        client_mappings = mappings.get("clientMappings") or {}
+        client_mapping = client_mappings.get(target_client_name) or {}
+        mapped_roles = client_mapping.get("mappings") or []
+                
+        for mapped_role in mapped_roles:
+            role_id = mapped_role["id"]
+            grant = {
+                        "group_id": group["id"],
+                        "membership_group_id": membership["id"],
+                    }
+
+            grants = group_grants_by_role_id.setdefault(role_id, [])
+            
+            if grant not in grants:
+                grants.append(grant)
+        
+   
+    direct_role_ids = {role["id"] for role in direct_roles}
+    resolved_roles = []
+
+    for role in effective_roles:
+        
+        role_id = role["id"]
+        is_direct = role_id in direct_role_ids
+        group_grants = group_grants_by_role_id.get(role_id, [])
+        
+        
+        if is_direct and group_grants:
+            assignment_source = "both"
+            
+        elif is_direct:
+            assignment_source = "direct"
+            
+        elif group_grants:
+                assignment_source = "inherited"
+                
+        else:
+            raise ValueError(f"No grant source found for effective role {role_id}")
+
+        resolved_roles.append(
+            {
+                "role_id": role_id,
+                "role_name": role["name"],
+                "assignment_source": assignment_source,
+                "grant_sources": group_grants,
+            }
+                )
+
+    return resolved_roles 
+ 
 def open_access_review_with_audit(
     review_id: int,
     manager_user_id: str,

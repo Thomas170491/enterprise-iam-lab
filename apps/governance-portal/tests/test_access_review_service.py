@@ -1,9 +1,8 @@
 import pytest
 from datetime import datetime, timezone
-
-
 from extensions import db
 from models import AccessReview, AccessReviewItem, ManagedRole
+
 from unittest.mock import Mock
 from services.exceptions import KeycloakAdminAPIError
 import services.access_review_service as access_review_service
@@ -20,7 +19,8 @@ get_access_review_for_reviewer = access_review_service.get_access_review_for_rev
 get_access_reviews_for_manager = access_review_service.get_access_reviews_for_manager
 get_access_review_for_manager = access_review_service.get_access_review_for_manager
 validate_access_review_reviewer = access_review_service.validate_access_review_reviewer
-
+get_user_groups = access_review_service.get_user_groups
+get_group_ancestors = access_review_service.get_group_ancestors
 
 def test_create_access_review(app):
     """
@@ -759,6 +759,232 @@ def test_validate_access_review_reviewer_propagates_role_lookup_failure(monkeypa
 
     fake_get_roles.assert_called_once()
 
+def test_resolve_user_client_role_sources_inherits_parent_group_role(monkeypatch):
+    """
+    Verify that a role inherited through a child membership is attributed to its granting parent group.
+    """
+    
+    child_group = {
+        "id": "finance-team-id",
+        "name": "Finance Team",
+        "parentId": "finance-id",
+    }
+    parent_group = {
+        "id": "finance-id",
+        "name": "Finance",
+        "parentId": None,
+    }
+    role = {
+        "id": "finance-role-id",
+        "name": "finance-data-viewer",
+    }
+
+    direct_roles = []
+    effective_roles = [role]
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        Mock(return_value=direct_roles),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        Mock(return_value=effective_roles),
+    )
+    
+    monkeypatch.setattr(
+    access_review_service,
+    "get_user_groups",
+    Mock(return_value=[child_group]),
+)
+    monkeypatch.setattr(
+        access_review_service,
+        "get_group_ancestors",
+        Mock(return_value=[parent_group]),
+)
+    def fake_get_group_role_mappings(**kwargs):
+        """
+        Return Finance's direct role mapping and no mapping for Finance Team.
+        """
+        group_id = kwargs["group_id"]
+
+        if group_id == "finance-id":
+            return {
+                "clientMappings": {
+                    "employee-portal": {"mappings": [role]}
+                }
+            }
+
+        if group_id == "finance-team-id":
+            return {"clientMappings": {}}
+
+        raise AssertionError(f"Unexpected group ID: {group_id}")
+
+
+    monkeypatch.setattr(
+        access_review_service,
+        "get_group_role_mappings",
+        fake_get_group_role_mappings,
+    )
+    
+    resolved = access_review_service.resolve_user_client_role_sources(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+        target_client_name="employee-portal",
+    )
+
+    assert resolved == [
+        {
+            "role_id": "finance-role-id",
+            "role_name": "finance-data-viewer",
+            "assignment_source": "inherited",
+            "grant_sources": [
+                {
+                    "group_id": "finance-id",
+                    "membership_group_id": "finance-team-id",
+                }
+            ],
+        }
+    ]
+    
+def test_resolve_user_client_role_sources_handles_direct_role_without_groups(monkeypatch):
+    """Verify that a direct user role is resolved when the user belongs to no groups."""
+
+    role = {
+        "id": "finance-role-id",
+        "name": "finance-data-viewer",
+    }
+
+    fake_get_group_ancestors = Mock()
+    fake_get_group_role_mappings = Mock()
+
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        Mock(return_value=[role]),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        Mock(return_value=[role]),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user_groups",
+        Mock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_group_ancestors",
+        fake_get_group_ancestors,
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_group_role_mappings",
+        fake_get_group_role_mappings,
+    )
+
+    resolved = access_review_service.resolve_user_client_role_sources(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+        target_client_name="employee-portal",
+    )
+
+    assert resolved == [
+        {
+            "role_id": "finance-role-id",
+            "role_name": "finance-data-viewer",
+            "assignment_source": "direct",
+            "grant_sources": [],
+        }
+    ]
+    fake_get_group_ancestors.assert_not_called()
+    fake_get_group_role_mappings.assert_not_called()
+    
+def test_resolve_user_client_role_sources_reports_both_direct_and_group_grants(monkeypatch):
+    """
+    Verify that a role granted directly and through a group reports both sources.
+    """
+
+    role = {
+        "id": "finance-role-id",
+        "name": "finance-data-viewer",
+    }
+    finance_group = {
+        "id": "finance-id",
+        "name": "Finance",
+        "parentId": None,
+    }
+
+    fake_get_group_ancestors = Mock(return_value=[])
+
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        Mock(return_value=[role]),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        Mock(return_value=[role]),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user_groups",
+        Mock(return_value=[finance_group]),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_group_ancestors",
+        fake_get_group_ancestors,
+    )
+    fake_get_group_role_mappings = Mock(
+        return_value={
+            "clientMappings": {
+                "employee-portal": {"mappings": [role]},
+            }
+        }
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_group_role_mappings",
+        fake_get_group_role_mappings,
+    )
+
+    resolved = access_review_service.resolve_user_client_role_sources(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+        target_client_name="employee-portal",
+    )
+
+    assert resolved == [
+        {
+            "role_id": "finance-role-id",
+            "role_name": "finance-data-viewer",
+            "assignment_source": "both",
+            "grant_sources": [
+                {
+                    "group_id": "finance-id",
+                    "membership_group_id": "finance-id",
+                }
+            ],
+        }
+    ]
+    fake_get_group_ancestors.assert_called_once()
+    fake_get_group_role_mappings.assert_called_once()
+
+
+
 
 def test_populate_access_review_captures_managed_direct_role(monkeypatch, app):
     """
@@ -1143,3 +1369,4 @@ def test_populate_access_review_does_not_commit(app, monkeypatch):
     )
 
     assert saved_items == []
+
