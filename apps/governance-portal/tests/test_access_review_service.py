@@ -842,22 +842,30 @@ def test_resolve_user_client_role_sources_inherits_parent_group_role(monkeypatch
             "role_id": "finance-role-id",
             "role_name": "finance-data-viewer",
             "assignment_source": "inherited",
-            "grant_sources": [
-                {
+            "grant_sources":  
+                [
+                        {
+                    "type": "group",
                     "group_id": "finance-id",
                     "membership_group_id": "finance-team-id",
+                    "assigned_role_id": "finance-role-id",
+                    "composite_path": [],
                 }
             ],
         }
     ]
     
 def test_resolve_user_client_role_sources_handles_direct_role_without_groups(monkeypatch):
-    """Verify that a direct user role is resolved when the user belongs to no groups."""
+    """
+    Verify that a direct user role is resolved when the user belongs to no groups.
+    """
 
     role = {
         "id": "finance-role-id",
         "name": "finance-data-viewer",
     }
+    
+    
 
     fake_get_group_ancestors = Mock()
     fake_get_group_role_mappings = Mock()
@@ -902,7 +910,14 @@ def test_resolve_user_client_role_sources_handles_direct_role_without_groups(mon
             "role_id": "finance-role-id",
             "role_name": "finance-data-viewer",
             "assignment_source": "direct",
-            "grant_sources": [],
+            "grant_sources": [
+                                {
+                                    "type": "user",
+                                    "user_id": "user-123",
+                                    "assigned_role_id": "finance-role-id",
+                                    "composite_path": [],
+                                }
+                            ],
         }
     ]
     fake_get_group_ancestors.assert_not_called()
@@ -974,9 +989,18 @@ def test_resolve_user_client_role_sources_reports_both_direct_and_group_grants(m
             "assignment_source": "both",
             "grant_sources": [
                 {
+                    "type": "user",
+                    "user_id": "user-123",
+                    "assigned_role_id": "finance-role-id",
+                    "composite_path": [],
+                },
+                {
+                    "type": "group",
                     "group_id": "finance-id",
                     "membership_group_id": "finance-id",
-                }
+                    "assigned_role_id": "finance-role-id",
+                    "composite_path": [],
+                },
             ],
         }
     ]

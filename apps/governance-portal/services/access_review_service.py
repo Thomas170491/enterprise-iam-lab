@@ -286,6 +286,9 @@ def resolve_user_client_role_sources(
             grant = {
                         "group_id": group["id"],
                         "membership_group_id": membership["id"],
+                        "type": "group",
+                        "assigned_role_id": mapped_role["id"],
+                        "composite_path": [],
                     }
 
             grants = group_grants_by_role_id.setdefault(role_id, [])
@@ -302,17 +305,33 @@ def resolve_user_client_role_sources(
         role_id = role["id"]
         is_direct = role_id in direct_role_ids
         group_grants = group_grants_by_role_id.get(role_id, [])
-        
-        
+        user_grants = []
+
         if is_direct and group_grants:
             assignment_source = "both"
-            
+            user_grants.append(
+                {
+                    "type": "user",
+                    "user_id": user_id,
+                    "assigned_role_id": role_id,
+                    "composite_path": [],
+                }
+            )
+           
+
         elif is_direct:
             assignment_source = "direct"
-            
+            user_grants.append(
+                {
+                    "type": "user",
+                    "user_id": user_id,
+                    "assigned_role_id": role_id,
+                    "composite_path": [],
+                }
+            )
+
         elif group_grants:
-                assignment_source = "inherited"
-                
+            assignment_source = "inherited"
         else:
             raise ValueError(f"No grant source found for effective role {role_id}")
 
@@ -321,7 +340,7 @@ def resolve_user_client_role_sources(
                 "role_id": role_id,
                 "role_name": role["name"],
                 "assignment_source": assignment_source,
-                "grant_sources": group_grants,
+                "grant_sources": user_grants + group_grants,
             }
                 )
 
