@@ -1006,10 +1006,124 @@ def test_resolve_user_client_role_sources_reports_both_direct_and_group_grants(m
     ]
     fake_get_group_ancestors.assert_called_once()
     fake_get_group_role_mappings.assert_called_once()
+    
+def test_resolve_user_client_role_sources_traces_parent_group_composite(monkeypatch):
+    """
+    Verify that a parent group's composite grant identifies the effective role's path.
+    """
+    
+    child_group = {
+        "id": "finance-team-id",
+        "name": "Finance Team",
+        "parentId": "finance-id",
+    }
+    parent_group = {
+        "id": "finance-id",
+        "name": "Finance",
+        "parentId": None,
+    }
+    assigned_role = {
+        "id": "finance-staff-id", 
+        "name": "finance-staff",
+        "composite": True,
+    }
+    effective_role = {
+        "id": "finance-viewer-id", 
+        "name": "finance-data-viewer"
+    }
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        lambda **kwargs: [],
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        lambda **kwargs: [effective_role],
+    )
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user_groups",
+        lambda **kwargs: [child_group],
+    )
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_group_ancestors",
+        Mock(return_value=[parent_group]),
+    )
+    
+    def fake_get_group_role_mappings(**kwargs):
+        """
+        Return Finance's assigned role and no assigned roles for Finance Team.
+        """
+        if kwargs["group_id"] == "finance-id":
+            return {
+                "clientMappings": {
+                    "employee-portal": {"mappings": [assigned_role]},
+                }
+            }
+
+        assert kwargs["group_id"] == "finance-team-id"
+        return {"clientMappings": {}}
 
 
+    monkeypatch.setattr(
+        access_review_service,
+        "get_group_role_mappings",
+        fake_get_group_role_mappings,
+    )
+    
+    composite_children_by_role_id = {
+        assigned_role["id"]: [effective_role],
+        effective_role["id"]: [],
+    }
+    
+    def fake_get_role_composite_children(**kwargs):
+        """
+        Return the direct child roles for the requested role ID.
+        """
+        role_id = kwargs["role_id"]
+        assert role_id in composite_children_by_role_id
+        return composite_children_by_role_id[role_id]
 
 
+    monkeypatch.setattr(
+        access_review_service,
+        "get_role_composite_children",
+        fake_get_role_composite_children,
+    )
+    
+    resolved = access_review_service.resolve_user_client_role_sources(
+    admin_api_url="https://keycloak.test/admin/realms/novasecure",
+    token_url="https://keycloak.test/token",
+    client_id="iam-governance-service",
+    client_secret="fake-secret",
+    user_id="user-123",
+    target_client_name="employee-portal",
+    )
+
+    assert resolved == [
+        {
+            "role_id": "finance-viewer-id",
+            "role_name": "finance-data-viewer",
+            "assignment_source": "inherited",
+            "grant_sources": [
+                {
+                    "type": "group",
+                    "group_id": "finance-id",
+                    "membership_group_id": "finance-team-id",
+                    "assigned_role_id": "finance-staff-id",
+                    "composite_path": ["finance-staff-id", "finance-viewer-id"],
+                }
+            ],
+        }
+    ]
+    
+
+                
 def test_populate_access_review_captures_managed_direct_role(monkeypatch, app):
     """
     Verify that a managed direct role is captured in a manager-owned draft campaign.

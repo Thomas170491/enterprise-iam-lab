@@ -236,17 +236,13 @@ def test_get_user_groups_rejects_invalid_page(monkeypatch, payload):
     monkeypatch.setattr(
         admin_service,
         "get_service_access_token",
-        lambda **kwargs : "fake-service-token",
+        lambda **kwargs: "fake-service-token",
     )
 
     response = Mock()
     response.raise_for_status.return_value = None
     response.json.return_value = payload
-    monkeypatch.setattr(
-        admin_service.requests, 
-        "get",
-        lambda *args, **kwargs: response
-    )
+    monkeypatch.setattr(admin_service.requests, "get", lambda *args, **kwargs: response)
 
     with pytest.raises(
         KeycloakAdminAPIError,
@@ -266,9 +262,7 @@ def test_get_group_role_mappings_returns_mappings(monkeypatch):
     Verify that group role mappings are retrieved and returned unchanged.
     """
     monkeypatch.setattr(
-        admin_service,
-        "get_service_access_token",
-        lambda **kwargs : "fake-service-token"
+        admin_service, "get_service_access_token", lambda **kwargs: "fake-service-token"
     )
 
     payload = {
@@ -292,10 +286,7 @@ def test_get_group_role_mappings_returns_mappings(monkeypatch):
         assert timeout == 5
         return response
 
-    monkeypatch.setattr(
-        admin_service.requests, 
-        "get", 
-        fake_get)
+    monkeypatch.setattr(admin_service.requests, "get", fake_get)
 
     mappings = admin_service.get_group_role_mappings(
         admin_api_url="https://keycloak.test/admin/realms/novasecure",
@@ -314,19 +305,13 @@ def test_get_group_role_mappings_rejects_invalid_json(monkeypatch):
     Verify that invalid JSON raises a Keycloak Admin API error.
     """
     monkeypatch.setattr(
-        admin_service,
-        "get_service_access_token",
-        lambda **kwargs : "fake-service-token"
+        admin_service, "get_service_access_token", lambda **kwargs: "fake-service-token"
     )
 
     response = Mock()
     response.raise_for_status.return_value = None
     response.json.side_effect = ValueError("invalid JSON")
-    monkeypatch.setattr(
-        admin_service.requests, 
-        "get", 
-        lambda *args, **kwargs: response
-    )
+    monkeypatch.setattr(admin_service.requests, "get", lambda *args, **kwargs: response)
 
     with pytest.raises(
         KeycloakAdminAPIError,
@@ -348,16 +333,12 @@ def test_get_group_role_mappings_propagates_request_failure(monkeypatch):
     monkeypatch.setattr(
         admin_service,
         "get_service_access_token",
-        lambda **kwargs : "fake-service-token",
+        lambda **kwargs: "fake-service-token",
     )
 
     response = Mock()
     response.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
-    monkeypatch.setattr(
-        admin_service.requests, 
-        "get", 
-        lambda *args, **kwargs: response
-    )
+    monkeypatch.setattr(admin_service.requests, "get", lambda *args, **kwargs: response)
 
     with pytest.raises(
         KeycloakAdminAPIError,
@@ -382,17 +363,13 @@ def test_get_group_role_mappings_rejects_invalid_structure(monkeypatch, payload)
     monkeypatch.setattr(
         admin_service,
         "get_service_access_token",
-        lambda **kwargs : "fake-service-token",
+        lambda **kwargs: "fake-service-token",
     )
 
     response = Mock()
     response.raise_for_status.return_value = None
     response.json.return_value = payload
-    monkeypatch.setattr(
-        admin_service.requests,
-        "get", 
-        lambda *args, **kwargs: response
-    )
+    monkeypatch.setattr(admin_service.requests, "get", lambda *args, **kwargs: response)
 
     with pytest.raises(
         KeycloakAdminAPIError,
@@ -415,7 +392,7 @@ def test_get_group_returns_details(monkeypatch):
     monkeypatch.setattr(
         admin_service,
         "get_service_access_token",
-        lambda **kwargs : "fake-service-token",
+        lambda **kwargs: "fake-service-token",
     )
 
     payload = {
@@ -436,11 +413,7 @@ def test_get_group_returns_details(monkeypatch):
         assert timeout == 5
         return response
 
-    monkeypatch.setattr(
-        admin_service.requests, 
-        "get", 
-        fake_get
-    )
+    monkeypatch.setattr(admin_service.requests, "get", fake_get)
 
     group = admin_service.get_group(
         admin_api_url="https://keycloak.test/admin/realms/novasecure",
@@ -462,7 +435,7 @@ def test_get_group_rejects_invalid_json(monkeypatch):
     monkeypatch.setattr(
         admin_service,
         "get_service_access_token",
-        lambda **kwargs : "fake-service-token",
+        lambda **kwargs: "fake-service-token",
     )
 
     response = Mock()
@@ -493,7 +466,7 @@ def test_get_group_rejects_invalid_structure(monkeypatch, payload):
     monkeypatch.setattr(
         admin_service,
         "get_service_access_token",
-        lambda **kwargs : "fake-service-token",
+        lambda **kwargs: "fake-service-token",
     )
 
     response = Mock()
@@ -518,21 +491,17 @@ def test_get_group_propagates_request_failure(monkeypatch):
     """
     Verify that a failed group lookup raises a Keycloak Admin API error.
     """
-    
+
     monkeypatch.setattr(
         admin_service,
         "get_service_access_token",
-        lambda **kwargs : "fake-service-token",
+        lambda **kwargs: "fake-service-token",
     )
 
     response = Mock()
     response.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
-    
-    monkeypatch.setattr(
-        admin_service.requests, 
-        "get", 
-        lambda *args, **kwargs : response
-    )
+
+    monkeypatch.setattr(admin_service.requests, "get", lambda *args, **kwargs: response)
 
     with pytest.raises(
         KeycloakAdminAPIError,
@@ -553,7 +522,7 @@ def test_get_group_ancestors_returns_nearest_parent_first(monkeypatch):
     """
     Verify that group ancestors are returned from the nearest parent to the root.
     """
-    
+
     groups = {
         "finance-team-id": {
             "id": "finance-team-id",
@@ -575,15 +544,12 @@ def test_get_group_ancestors_returns_nearest_parent_first(monkeypatch):
             "name": "root",
         },
     }
-    
+
     def fake_get_group(**kwargs):
         return groups[kwargs["group_id"]]
-    
+
     get_group_mock = Mock(side_effect=fake_get_group)
-    monkeypatch.setattr(
-        admin_service, 
-        "get_group", 
-        get_group_mock)
+    monkeypatch.setattr(admin_service, "get_group", get_group_mock)
 
     ancestors = admin_service.get_group_ancestors(
         admin_api_url="https://keycloak.test/admin/realms/novasecure",
@@ -652,7 +618,7 @@ def test_get_group_ancestors_returns_empty_list_for_root_group(monkeypatch):
     """
     Verify that a root group with no parent returns an empty ancestor list.
     """
-    
+
     get_group_mock = Mock(
         return_value={
             "id": "root-id",
@@ -680,11 +646,11 @@ def test_get_group_ancestors_returns_empty_list_for_root_group(monkeypatch):
 
 
 @pytest.mark.parametrize("invalid_parent_id", ["", "   ", 123])
-def test_get_group_ancestors_rejects_invalid_parent_id(monkeypatch,invalid_parent_id):
+def test_get_group_ancestors_rejects_invalid_parent_id(monkeypatch, invalid_parent_id):
     """
     Verify that invalid parent group identifiers are rejected before further lookup.
     """
-    
+
     get_group_mock = Mock(
         return_value={
             "id": "finance-team-id",
@@ -719,7 +685,7 @@ def test_get_group_ancestors_rejects_group_hierarchy_cycle(monkeypatch):
     """
     Verify that a cyclic group hierarchy is rejected before a group is revisited.
     """
-    
+
     groups = {
         "finance-team-id": {
             "id": "finance-team-id",
@@ -732,16 +698,13 @@ def test_get_group_ancestors_rejects_group_hierarchy_cycle(monkeypatch):
             "parentId": "finance-team-id",
         },
     }
+
     def fake_get_group(**kwargs):
-   
+
         return groups[kwargs["group_id"]]
 
-    get_group_mock = Mock(side_effect= fake_get_group)
-    monkeypatch.setattr(
-        admin_service,
-        "get_group",
-        get_group_mock
-    )
+    get_group_mock = Mock(side_effect=fake_get_group)
+    monkeypatch.setattr(admin_service, "get_group", get_group_mock)
 
     with pytest.raises(
         KeycloakAdminAPIError,
@@ -759,6 +722,7 @@ def test_get_group_ancestors_rejects_group_hierarchy_cycle(monkeypatch):
         "finance-team-id",
         "finance-id",
     ]
+
 
 def test_get_group_ancestors_propagates_parent_lookup_failure(monkeypatch):
     """
@@ -799,22 +763,23 @@ def test_get_group_ancestors_propagates_parent_lookup_failure(monkeypatch):
         "finance-team-id",
         "finance-id",
     ]
-    
+
+
 def test_get_user_groups_with_ancestors_includes_parent(monkeypatch):
     """
     Verify that a user's group memberships include their ancestor groups.
     """
-    
-    fake_get_user_groups = Mock(return_value=
-        [
-                        {
-                                "id": "finance-team-id",
-                                "name": "Finance Team",
-                                "parentId": "finance-id",
-                        }
+
+    fake_get_user_groups = Mock(
+        return_value=[
+            {
+                "id": "finance-team-id",
+                "name": "Finance Team",
+                "parentId": "finance-id",
+            }
         ]
     )
-    
+
     fake_get_group_ancestors = Mock(
         return_value=[
             {
@@ -824,27 +789,19 @@ def test_get_user_groups_with_ancestors_includes_parent(monkeypatch):
             }
         ]
     )
-    
-    monkeypatch.setattr(
-        admin_service,
-        "get_user_groups",
-        fake_get_user_groups
+
+    monkeypatch.setattr(admin_service, "get_user_groups", fake_get_user_groups)
+
+    monkeypatch.setattr(admin_service, "get_group_ancestors", fake_get_group_ancestors)
+
+    groups = admin_service.get_user_groups_with_ancestors(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
     )
-    
-    monkeypatch.setattr(
-        admin_service,
-        "get_group_ancestors",
-        fake_get_group_ancestors
-    )
-    
-    groups= admin_service.get_user_groups_with_ancestors(
-                admin_api_url="https://keycloak.test/admin/realms/novasecure",
-                token_url="https://keycloak.test/token",
-                client_id="iam-governance-service",
-                client_secret="fake-secret",
-                user_id="user-123",
-            )
-    assert [group["id"] for group in groups] == ["finance-team-id","finance-id"]
+    assert [group["id"] for group in groups] == ["finance-team-id", "finance-id"]
 
 
 @pytest.mark.parametrize("group_id", [None, "", "   "])
@@ -888,7 +845,8 @@ def test_get_user_groups_with_ancestors_rejects_invalid_membership_id(
         )
 
     fake_get_group_ancestors.assert_not_called()
-    
+
+
 def test_get_user_groups_with_ancestors_deduplicates_shared_parent(monkeypatch):
     """
     Verify that sibling memberships include their shared parent only once.
@@ -941,6 +899,7 @@ def test_get_user_groups_with_ancestors_deduplicates_shared_parent(monkeypatch):
         "team-b-id",
     ]
 
+
 @pytest.mark.parametrize("ancestor_id", [None, "", "   "])
 def test_get_user_groups_with_ancestors_rejects_invalid_ancestor_id(
     monkeypatch, ancestor_id
@@ -966,9 +925,7 @@ def test_get_user_groups_with_ancestors_rejects_invalid_ancestor_id(
     )
 
     monkeypatch.setattr(admin_service, "get_user_groups", fake_get_user_groups)
-    monkeypatch.setattr(
-        admin_service, "get_group_ancestors", fake_get_group_ancestors
-    )
+    monkeypatch.setattr(admin_service, "get_group_ancestors", fake_get_group_ancestors)
 
     with pytest.raises(
         KeycloakAdminAPIError,
@@ -982,9 +939,149 @@ def test_get_user_groups_with_ancestors_rejects_invalid_ancestor_id(
             user_id="user-123",
         )
 
-    assert fake_get_group_ancestors.call_args.kwargs["group_id"] == (
-        "finance-team-id"
+    assert fake_get_group_ancestors.call_args.kwargs["group_id"] == ("finance-team-id")
+
+
+def test_get_role_composite_children_returns_direct_children(monkeypatch):
+    """
+    Verify that get_role_composite_children retrieves a role's direct children.
+    """
+    monkeypatch.setattr(
+        admin_service,
+        "get_service_access_token",
+        Mock(return_value="fake-service-token"),
     )
+
+    fake_response = Mock()
+    fake_response.raise_for_status.return_value = None
+    fake_response.json.return_value = [
+        {
+            "id": "finance-viewer-id",
+            "name": "finance-data-viewer",
+        }
+    ]
+
+    def fake_get(url, headers, timeout):
+        assert url == (
+            "https://keycloak.test/admin/realms/novasecure/"
+            "roles-by-id/finance-staff-id/composites"
+        )
+        assert headers["Authorization"] == "Bearer fake-service-token"
+        assert headers["Accept"] == "application/json"
+        assert timeout == 5
+        return fake_response
+
+    monkeypatch.setattr(
+        admin_service.requests,
+        "get",
+        fake_get,
+    )
+    children = admin_service.get_role_composite_children(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        role_id="finance-staff-id",
+    )
+
+    assert children == fake_response.json.return_value
+
+
+def test_get_role_composite_children_rejects_http_failure(monkeypatch):
+    """
+    "Verify that get_role_composite_children wraps a failed Keycloak request.
+    """
+    monkeypatch.setattr(
+        admin_service,
+        "get_service_access_token",
+        Mock(return_value="fake-service-token"),
+    )
+
+    fake_response = Mock()
+    fake_response.raise_for_status.return_value = None
+    fake_response.json.return_value = [
+        {"id": "finance-viewer-id", "name": "finance-data-viewer"}
+    ]
+
+    def fake_get(url, headers, timeout):
+
+        assert url == (
+            "https://keycloak.test/admin/realms/novasecure/"
+            "roles-by-id/finance-staff-id/composites"
+        )
+        assert headers["Authorization"] == "Bearer fake-service-token"
+        assert headers["Accept"] == "application/json"
+        assert timeout == 5
+        return fake_response
+
+    monkeypatch.setattr(
+        admin_service.requests,
+        "get",
+        fake_get,
+    )
+
+    fake_response.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
+
+    with pytest.raises(
+        KeycloakAdminAPIError,
+        match="Role composite children retrieval failed",
+    ):
+        admin_service.get_role_composite_children(
+            admin_api_url="https://keycloak.test/admin/realms/novasecure",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="fake-secret",
+            role_id="finance-staff-id",
+        )
+
+
+def test_get_role_composite_children_rejects_invalid_json(monkeypatch):
+    """
+    Verify that get_role_composite_children rejects malformed Keycloak JSON.
+    """
+
+    monkeypatch.setattr(
+        admin_service,
+        "get_service_access_token",
+        Mock(return_value="fake-service-token"),
+    )
+
+    fake_response = Mock()
+    fake_response.raise_for_status.return_value = None
+    fake_response.json.return_value = [
+        {"id": "finance-viewer-id", "name": "finance-data-viewer"}
+    ]
+
+    def fake_get(url, headers, timeout):
+
+        assert url == (
+            "https://keycloak.test/admin/realms/novasecure/"
+            "roles-by-id/finance-staff-id/composites"
+        )
+        assert headers["Authorization"] == "Bearer fake-service-token"
+        assert headers["Accept"] == "application/json"
+        assert timeout == 5
+        return fake_response
+
+    monkeypatch.setattr(
+        admin_service.requests,
+        "get",
+        fake_get,
+    )
+
+    fake_response.json.side_effect = ValueError("Bad JSON")
+
+    with pytest.raises(
+        KeycloakAdminAPIError,
+        match="Unexpected JSON response",
+    ):
+        admin_service.get_role_composite_children(
+            admin_api_url="https://keycloak.test/admin/realms/novasecure",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="fake-secret",
+            role_id="finance-staff-id",
+        )
 
 
 def test_get_effective_realm_roles(monkeypatch):
@@ -1041,11 +1138,12 @@ def test_get_effective_realm_roles(monkeypatch):
 
     assert roles[1]["name"] == "iam-operator"
 
+
 def test_get_group_effective_client_roles(monkeypatch):
     """
     Verify that effective group client roles are retrieved from Keycloak's composite endpoint.
     """
-    
+
     def fake_get_client_uuid(**kwargs):
         assert kwargs["client_name"] == "employee-portal"
         return "client-uuid-123"
@@ -1055,25 +1153,18 @@ def test_get_group_effective_client_roles(monkeypatch):
         "get_client_uuid",
         fake_get_client_uuid,
     )
-    
-    monkeypatch.setattr(
-        admin_service,
-        "get_service_access_token",
-        lambda **kwargs : "fake-service-token" 
-    )
-    
-    fake_response = Mock()
-    
-    fake_response.raise_for_status.return_value = None
-    
-    fake_response.json.return_value = [
-            {
-                "name": "finance-data-viewer",
-                "id" : "role-id-1"
-            },
-    
-        ]
 
+    monkeypatch.setattr(
+        admin_service, "get_service_access_token", lambda **kwargs: "fake-service-token"
+    )
+
+    fake_response = Mock()
+
+    fake_response.raise_for_status.return_value = None
+
+    fake_response.json.return_value = [
+        {"name": "finance-data-viewer", "id": "role-id-1"},
+    ]
 
     def fake_get(
         url,
@@ -1092,29 +1183,30 @@ def test_get_group_effective_client_roles(monkeypatch):
         assert timeout == 5
 
         return fake_response
-    
+
     monkeypatch.setattr(
         admin_service.requests,
         "get",
         fake_get,
     )
-    
+
     role = admin_service.get_group_effective_client_roles(
         admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
-        group_id= "group-123",
-        target_client_name = "employee-portal"
+        group_id="group-123",
+        target_client_name="employee-portal",
     )
-    
+
     assert role == fake_response.json.return_value
-    
+
+
 def test_get_group_effective_client_roles_rejects_http_failure(monkeypatch):
     """
     Verify that a failed Keycloak request raises KeycloakAdminAPIError.
     """
-    
+
     def fake_get_client_uuid(**kwargs):
         assert kwargs["client_name"] == "employee-portal"
         return "client-uuid-123"
@@ -1124,60 +1216,57 @@ def test_get_group_effective_client_roles_rejects_http_failure(monkeypatch):
         "get_client_uuid",
         fake_get_client_uuid,
     )
-    
+
     monkeypatch.setattr(
-        admin_service,
-        "get_service_access_token",
-        lambda **kwargs : "fake-service-token" 
-    )
-    
-    fake_response = Mock()
-        
-    fake_response.raise_for_status.side_effect =  admin_service.requests.HTTPError(
-        "403 Forbidden"
-    )
-    
-    def fake_get(
-            url,
-            headers,
-            timeout,
-        ):
-            assert url == (
-                "https://keycloak.test/admin/realms/"
-                "novasecure/groups/group-123/role-mappings/clients/client-uuid-123/composite"
-            )
-    
-            assert headers["Authorization"] == ("Bearer fake-service-token")
-    
-            assert headers["Accept"] == "application/json"
-    
-            assert timeout == 5
-    
-            return fake_response
-        
-    monkeypatch.setattr(
-        admin_service.requests,
-        "get",
-        fake_get
+        admin_service, "get_service_access_token", lambda **kwargs: "fake-service-token"
     )
 
-    with pytest.raises(KeycloakAdminAPIError, match="Group effective client roles retrieval failed"):
+    fake_response = Mock()
+
+    fake_response.raise_for_status.side_effect = admin_service.requests.HTTPError(
+        "403 Forbidden"
+    )
+
+    def fake_get(
+        url,
+        headers,
+        timeout,
+    ):
+        assert url == (
+            "https://keycloak.test/admin/realms/"
+            "novasecure/groups/group-123/role-mappings/clients/client-uuid-123/composite"
+        )
+
+        assert headers["Authorization"] == ("Bearer fake-service-token")
+
+        assert headers["Accept"] == "application/json"
+
+        assert timeout == 5
+
+        return fake_response
+
+    monkeypatch.setattr(admin_service.requests, "get", fake_get)
+
+    with pytest.raises(
+        KeycloakAdminAPIError, match="Group effective client roles retrieval failed"
+    ):
         admin_service.get_group_effective_client_roles(
             admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
-            group_id= "group-123",
-            target_client_name = "employee-portal"
-        ) 
-    
-    fake_response.json().assert_not_called() 
-    
+            group_id="group-123",
+            target_client_name="employee-portal",
+        )
+
+    fake_response.json().assert_not_called()
+
+
 def test_get_group_effective_client_roles_rejects_invalid_json(monkeypatch):
     """
     Verify that an invalid Keycloak JSON response raises KeycloakAdminAPIError.
     """
-    
+
     def fake_get_client_uuid(**kwargs):
         assert kwargs["client_name"] == "employee-portal"
         return "client-uuid-123"
@@ -1187,56 +1276,53 @@ def test_get_group_effective_client_roles_rejects_invalid_json(monkeypatch):
         "get_client_uuid",
         fake_get_client_uuid,
     )
-    
+
     monkeypatch.setattr(
-        admin_service,
-        "get_service_access_token",
-        lambda **kwargs : "fake-service-token" 
+        admin_service, "get_service_access_token", lambda **kwargs: "fake-service-token"
     )
-    
+
     fake_response = Mock()
     fake_response.json.side_effect = ValueError("bad JSON")
-    
-    
+
     def fake_get(
-            url,
-            headers,
-            timeout,
-        ):
-            assert url == (
-                "https://keycloak.test/admin/realms/"
-                "novasecure/groups/group-123/role-mappings/clients/client-uuid-123/composite"
-            )
-    
-            assert headers["Authorization"] == ("Bearer fake-service-token")
-    
-            assert headers["Accept"] == "application/json"
-    
-            assert timeout == 5
-    
-            return fake_response
-    
-    monkeypatch.setattr(
-        admin_service.requests,
-        "get",
-        fake_get
-    )
-    
-    with pytest.raises(KeycloakAdminAPIError, match= "Invalid JSON response") :
+        url,
+        headers,
+        timeout,
+    ):
+        assert url == (
+            "https://keycloak.test/admin/realms/"
+            "novasecure/groups/group-123/role-mappings/clients/client-uuid-123/composite"
+        )
+
+        assert headers["Authorization"] == ("Bearer fake-service-token")
+
+        assert headers["Accept"] == "application/json"
+
+        assert timeout == 5
+
+        return fake_response
+
+    monkeypatch.setattr(admin_service.requests, "get", fake_get)
+
+    with pytest.raises(KeycloakAdminAPIError, match="Invalid JSON response"):
         admin_service.get_group_effective_client_roles(
             admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
-            group_id= "group-123",
-            target_client_name = "employee-portal"
+            group_id="group-123",
+            target_client_name="employee-portal",
         )
+
+
 @pytest.mark.parametrize("payload", [{"id": "role-id-1"}, ["not-a-role-object"]])
-def test_get_group_effective_client_roles_rejects_invalid_structure(monkeypatch, payload):
+def test_get_group_effective_client_roles_rejects_invalid_structure(
+    monkeypatch, payload
+):
     """
     Verify that effective group roles must be a list of role objects.
     """
-    
+
     def fake_get_client_uuid(**kwargs):
         assert kwargs["client_name"] == "employee-portal"
         return "client-uuid-123"
@@ -1246,52 +1332,46 @@ def test_get_group_effective_client_roles_rejects_invalid_structure(monkeypatch,
         "get_client_uuid",
         fake_get_client_uuid,
     )
-    
+
     monkeypatch.setattr(
-        admin_service,
-        "get_service_access_token",
-        lambda **kwargs : "fake-service-token" 
+        admin_service, "get_service_access_token", lambda **kwargs: "fake-service-token"
     )
-    
+
     fake_response = Mock()
     fake_response.json.return_value = payload
-    
-    
+
     def fake_get(
-            url,
-            headers,
-            timeout,
-        ):
-            assert url == (
-                "https://keycloak.test/admin/realms/"
-                "novasecure/groups/group-123/role-mappings/clients/client-uuid-123/composite"
-            )
-    
-            assert headers["Authorization"] == ("Bearer fake-service-token")
-    
-            assert headers["Accept"] == "application/json"
-    
-            assert timeout == 5
-    
-            return fake_response
-    
-    monkeypatch.setattr(
-        admin_service.requests,
-        "get",
-        fake_get
-    )
-    
-    with pytest.raises(KeycloakAdminAPIError, match= "Unexpected group effective client role response") :
+        url,
+        headers,
+        timeout,
+    ):
+        assert url == (
+            "https://keycloak.test/admin/realms/"
+            "novasecure/groups/group-123/role-mappings/clients/client-uuid-123/composite"
+        )
+
+        assert headers["Authorization"] == ("Bearer fake-service-token")
+
+        assert headers["Accept"] == "application/json"
+
+        assert timeout == 5
+
+        return fake_response
+
+    monkeypatch.setattr(admin_service.requests, "get", fake_get)
+
+    with pytest.raises(
+        KeycloakAdminAPIError, match="Unexpected group effective client role response"
+    ):
         admin_service.get_group_effective_client_roles(
             admin_api_url=("https://keycloak.test/admin/realms/novasecure"),
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
-            group_id= "group-123",
-            target_client_name = "employee-portal"
+            group_id="group-123",
+            target_client_name="employee-portal",
         )
-    
-    
+
 
 def test_get_client_uuid(monkeypatch):
     monkeypatch.setattr(

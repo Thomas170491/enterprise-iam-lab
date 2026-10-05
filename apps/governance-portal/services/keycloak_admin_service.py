@@ -376,8 +376,46 @@ def get_user_groups_with_ancestors(
             seen_ids.add(ancestor_id)
     
     return groups
+
+def get_role_composite_children(
+        admin_api_url: str,
+        token_url: str,
+        client_id: str,
+        client_secret: str,
+        role_id: str,
+) -> list[dict[str, Any]]:
+    """
+    Retrieve the direct child roles of a Keycloak composite role.
+    """
     
-      
+    access_token = get_service_access_token(
+        token_url=token_url,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+    try:
+        response = requests.get(
+            f"{admin_api_url}/roles-by-id/{role_id}/composites",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/json",
+            },
+            timeout=5,
+        )
+        
+        response.raise_for_status()
+    
+    except requests.RequestException as exc:
+        raise KeycloakAdminAPIError("Role composite children retrieval failed") from exc
+     
+    try:
+        children = response.json()
+    
+    except ValueError as exc:
+        raise KeycloakAdminAPIError("Unexpected JSON response") from exc
+    
+    return _parse_dict_list(children, "Unexpected role composite children response")
+
 def get_effective_realm_roles(
     admin_api_url: str,
     token_url: str,
