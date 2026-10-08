@@ -723,7 +723,7 @@ def populate_access_review_from_identity(
     client_secret: str,
 ) -> list[AccessReviewItem]:
     """
-    Capture an identity's direct Employee Portal roles in a manager-owned draft campaign.
+    Capture an identity's effective managed Employee Portal roles and grant sources.
 
     Flush the snapshots without committing; the caller owns the transaction.
     """
@@ -745,7 +745,7 @@ def populate_access_review_from_identity(
         user_id=user_id,
     )
 
-    direct_roles = get_direct_client_roles(
+    resolved_roles = resolve_user_client_role_sources(
         admin_api_url=admin_api_url,
         token_url=token_url,
         client_id=client_id,
@@ -767,8 +767,9 @@ def populate_access_review_from_identity(
 
     created_items = []
 
-    for role in direct_roles:
-        name = role.get("name")
+    for role in resolved_roles:
+        name = role["role_name"]
+        role_id = role["role_id"]
 
         if name not in managed_role_names:
             continue
@@ -778,7 +779,7 @@ def populate_access_review_from_identity(
                 AccessReviewItem.review_id == campaign.id,
                 AccessReviewItem.user_id == user_id,
                 AccessReviewItem.client_name == "employee-portal",
-                AccessReviewItem.role_id == role.get("id"),
+                AccessReviewItem.role_id == role_id,
             )
         ).scalar_one_or_none()
 
@@ -790,8 +791,10 @@ def populate_access_review_from_identity(
             user_id=user_id,
             username=identity.get("username"),
             client_name="employee-portal",
-            role_id=role.get("id"),
-            role_name=role.get("name"),
+            role_id=role_id,
+            role_name=name,
+            assignment_source=role["assignment_source"],
+            grant_sources=role["grant_sources"],
         )
 
         created_items.append(created_item)
