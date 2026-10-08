@@ -1121,7 +1121,8 @@ def test_resolve_user_client_role_sources_traces_parent_group_composite(monkeypa
             ],
         }
     ]
-    
+
+
 
                 
 def test_populate_access_review_captures_managed_direct_role(monkeypatch, app):

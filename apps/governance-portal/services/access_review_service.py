@@ -287,44 +287,57 @@ def resolve_user_client_role_sources(
                
         for mapped_role in mapped_roles:
             role_id = mapped_role["id"]
+
+            # Record the role assigned directly to this group.
             grant = {
-                        "group_id": group["id"],
-                        "membership_group_id": membership["id"],
-                        "type": "group",
-                        "assigned_role_id": mapped_role["id"],
-                        "composite_path": [],
-                    }
+                "group_id": group["id"],
+                "membership_group_id": membership["id"],
+                "type": "group",
+                "assigned_role_id": role_id,
+                "composite_path": [],
+            }
             grants = group_grants_by_role_id.setdefault(role_id, [])
             if grant not in grants:
                 grants.append(grant)
-                            
-            if mapped_role.get("composite"):
-                children = get_role_composite_children(
-                    admin_api_url=admin_api_url,
-                    token_url=token_url,
-                    client_id=client_id,
-                    client_secret=client_secret,
-                    role_id=role_id,
-                )
-                
-                for child in children:
-                    child_role_id = child["id"]
-                    child_grant = {
-                        "group_id": group["id"],
-                        "membership_group_id": membership["id"],
-                        "type": "group",
-                        "assigned_role_id": role_id,
-                        "composite_path": [role_id, child_role_id],
-                    }
 
-                    child_grants = group_grants_by_role_id.setdefault(child_role_id, [])
-    
-                    if child_grant not in child_grants:
-                        child_grants.append(child_grant)
-                        grants = group_grants_by_role_id.setdefault(role_id, [])
-                            
-                        if grant not in grants:
-                            grants.append(grant)
+            if mapped_role.get("composite"):
+                pending = [(mapped_role, [role_id])]
+
+                while pending:
+                    current_role, path = pending.pop()
+
+                    children = get_role_composite_children(
+                        admin_api_url=admin_api_url,
+                        token_url=token_url,
+                        client_id=client_id,
+                        client_secret=client_secret,
+                        role_id=current_role["id"],
+                    )
+
+                    for child in children:
+                        child_role_id = child["id"]
+
+                        # Prevent a cycle from making traversal run forever.
+                        if child_role_id in path:
+                            continue
+
+                        child_path = path + [child_role_id]
+                        child_grant = {
+                            "group_id": group["id"],
+                            "membership_group_id": membership["id"],
+                            "type": "group",
+                            "assigned_role_id": role_id,
+                            "composite_path": child_path,
+                        }
+
+                        child_grants = group_grants_by_role_id.setdefault(
+                            child_role_id, []
+                        )
+                        if child_grant not in child_grants:
+                            child_grants.append(child_grant)
+
+                        if child.get("composite"):
+                            pending.append((child, child_path))
         
    
     direct_role_ids = {role["id"] for role in direct_roles}
