@@ -7,6 +7,24 @@ import services.access_review_service as access_review_service
 
 create_access_review = access_review_service.create_access_review
 
+
+def _resolved_direct_role(role_id: str, role_name: str) -> dict:
+    """Build a direct role with the user grant evidence used by capture tests."""
+    return {
+        "role_id": role_id,
+        "role_name": role_name,
+        "assignment_source": "direct",
+        "grant_sources": [
+            {
+                "type": "user",
+                "user_id": "user-123",
+                "assigned_role_id": role_id,
+                "composite_path": [],
+            }
+        ],
+    }
+
+
 def test_populate_access_review_captures_managed_direct_role(monkeypatch, app):
     """
     Verify that a managed direct role is captured in a manager-owned draft campaign.
@@ -22,19 +40,14 @@ def test_populate_access_review_captures_managed_direct_role(monkeypatch, app):
     db.session.flush()
 
     fake_get_user = Mock(return_value={"id": "user-123", "username": "alice"})
-    fake_get_direct_client_role = fake_get_direct_client_role = Mock(
-        return_value=[
-            {
-                "id": "finance-role-id",
-                "name": "finance-data-viewer",
-            }
-        ]
+    fake_resolve_roles = Mock(
+        return_value=[_resolved_direct_role("finance-role-id", "finance-data-viewer")]
     )
 
     monkeypatch.setattr(access_review_service, "get_user", fake_get_user)
 
     monkeypatch.setattr(
-        access_review_service, "get_direct_client_roles", fake_get_direct_client_role
+        access_review_service, "resolve_user_client_role_sources", fake_resolve_roles
     )
 
     created_items = access_review_service.populate_access_review_from_identity(
@@ -58,6 +71,10 @@ def test_populate_access_review_captures_managed_direct_role(monkeypatch, app):
     assert item.client_name == "employee-portal"
     assert item.role_id == "finance-role-id"
     assert item.role_name == "finance-data-viewer"
+    assert item.assignment_source == "direct"
+    assert item.grant_sources == _resolved_direct_role(
+        "finance-role-id", "finance-data-viewer"
+    )["grant_sources"]
 
 
 def test_populate_access_review_skips_existing_items(app, monkeypatch):
@@ -91,13 +108,10 @@ def test_populate_access_review_skips_existing_items(app, monkeypatch):
 
     monkeypatch.setattr(
         access_review_service,
-        "get_direct_client_roles",
+        "resolve_user_client_role_sources",
         Mock(
             return_value=[
-                {
-                    "id": "finance-role-id",
-                    "name": "finance-data-viewer",
-                }
+                _resolved_direct_role("finance-role-id", "finance-data-viewer")
             ]
         ),
     )
@@ -157,7 +171,7 @@ def test_populate_access_review_rejects_other_manager(app, monkeypatch):
 
     monkeypatch.setattr(
         access_review_service,
-        "get_direct_client_roles",
+        "resolve_user_client_role_sources",
         fake_get_roles,
     )
 
@@ -213,7 +227,7 @@ def test_populate_access_review_rejects_non_draft_campaign(app, monkeypatch, sta
 
     monkeypatch.setattr(
         access_review_service,
-        "get_direct_client_roles",
+        "resolve_user_client_role_sources",
         fake_get_roles,
     )
     with pytest.raises(ValueError, match="access_review_not_draft"):
@@ -243,7 +257,7 @@ def test_populate_access_review_rejects_non_draft_campaign(app, monkeypatch, sta
 
 def test_populate_access_review_skips_unmanaged_roles(app, monkeypatch):
     """
-    Verify that population captures managed roles and skips unmanaged direct roles.
+    Verify that population captures managed roles and skips unmanaged effective roles.
     """
     campaign = create_access_review(
         "test campaign",
@@ -272,17 +286,11 @@ def test_populate_access_review_skips_unmanaged_roles(app, monkeypatch):
 
     monkeypatch.setattr(
         access_review_service,
-        "get_direct_client_roles",
+        "resolve_user_client_role_sources",
         Mock(
             return_value=[
-                {
-                    "id": "portal-role-id",
-                    "name": "portal-user",
-                },
-                {
-                    "id": "finance-role-id",
-                    "name": "finance-data-viewer",
-                },
+                _resolved_direct_role("portal-role-id", "portal-user"),
+                _resolved_direct_role("finance-role-id", "finance-data-viewer"),
             ]
         ),
     )
@@ -349,13 +357,10 @@ def test_populate_access_review_does_not_commit(app, monkeypatch):
 
     monkeypatch.setattr(
         access_review_service,
-        "get_direct_client_roles",
+        "resolve_user_client_role_sources",
         Mock(
             return_value=[
-                {
-                    "id": "finance-role-id",
-                    "name": "finance-data-viewer",
-                }
+                _resolved_direct_role("finance-role-id", "finance-data-viewer")
             ]
         ),
     )
@@ -435,11 +440,24 @@ def test_populate_access_review_captures_managed_inherited_role_with_sources(
     )
     monkeypatch.setattr(
         access_review_service,
-        "get_direct_client_roles",
-        Mock(return_value=[]),
-    )
-    monkeypatch.setattr(
-        access_review_service,
         "resolve_user_client_role_sources",
         Mock(return_value=[resolved_role]),
     )
+
+    created_items = access_review_service.populate_access_review_from_identity(
+        review_id=campaign.id,
+        manager_user_id="manager-123",
+        user_id="user-123",
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="test-secret",
+    )
+
+    assert len(created_items) == 1
+    item = created_items[0]
+    assert item.review_id == campaign.id
+    assert item.role_id == "finance-viewer-id"
+    assert item.role_name == "finance-data-viewer"
+    assert item.assignment_source == "inherited"
+    assert item.grant_sources == [group_grant]

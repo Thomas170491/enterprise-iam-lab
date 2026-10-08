@@ -431,11 +431,20 @@ def population_setup(app, monkeypatch):
             "username": "alice",
         }
     )
-    fake_get_roles = Mock(
+    fake_resolve_roles = Mock(
         return_value=[
             {
-                "id": "finance-role-id",
-                "name": "finance-data-viewer",
+                "role_id": "finance-role-id",
+                "role_name": "finance-data-viewer",
+                "assignment_source": "direct",
+                "grant_sources": [
+                    {
+                        "type": "user",
+                        "user_id": "user-123",
+                        "assigned_role_id": "finance-role-id",
+                        "composite_path": [],
+                    }
+                ],
             }
         ]
     )
@@ -447,8 +456,8 @@ def population_setup(app, monkeypatch):
     )
     monkeypatch.setattr(
         access_review_service,
-        "get_direct_client_roles",
-        fake_get_roles,
+        "resolve_user_client_role_sources",
+        fake_resolve_roles,
     )
 
     return {
@@ -463,7 +472,7 @@ def population_setup(app, monkeypatch):
             "client_secret": "test-secret",
         },
         "get_user": fake_get_user,
-        "get_roles": fake_get_roles,
+        "resolve_roles": fake_resolve_roles,
     }
 
 
@@ -859,7 +868,7 @@ def test_populate_access_review_with_audit_propagates_keycloak_failure(
     Verify that a Keycloak failure saves no snapshots and records no success audit event.
     """
     arguments = population_setup["arguments"]
-    population_setup["get_roles"].side_effect = KeycloakAdminAPIError(
+    population_setup["resolve_roles"].side_effect = KeycloakAdminAPIError(
         "Role retrieval failed"
     )
 

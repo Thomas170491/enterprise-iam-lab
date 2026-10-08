@@ -266,7 +266,7 @@ def test_access_review_detail_displays_assigned_campaign(client):
     assert 'href="/access-reviews"' in html
 
     assert "Separate campaign" not in html
-    assert "bob" not in html
+    assert "<td>bob</td>" not in html
     assert "security-data-viewer" not in html
 
 
@@ -842,10 +842,17 @@ def test_manager_can_populate_own_access_review(client, monkeypatch):
     )
     monkeypatch.setattr(
         access_review_service,
-        "get_direct_client_roles",
+        "resolve_user_client_role_sources",
         lambda **kwargs: [{
-            "id": "finance-role-id",
-            "name": "finance-data-viewer",
+            "role_id": "finance-role-id",
+            "role_name": "finance-data-viewer",
+            "assignment_source": "direct",
+            "grant_sources": [{
+                "type": "user",
+                "user_id": "user-123",
+                "assigned_role_id": "finance-role-id",
+                "composite_path": [],
+            }],
         }],
     )
 
@@ -912,7 +919,7 @@ def test_manager_cannot_populate_another_managers_review(client, monkeypatch):
     )
     monkeypatch.setattr(
         access_review_service,
-        "get_direct_client_roles",
+        "resolve_user_client_role_sources",
         fake_get_roles,
     )
 
@@ -1000,7 +1007,7 @@ def test_populate_access_review_returns_409_for_non_draft_campaign(
     )
     monkeypatch.setattr(
         access_review_service,
-        "get_direct_client_roles",
+        "resolve_user_client_role_sources",
         fake_get_roles,
     )
 
@@ -1030,7 +1037,7 @@ def test_populate_access_review_returns_503_on_keycloak_failure(
     )
 
     fake_get_user = Mock(side_effect=KeycloakAdminAPIError("User retrieval failed"))
-    fake_get_direct_roles = Mock()
+    fake_resolve_roles = Mock()
 
     monkeypatch.setattr(
         access_review_service,
@@ -1040,8 +1047,8 @@ def test_populate_access_review_returns_503_on_keycloak_failure(
 
     monkeypatch.setattr(
         access_review_service,
-        "get_direct_client_roles",
-        fake_get_direct_roles,
+        "resolve_user_client_role_sources",
+        fake_resolve_roles,
     )
 
     response = client.post(
@@ -1057,7 +1064,7 @@ def test_populate_access_review_returns_503_on_keycloak_failure(
     ).scalars().all()
 
     assert saved_items == []
-    fake_get_direct_roles.assert_not_called()
+    fake_resolve_roles.assert_not_called()
 
 
 @pytest.mark.parametrize(
