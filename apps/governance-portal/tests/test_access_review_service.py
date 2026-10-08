@@ -1122,9 +1122,144 @@ def test_resolve_user_client_role_sources_traces_parent_group_composite(monkeypa
         }
     ]
 
+def test_resolve_user_client_role_sources_traces_direct_user_composite(monkeypatch):
+    """
+    Verify that a directly assigned composite explains an effective user role.
+    """
+    
+    assigned_role = {
+        "id": "finance-staff-id",
+        "name": "finance-staff",
+        "composite": True,
+    }
+    effective_role = {
+        "id": "finance-viewer-id",
+        "name": "finance-data-viewer",
+    }
 
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        lambda **kwargs: [assigned_role]
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        lambda **kwargs: [effective_role]
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user_groups",
+        lambda **kwargs: []
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_role_composite_children",
+        lambda **kwargs: [effective_role] if kwargs["role_id"] == assigned_role["id"] else []
+    )
+    
+    resolved = access_review_service.resolve_user_client_role_sources(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+        target_client_name="employee-portal",
+    )
 
-                
+    assert resolved == [
+        {
+            "role_id": "finance-viewer-id",
+            "role_name": "finance-data-viewer",
+            "assignment_source": "direct",
+            "grant_sources": [
+                {
+                    "type": "user",
+                    "user_id": "user-123",
+                    "assigned_role_id": "finance-staff-id",
+                    "composite_path": [
+                        "finance-staff-id",
+                        "finance-viewer-id",
+                    ],
+                }
+            ],
+        }
+    ]
+
+def test_resolve_user_client_role_sources_traces_nested_direct_user_composite(monkeypatch):
+    """
+    Verify that a direct user grant traces through nested composite roles.
+    """
+    
+    assigned_role = {
+        "id": "finance-staff-id",
+        "name": "finance-staff",
+        "composite": True,
+    }
+    middle_role = {
+        "id": "finance-reader-id",
+        "name": "finance-reader",
+        "composite": True,
+    }
+    effective_role = {
+        "id": "finance-viewer-id",
+        "name": "finance-data-viewer",
+    }
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        lambda **kwargs: [assigned_role]
+    )
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        lambda **kwargs: [effective_role]
+    )
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_role_composite_children",
+        lambda **kwargs: [middle_role] if kwargs["role_id"] == assigned_role["id"] 
+        else [effective_role] if kwargs["role_id"] == middle_role["id"]
+        else []
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user_groups",
+        lambda **kwargs: []
+    )
+    
+    resolved = access_review_service.resolve_user_client_role_sources(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+        target_client_name="employee-portal",
+    )
+
+    assert resolved == [
+        {
+            "role_id": "finance-viewer-id",
+            "role_name": "finance-data-viewer",
+            "assignment_source": "direct",
+            "grant_sources": [
+                {
+                    "type": "user",
+                    "user_id": "user-123",
+                    "assigned_role_id": "finance-staff-id",
+                    "composite_path": [
+                        "finance-staff-id",
+                        "finance-reader-id",
+                        "finance-viewer-id",
+                    ],
+                }
+            ],
+        }
+    ]
+
 def test_populate_access_review_captures_managed_direct_role(monkeypatch, app):
     """
     Verify that a managed direct role is captured in a manager-owned draft campaign.

@@ -212,6 +212,47 @@ def cancel_access_review(review_id: int) -> AccessReview:
 
     return campaign
 
+def _get_composite_role_paths(
+    assigned_role: dict[str, Any],
+    admin_api_url: str,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+) -> list[tuple[str, list[str]]]:
+    """
+    Return descendant role IDs and paths from an assigned composite role.
+    """
+    
+    if not assigned_role.get("composite"):
+        return []
+
+    paths = []
+    pending = [(assigned_role, [assigned_role["id"]])]
+
+    while pending:
+        current_role, path = pending.pop()
+        if current_role.get("composite"):
+            children = get_role_composite_children(
+                admin_api_url=admin_api_url,
+                token_url=token_url,
+                client_id=client_id,
+                client_secret=client_secret,
+                role_id=current_role["id"],
+            )
+            for child in children:
+                child_role_id = child["id"]
+                
+                if child_role_id in path:
+                    continue
+                
+                child_path = path + [child_role_id]
+                paths.append((child_role_id, child_path))
+                
+                if child.get("composite"):
+                    pending.append((child, child_path))
+
+    return paths
+
 def resolve_user_client_role_sources(
     admin_api_url: str,
     token_url: str,
@@ -232,6 +273,8 @@ def resolve_user_client_role_sources(
                     user_id = user_id,
                     target_client_name = target_client_name,
                 ) 
+    
+    
     
     effective_roles = get_effective_client_roles(
                         admin_api_url = admin_api_url,
@@ -281,10 +324,7 @@ def resolve_user_client_role_sources(
         client_mappings = mappings.get("clientMappings") or {}
         client_mapping = client_mappings.get(target_client_name) or {}
         mapped_roles = client_mapping.get("mappings") or []
-        
-
-
-               
+                       
         for mapped_role in mapped_roles:
             role_id = mapped_role["id"]
 
@@ -296,51 +336,50 @@ def resolve_user_client_role_sources(
                 "assigned_role_id": role_id,
                 "composite_path": [],
             }
+            
             grants = group_grants_by_role_id.setdefault(role_id, [])
+            
             if grant not in grants:
                 grants.append(grant)
 
-            if mapped_role.get("composite"):
-                pending = [(mapped_role, [role_id])]
+            for child_role_id, child_path in _get_composite_role_paths(
+                assigned_role=mapped_role,
+                admin_api_url=admin_api_url,
+                token_url=token_url,
+                client_id=client_id,
+                client_secret=client_secret,
+            ):
+                child_grant = {
+                        "group_id": group["id"],
+                        "membership_group_id": membership["id"],
+                        "type": "group",
+                        "assigned_role_id": role_id,
+                        "composite_path": child_path,
+                    }
 
-                while pending:
-                    current_role, path = pending.pop()
-
-                    children = get_role_composite_children(
-                        admin_api_url=admin_api_url,
-                        token_url=token_url,
-                        client_id=client_id,
-                        client_secret=client_secret,
-                        role_id=current_role["id"],
-                    )
-
-                    for child in children:
-                        child_role_id = child["id"]
-
-                        # Prevent a cycle from making traversal run forever.
-                        if child_role_id in path:
-                            continue
-
-                        child_path = path + [child_role_id]
-                        child_grant = {
-                            "group_id": group["id"],
-                            "membership_group_id": membership["id"],
-                            "type": "group",
-                            "assigned_role_id": role_id,
-                            "composite_path": child_path,
-                        }
-
-                        child_grants = group_grants_by_role_id.setdefault(
-                            child_role_id, []
-                        )
-                        if child_grant not in child_grants:
-                            child_grants.append(child_grant)
-
-                        if child.get("composite"):
-                            pending.append((child, child_path))
-        
-   
+                child_grants = group_grants_by_role_id.setdefault(child_role_id, [])
+                if child_grant not in child_grants:
+                    child_grants.append(child_grant)
+    
     direct_role_ids = {role["id"] for role in direct_roles}
+    
+    user_composite_grants_by_role_id = {}
+
+    for assigned_role in direct_roles:
+        for child_role_id, child_path in _get_composite_role_paths(
+            assigned_role=assigned_role,
+            admin_api_url=admin_api_url,
+            token_url=token_url,
+            client_id=client_id,
+            client_secret=client_secret,
+        ):
+            user_composite_grants_by_role_id[child_role_id] = {
+                "type": "user",
+                "user_id": user_id,
+                "assigned_role_id": assigned_role["id"],
+                "composite_path": child_path,
+            }
+    
     resolved_roles = []
 
     for role in effective_roles:
@@ -349,29 +388,28 @@ def resolve_user_client_role_sources(
         is_direct = role_id in direct_role_ids
         group_grants = group_grants_by_role_id.get(role_id, [])
         user_grants = []
+        
+        if is_direct:
+            user_grants.append(
+                {
+                    "type": "user",
+                    "user_id": user_id,
+                    "assigned_role_id": role_id,
+                    "composite_path": [],
+                }
+            )
+        
+        composite_grant = user_composite_grants_by_role_id.get(role_id)
+        
+        if composite_grant is not None:
+            user_grants.append(composite_grant)
+            
 
-        if is_direct and group_grants:
+        if user_grants and group_grants:
             assignment_source = "both"
-            user_grants.append(
-                {
-                    "type": "user",
-                    "user_id": user_id,
-                    "assigned_role_id": role_id,
-                    "composite_path": [],
-                }
-            )
-           
-
-        elif is_direct:
+    
+        elif user_grants:
             assignment_source = "direct"
-            user_grants.append(
-                {
-                    "type": "user",
-                    "user_id": user_id,
-                    "assigned_role_id": role_id,
-                    "composite_path": [],
-                }
-            )
 
         elif group_grants:
             assignment_source = "inherited"
