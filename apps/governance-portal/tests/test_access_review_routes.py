@@ -1551,3 +1551,52 @@ def test_access_review_mutations_require_valid_csrf_token(
     else:
         assert response.status_code == 400
         fake_service.assert_not_called()
+    
+def test_access_review_detail_shows_grant_sources(client):
+    """
+    Verify that the access review detail page displays grant sources for each role assignment.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name = "Grant source campaign", 
+        created_by_user_id = "manager-123",
+        reviewer_user_id = "test-subject"
+    )
+    
+    assignment_source="direct"
+    grant_sources=[
+        {
+            "type": "user",
+            "user_id": "user-123",
+            "assigned_role_id": "finance-staff-id",
+            "composite_path": ["finance-staff-id", "finance-role-id"],
+        }
+    ]
+    
+    assert isinstance(grant_sources, list)
+    assert grant_sources[0]["assigned_role_id"] == "finance-staff-id"
+    
+    access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+        assignment_source= assignment_source,
+        grant_sources= grant_sources,
+    )
+    db.session.commit()
+
+    response = client.get(f"/access-reviews/{campaign.id}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Grant Sources" in html
+    assert "user-123" in html
+    assert "finance-staff-id" in html
+
+    
+    
+
