@@ -461,3 +461,75 @@ def test_populate_access_review_captures_managed_inherited_role_with_sources(
     assert item.role_name == "finance-data-viewer"
     assert item.assignment_source == "inherited"
     assert item.grant_sources == [group_grant]
+    
+def test_populate_access_review_captures_both_user_and_group_sources(monkeypatch, app):
+    """
+    Verify that a captured role retains both its user and group grant evidence.
+    """
+    
+    enabled_role = ManagedRole(
+        client_name="employee-portal",
+        role_name="finance-data-viewer",
+        enabled=True,
+    )
+    
+    campaign = create_access_review(
+        name="Finance review",
+        created_by_user_id="manager-123",
+        reviewer_user_id="reviewer-456",
+    )
+    db.session.add(enabled_role)
+    db.session.flush()
+    
+    resolved_role = {
+        "role_id": "finance-viewer-id",
+        "role_name": "finance-data-viewer",
+        "assignment_source": "both",
+        "grant_sources": [
+            {
+                "type": "user",
+                "user_id": "user-123",
+                "assigned_role_id": "finance-viewer-id",
+                "composite_path": [],
+            },
+            {
+                "type": "group",
+                "group_id": "finance-id",
+                "membership_group_id": "finance-team-id",
+                "assigned_role_id": "finance-staff-id",
+                "composite_path": ["finance-staff-id", "finance-viewer-id"],
+            },
+        ],
+    }
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "resolve_user_client_role_sources",
+        Mock(return_value=[resolved_role]),
+    )
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user",
+        Mock(return_value={"id": "user-123", "username": "alice"}),
+    )
+    
+    created_items = access_review_service.populate_access_review_from_identity(
+        review_id=campaign.id,
+        manager_user_id="manager-123",
+        user_id="user-123",
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="test-secret",
+    )
+    
+    assert len(created_items) == 1
+    item = created_items[0]
+
+    assert item.role_id == resolved_role["role_id"]
+    assert item.assignment_source == "both"
+    assert item.grant_sources == resolved_role["grant_sources"]
+    assert {grant["type"] for grant in item.grant_sources} == {"user", "group"}
+    
+
