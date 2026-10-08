@@ -31,6 +31,8 @@ class AccessReviewItem(db.Model):
     role_name = db.Column(db.String(100), nullable=False)
     
     assignment_source = db.Column(db.String(20), nullable=False)
+    
+    grant_sources = db.Column(db.JSON,nullable=False,default=list)
 
     created_at = db.Column(
         db.DateTime(timezone=True),

@@ -81,14 +81,15 @@ def add_access_review_item(
     role_id: str,
     role_name: str,
     assignment_source: str = "direct",
+    grant_sources: list[dict[str, Any]] | None = None,
 ) -> AccessReviewItem:
     """
-    Add an identity-role snapshot to an existing draft review campaign.
+    Add an identity-role snapshot and its grant evidence to a draft review.
 
     Validate and trim the required identity and role details.
-
     Flush the item without committing; the caller owns the transaction.
     """
+    
     campaign = db.session.get(AccessReview, review_id)
 
     if campaign is None:
@@ -114,6 +115,7 @@ def add_access_review_item(
         role_id=role_id,
         role_name=role_name,
         assignment_source=assignment_source,
+        grant_sources=grant_sources if grant_sources is not None else [],
     )
 
     db.session.add(item)

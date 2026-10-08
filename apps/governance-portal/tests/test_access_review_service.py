@@ -265,6 +265,47 @@ def test_add_access_review_item_does_not_commit(app):
     assert db.session.get(AccessReviewItem, item_id) is None
     assert db.session.get(AccessReview, review_id) is not None
 
+def test_add_access_review_item_preserves_grant_sources(app):
+    """
+    Verify that a review snapshot retains the paths that granted a role.
+    """
+    
+    review = create_access_review(
+        name="Finance review",
+        created_by_user_id="manager-123",
+        reviewer_user_id="reviewer-456",
+    )
+    
+    grant_sources = [
+        {
+            "type": "group",
+            "group_id": "finance-id",
+            "membership_group_id": "finance-team-id",
+            "assigned_role_id": "finance-staff-id",
+            "composite_path": [
+                "finance-staff-id",
+                "finance-viewer-id",
+            ],
+        }
+    ]
+    
+    item = add_access_review_item(
+        review_id=review.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-viewer-id",
+        role_name="finance-data-viewer",
+        assignment_source="inherited",
+        grant_sources=grant_sources,
+    )
+
+    item_id = item.id
+    db.session.expire_all()
+    saved_item = db.session.get(AccessReviewItem, item_id)
+
+    assert saved_item.grant_sources == grant_sources
+
 
 def test_open_access_review_opens_draft_campaign(app):
     """
