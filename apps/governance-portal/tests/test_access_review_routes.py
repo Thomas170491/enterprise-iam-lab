@@ -1597,6 +1597,53 @@ def test_access_review_detail_shows_grant_sources(client):
     assert "user-123" in html
     assert "finance-staff-id" in html
 
+def test_access_review_detail_shows_inherited_group_grant(client):
+    """
+    Verify that a reviewer sees the granting group, membership group, and composite path.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name = "Inherited group campaign", 
+        created_by_user_id = "manager-123",
+        reviewer_user_id = "test-subject"
+    )
+    
+    assignment_source="inherited"
+    grant_sources=[
+        {
+            "type": "group",
+            "group_id": "finance-staff-group-id",
+            "membership_group_id": "finance-team-id",
+            "assigned_role_id": "finance-staff-id",
+            "composite_path": ["finance-staff-id", "finance-role-id"],
+        }
+    ]
+    
+    assert isinstance(grant_sources, list)
+    assert grant_sources[0]["assigned_role_id"] == "finance-staff-id"
+    
+    access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+        assignment_source= assignment_source,
+        grant_sources= grant_sources,
+    )
+    db.session.commit()
+
+    response = client.get(f"/access-reviews/{campaign.id}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Grant Sources" in html
+    assert "finance-staff-group-id" in html
+    assert "finance-staff-id" in html
+    assert "finance-team-id" in html
+
     
     
 
