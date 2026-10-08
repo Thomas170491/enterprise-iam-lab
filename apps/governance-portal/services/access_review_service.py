@@ -336,7 +336,6 @@ def resolve_user_client_role_sources(
                 "assigned_role_id": role_id,
                 "composite_path": [],
             }
-            
             grants = group_grants_by_role_id.setdefault(role_id, [])
             
             if grant not in grants:
@@ -364,22 +363,26 @@ def resolve_user_client_role_sources(
     direct_role_ids = {role["id"] for role in direct_roles}
     
     user_composite_grants_by_role_id = {}
-
-    for assigned_role in direct_roles:
-        for child_role_id, child_path in _get_composite_role_paths(
-            assigned_role=assigned_role,
-            admin_api_url=admin_api_url,
-            token_url=token_url,
-            client_id=client_id,
-            client_secret=client_secret,
-        ):
-            user_composite_grants_by_role_id[child_role_id] = {
-                "type": "user",
-                "user_id": user_id,
-                "assigned_role_id": assigned_role["id"],
-                "composite_path": child_path,
-            }
     
+    for assigned_role in direct_roles:
+            for child_role_id, child_path in _get_composite_role_paths(
+                assigned_role=assigned_role,
+                admin_api_url=admin_api_url,
+                token_url=token_url,
+                client_id=client_id,
+                client_secret=client_secret,
+            ):
+                grant = {
+                    "type": "user",
+                    "user_id": user_id,
+                    "assigned_role_id": assigned_role["id"],
+                    "composite_path": child_path,
+                }
+                grants = user_composite_grants_by_role_id.setdefault(child_role_id, [])
+                
+                if grant not in grants:
+                    grants.append(grant)
+                    
     resolved_roles = []
 
     for role in effective_roles:
@@ -399,11 +402,9 @@ def resolve_user_client_role_sources(
                 }
             )
         
-        composite_grant = user_composite_grants_by_role_id.get(role_id)
-        
-        if composite_grant is not None:
-            user_grants.append(composite_grant)
-            
+        user_grants.extend(
+            user_composite_grants_by_role_id.get(role_id, [])
+        )
 
         if user_grants and group_grants:
             assignment_source = "both"

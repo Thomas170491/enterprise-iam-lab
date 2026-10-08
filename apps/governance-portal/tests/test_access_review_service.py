@@ -1225,10 +1225,92 @@ def test_resolve_user_client_role_sources_traces_nested_direct_user_composite(mo
         else [effective_role] if kwargs["role_id"] == middle_role["id"]
         else []
     )
+    
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user_groups",  
+        lambda **kwargs: []
+    )
+    
+    
+    resolved = access_review_service.resolve_user_client_role_sources(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+        target_client_name="employee-portal",
+    )
+
+    assert resolved == [
+        {
+            "role_id": "finance-viewer-id",
+            "role_name": "finance-data-viewer",
+            "assignment_source": "direct",
+            "grant_sources": [
+                {
+                    "type": "user",
+                    "user_id": "user-123",
+                    "assigned_role_id": "finance-staff-id",
+                    "composite_path": [
+                        "finance-staff-id",
+                        "finance-reader-id",
+                        "finance-viewer-id",
+                    ],
+                }
+            ],
+        }
+    ]
+    
+def test_resolve_user_client_role_sources_preserves_multiple_direct_composite_grants(monkeypatch):
+    """
+    Verify that two assigned composites retain both sources for one effective role.
+    """
+    
+    assigned_role1 = {
+        "id": "finance-staff-id",
+        "name": "finance-staff",
+        "composite": True,
+    }
+    assigned_role2 = {
+        "id": "finance-manager-id",
+        "name": "finance-manager",
+        "composite": True,
+    }
+    middle_role = {
+        "id": "finance-reader-id",
+        "name": "finance-reader",
+        "composite": True,
+    }
+    effective_role = {
+        "id": "finance-viewer-id",
+        "name": "finance-data-viewer",
+    }
+
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        lambda **kwargs: [assigned_role1, assigned_role2]
+    )
+
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        lambda **kwargs: [effective_role]
+    )
+
+    monkeypatch.setattr(
+        access_review_service,
+        "get_role_composite_children",
+        lambda **kwargs: [middle_role] if kwargs["role_id"] == assigned_role1["id"] or kwargs["role_id"] == assigned_role2["id"]
+        else [effective_role] if kwargs["role_id"] == middle_role["id"]
+        else []
+    )
+    
     monkeypatch.setattr(
         access_review_service,
         "get_user_groups",
-        lambda **kwargs: []
+        lambda **kwargs: [],
     )
     
     resolved = access_review_service.resolve_user_client_role_sources(
@@ -1255,6 +1337,16 @@ def test_resolve_user_client_role_sources_traces_nested_direct_user_composite(mo
                         "finance-reader-id",
                         "finance-viewer-id",
                     ],
+                },
+                {
+                    "type": "user",
+                    "user_id": "user-123",
+                   ("assigned_role_id"): ("finance-manager-id"),
+                   ("composite_path"): ([
+                        "finance-manager-id",
+                        "finance-reader-id",
+                        "finance-viewer-id",
+                    ]),
                 }
             ],
         }
