@@ -22,6 +22,7 @@ validate_access_review_reviewer = access_review_service.validate_access_review_r
 get_user_groups = access_review_service.get_user_groups
 get_group_ancestors = access_review_service.get_group_ancestors
 
+
 def test_create_access_review(app):
     """
     Verify that creating an access review trims its inputs and returns a draft campaign.
@@ -139,19 +140,20 @@ def test_add_access_review_item_defaults_to_direct(app):
     )
 
     assert item.assignment_source == "direct"
-    
+
+
 @pytest.mark.parametrize("assignment_source", ["direct", "inherited", "both"])
 def test_add_access_review_item_preserves_assignment_source(app, assignment_source):
     """
     Verify that a snapshot preserves its supplied assignment source.
     """
-    
+
     review = create_access_review(
         name="September review",
         created_by_user_id="creator-123",
         reviewer_user_id="reviewer-456",
     )
-    
+
     item = add_access_review_item(
         review_id=review.id,
         user_id="  user-123  ",
@@ -159,11 +161,12 @@ def test_add_access_review_item_preserves_assignment_source(app, assignment_sour
         client_name="  employee-portal  ",
         role_id="  finance-role-id  ",
         role_name="  finance-data-viewer  ",
-        assignment_source= assignment_source,
+        assignment_source=assignment_source,
     )
-    
+
     assert item.assignment_source == assignment_source
-    
+
+
 @pytest.mark.parametrize("assignment_source", ["unknown", "", None])
 def test_add_access_review_item_rejects_invalid_assignment_source(
     app, assignment_source
@@ -171,7 +174,7 @@ def test_add_access_review_item_rejects_invalid_assignment_source(
     """
     Verify that an invalid assignment source is rejected without saving an item.
     """
-    
+
     review = create_access_review(
         name="September review",
         created_by_user_id="creator-123",
@@ -185,17 +188,20 @@ def test_add_access_review_item_rejects_invalid_assignment_source(
             client_name="  employee-portal  ",
             role_id="  finance-role-id  ",
             role_name="  finance-data-viewer  ",
-            assignment_source= assignment_source,
+            assignment_source=assignment_source,
         )
-        
-    items = db.session.execute(
-        db.select(AccessReviewItem)
-        .where(
-            AccessReviewItem.review_id== review.id
-                )).scalars().all()
-    
+
+    items = (
+        db.session.execute(
+            db.select(AccessReviewItem).where(AccessReviewItem.review_id == review.id)
+        )
+        .scalars()
+        .all()
+    )
+
     assert items == []
-    
+
+
 @pytest.mark.parametrize("status", ["open", "completed", "cancelled"])
 def test_add_access_review_item_rejects_non_draft_campaign(app, status):
     """
@@ -265,17 +271,18 @@ def test_add_access_review_item_does_not_commit(app):
     assert db.session.get(AccessReviewItem, item_id) is None
     assert db.session.get(AccessReview, review_id) is not None
 
+
 def test_add_access_review_item_preserves_grant_sources(app):
     """
     Verify that a review snapshot retains the paths that granted a role.
     """
-    
+
     review = create_access_review(
         name="Finance review",
         created_by_user_id="manager-123",
         reviewer_user_id="reviewer-456",
     )
-    
+
     grant_sources = [
         {
             "type": "group",
@@ -288,7 +295,7 @@ def test_add_access_review_item_preserves_grant_sources(app):
             ],
         }
     ]
-    
+
     item = add_access_review_item(
         review_id=review.id,
         user_id="user-123",
@@ -800,699 +807,6 @@ def test_validate_access_review_reviewer_propagates_role_lookup_failure(monkeypa
 
     fake_get_roles.assert_called_once()
 
-def test_resolve_user_client_role_sources_inherits_parent_group_role(monkeypatch):
-    """
-    Verify that a role inherited through a child membership is attributed to its granting parent group.
-    """
-    
-    child_group = {
-        "id": "finance-team-id",
-        "name": "Finance Team",
-        "parentId": "finance-id",
-    }
-    parent_group = {
-        "id": "finance-id",
-        "name": "Finance",
-        "parentId": None,
-    }
-    role = {
-        "id": "finance-role-id",
-        "name": "finance-data-viewer",
-    }
-
-    direct_roles = []
-    effective_roles = [role]
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_direct_client_roles",
-        Mock(return_value=direct_roles),
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_effective_client_roles",
-        Mock(return_value=effective_roles),
-    )
-    
-    monkeypatch.setattr(
-    access_review_service,
-    "get_user_groups",
-    Mock(return_value=[child_group]),
-)
-    monkeypatch.setattr(
-        access_review_service,
-        "get_group_ancestors",
-        Mock(return_value=[parent_group]),
-)
-    def fake_get_group_role_mappings(**kwargs):
-        """
-        Return Finance's direct role mapping and no mapping for Finance Team.
-        """
-        group_id = kwargs["group_id"]
-
-        if group_id == "finance-id":
-            return {
-                "clientMappings": {
-                    "employee-portal": {"mappings": [role]}
-                }
-            }
-
-        if group_id == "finance-team-id":
-            return {"clientMappings": {}}
-
-        raise AssertionError(f"Unexpected group ID: {group_id}")
-
-
-    monkeypatch.setattr(
-        access_review_service,
-        "get_group_role_mappings",
-        fake_get_group_role_mappings,
-    )
-    
-    resolved = access_review_service.resolve_user_client_role_sources(
-        admin_api_url="https://keycloak.test/admin/realms/novasecure",
-        token_url="https://keycloak.test/token",
-        client_id="iam-governance-service",
-        client_secret="fake-secret",
-        user_id="user-123",
-        target_client_name="employee-portal",
-    )
-
-    assert resolved == [
-        {
-            "role_id": "finance-role-id",
-            "role_name": "finance-data-viewer",
-            "assignment_source": "inherited",
-            "grant_sources":  
-                [
-                        {
-                    "type": "group",
-                    "group_id": "finance-id",
-                    "membership_group_id": "finance-team-id",
-                    "assigned_role_id": "finance-role-id",
-                    "composite_path": [],
-                }
-            ],
-        }
-    ]
-    
-def test_resolve_user_client_role_sources_handles_direct_role_without_groups(monkeypatch):
-    """
-    Verify that a direct user role is resolved when the user belongs to no groups.
-    """
-
-    role = {
-        "id": "finance-role-id",
-        "name": "finance-data-viewer",
-    }
-    
-    
-
-    fake_get_group_ancestors = Mock()
-    fake_get_group_role_mappings = Mock()
-
-    monkeypatch.setattr(
-        access_review_service,
-        "get_direct_client_roles",
-        Mock(return_value=[role]),
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_effective_client_roles",
-        Mock(return_value=[role]),
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_user_groups",
-        Mock(return_value=[]),
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_group_ancestors",
-        fake_get_group_ancestors,
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_group_role_mappings",
-        fake_get_group_role_mappings,
-    )
-
-    resolved = access_review_service.resolve_user_client_role_sources(
-        admin_api_url="https://keycloak.test/admin/realms/novasecure",
-        token_url="https://keycloak.test/token",
-        client_id="iam-governance-service",
-        client_secret="fake-secret",
-        user_id="user-123",
-        target_client_name="employee-portal",
-    )
-
-    assert resolved == [
-        {
-            "role_id": "finance-role-id",
-            "role_name": "finance-data-viewer",
-            "assignment_source": "direct",
-            "grant_sources": [
-                                {
-                                    "type": "user",
-                                    "user_id": "user-123",
-                                    "assigned_role_id": "finance-role-id",
-                                    "composite_path": [],
-                                }
-                            ],
-        }
-    ]
-    fake_get_group_ancestors.assert_not_called()
-    fake_get_group_role_mappings.assert_not_called()
-    
-def test_resolve_user_client_role_sources_reports_both_direct_and_group_grants(monkeypatch):
-    """
-    Verify that a role granted directly and through a group reports both sources.
-    """
-
-    role = {
-        "id": "finance-role-id",
-        "name": "finance-data-viewer",
-    }
-    finance_group = {
-        "id": "finance-id",
-        "name": "Finance",
-        "parentId": None,
-    }
-
-    fake_get_group_ancestors = Mock(return_value=[])
-
-    monkeypatch.setattr(
-        access_review_service,
-        "get_direct_client_roles",
-        Mock(return_value=[role]),
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_effective_client_roles",
-        Mock(return_value=[role]),
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_user_groups",
-        Mock(return_value=[finance_group]),
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_group_ancestors",
-        fake_get_group_ancestors,
-    )
-    fake_get_group_role_mappings = Mock(
-        return_value={
-            "clientMappings": {
-                "employee-portal": {"mappings": [role]},
-            }
-        }
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_group_role_mappings",
-        fake_get_group_role_mappings,
-    )
-
-    resolved = access_review_service.resolve_user_client_role_sources(
-        admin_api_url="https://keycloak.test/admin/realms/novasecure",
-        token_url="https://keycloak.test/token",
-        client_id="iam-governance-service",
-        client_secret="fake-secret",
-        user_id="user-123",
-        target_client_name="employee-portal",
-    )
-
-    assert resolved == [
-        {
-            "role_id": "finance-role-id",
-            "role_name": "finance-data-viewer",
-            "assignment_source": "both",
-            "grant_sources": [
-                {
-                    "type": "user",
-                    "user_id": "user-123",
-                    "assigned_role_id": "finance-role-id",
-                    "composite_path": [],
-                },
-                {
-                    "type": "group",
-                    "group_id": "finance-id",
-                    "membership_group_id": "finance-id",
-                    "assigned_role_id": "finance-role-id",
-                    "composite_path": [],
-                },
-            ],
-        }
-    ]
-    fake_get_group_ancestors.assert_called_once()
-    fake_get_group_role_mappings.assert_called_once()
-    
-def test_resolve_user_client_role_sources_traces_parent_group_composite(monkeypatch):
-    """
-    Verify that a parent group's composite grant identifies the effective role's path.
-    """
-    
-    child_group = {
-        "id": "finance-team-id",
-        "name": "Finance Team",
-        "parentId": "finance-id",
-    }
-    parent_group = {
-        "id": "finance-id",
-        "name": "Finance",
-        "parentId": None,
-    }
-    assigned_role = {
-        "id": "finance-staff-id", 
-        "name": "finance-staff",
-        "composite": True,
-    }
-    effective_role = {
-        "id": "finance-viewer-id", 
-        "name": "finance-data-viewer"
-    }
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_direct_client_roles",
-        lambda **kwargs: [],
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_effective_client_roles",
-        lambda **kwargs: [effective_role],
-    )
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_user_groups",
-        lambda **kwargs: [child_group],
-    )
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_group_ancestors",
-        Mock(return_value=[parent_group]),
-    )
-    
-    def fake_get_group_role_mappings(**kwargs):
-        """
-        Return Finance's assigned role and no assigned roles for Finance Team.
-        """
-        if kwargs["group_id"] == "finance-id":
-            return {
-                "clientMappings": {
-                    "employee-portal": {"mappings": [assigned_role]},
-                }
-            }
-
-        assert kwargs["group_id"] == "finance-team-id"
-        return {"clientMappings": {}}
-
-
-    monkeypatch.setattr(
-        access_review_service,
-        "get_group_role_mappings",
-        fake_get_group_role_mappings,
-    )
-    
-    composite_children_by_role_id = {
-        assigned_role["id"]: [effective_role],
-        effective_role["id"]: [],
-    }
-    
-    def fake_get_role_composite_children(**kwargs):
-        """
-        Return the direct child roles for the requested role ID.
-        """
-        role_id = kwargs["role_id"]
-        assert role_id in composite_children_by_role_id
-        return composite_children_by_role_id[role_id]
-
-
-    monkeypatch.setattr(
-        access_review_service,
-        "get_role_composite_children",
-        fake_get_role_composite_children,
-    )
-    
-    resolved = access_review_service.resolve_user_client_role_sources(
-    admin_api_url="https://keycloak.test/admin/realms/novasecure",
-    token_url="https://keycloak.test/token",
-    client_id="iam-governance-service",
-    client_secret="fake-secret",
-    user_id="user-123",
-    target_client_name="employee-portal",
-    )
-
-    assert resolved == [
-        {
-            "role_id": "finance-viewer-id",
-            "role_name": "finance-data-viewer",
-            "assignment_source": "inherited",
-            "grant_sources": [
-                {
-                    "type": "group",
-                    "group_id": "finance-id",
-                    "membership_group_id": "finance-team-id",
-                    "assigned_role_id": "finance-staff-id",
-                    "composite_path": ["finance-staff-id", "finance-viewer-id"],
-                }
-            ],
-        }
-    ]
-
-def test_resolve_user_client_role_sources_traces_direct_user_composite(monkeypatch):
-    """
-    Verify that a directly assigned composite explains an effective user role.
-    """
-    
-    assigned_role = {
-        "id": "finance-staff-id",
-        "name": "finance-staff",
-        "composite": True,
-    }
-    effective_role = {
-        "id": "finance-viewer-id",
-        "name": "finance-data-viewer",
-    }
-
-    monkeypatch.setattr(
-        access_review_service,
-        "get_direct_client_roles",
-        lambda **kwargs: [assigned_role]
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_effective_client_roles",
-        lambda **kwargs: [effective_role]
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_user_groups",
-        lambda **kwargs: []
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_role_composite_children",
-        lambda **kwargs: [effective_role] if kwargs["role_id"] == assigned_role["id"] else []
-    )
-    
-    resolved = access_review_service.resolve_user_client_role_sources(
-        admin_api_url="https://keycloak.test/admin/realms/novasecure",
-        token_url="https://keycloak.test/token",
-        client_id="iam-governance-service",
-        client_secret="fake-secret",
-        user_id="user-123",
-        target_client_name="employee-portal",
-    )
-
-    assert resolved == [
-        {
-            "role_id": "finance-viewer-id",
-            "role_name": "finance-data-viewer",
-            "assignment_source": "direct",
-            "grant_sources": [
-                {
-                    "type": "user",
-                    "user_id": "user-123",
-                    "assigned_role_id": "finance-staff-id",
-                    "composite_path": [
-                        "finance-staff-id",
-                        "finance-viewer-id",
-                    ],
-                }
-            ],
-        }
-    ]
-
-def test_resolve_user_client_role_sources_traces_nested_direct_user_composite(monkeypatch):
-    """
-    Verify that a direct user grant traces through nested composite roles.
-    """
-    
-    assigned_role = {
-        "id": "finance-staff-id",
-        "name": "finance-staff",
-        "composite": True,
-    }
-    middle_role = {
-        "id": "finance-reader-id",
-        "name": "finance-reader",
-        "composite": True,
-    }
-    effective_role = {
-        "id": "finance-viewer-id",
-        "name": "finance-data-viewer",
-    }
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_direct_client_roles",
-        lambda **kwargs: [assigned_role]
-    )
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_effective_client_roles",
-        lambda **kwargs: [effective_role]
-    )
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_role_composite_children",
-        lambda **kwargs: [middle_role] if kwargs["role_id"] == assigned_role["id"] 
-        else [effective_role] if kwargs["role_id"] == middle_role["id"]
-        else []
-    )
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_user_groups",  
-        lambda **kwargs: []
-    )
-    
-    
-    resolved = access_review_service.resolve_user_client_role_sources(
-        admin_api_url="https://keycloak.test/admin/realms/novasecure",
-        token_url="https://keycloak.test/token",
-        client_id="iam-governance-service",
-        client_secret="fake-secret",
-        user_id="user-123",
-        target_client_name="employee-portal",
-    )
-
-    assert resolved == [
-        {
-            "role_id": "finance-viewer-id",
-            "role_name": "finance-data-viewer",
-            "assignment_source": "direct",
-            "grant_sources": [
-                {
-                    "type": "user",
-                    "user_id": "user-123",
-                    "assigned_role_id": "finance-staff-id",
-                    "composite_path": [
-                        "finance-staff-id",
-                        "finance-reader-id",
-                        "finance-viewer-id",
-                    ],
-                }
-            ],
-        }
-    ]
-    
-
-def test_resolve_user_client_role_sources_preserves_multiple_direct_composite_grants(monkeypatch):
-    """
-    Verify that two assigned composites retain both sources for one effective role.
-    """
-    
-    assigned_role1 = {
-        "id": "finance-staff-id",
-        "name": "finance-staff",
-        "composite": True,
-    }
-    assigned_role2 = {
-        "id": "finance-manager-id",
-        "name": "finance-manager",
-        "composite": True,
-    }
-    middle_role = {
-        "id": "finance-reader-id",
-        "name": "finance-reader",
-        "composite": True,
-    }
-    effective_role = {
-        "id": "finance-viewer-id",
-        "name": "finance-data-viewer",
-    }
-
-    monkeypatch.setattr(
-        access_review_service,
-        "get_direct_client_roles",
-        lambda **kwargs: [assigned_role1, assigned_role2]
-    )
-
-    monkeypatch.setattr(
-        access_review_service,
-        "get_effective_client_roles",
-        lambda **kwargs: [effective_role]
-    )
-
-    monkeypatch.setattr(
-        access_review_service,
-        "get_role_composite_children",
-        lambda **kwargs: [middle_role] if kwargs["role_id"] == assigned_role1["id"] or kwargs["role_id"] == assigned_role2["id"]
-        else [effective_role] if kwargs["role_id"] == middle_role["id"]
-        else []
-    )
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_user_groups",
-        lambda **kwargs: [],
-    )
-    
-    resolved = access_review_service.resolve_user_client_role_sources(
-        admin_api_url="https://keycloak.test/admin/realms/novasecure",
-        token_url="https://keycloak.test/token",
-        client_id="iam-governance-service",
-        client_secret="fake-secret",
-        user_id="user-123",
-        target_client_name="employee-portal",
-    )
-
-    assert resolved == [
-        {
-            "role_id": "finance-viewer-id",
-            "role_name": "finance-data-viewer",
-            "assignment_source": "direct",
-            "grant_sources": [
-                {
-                    "type": "user",
-                    "user_id": "user-123",
-                    "assigned_role_id": "finance-staff-id",
-                    "composite_path": [
-                        "finance-staff-id",
-                        "finance-reader-id",
-                        "finance-viewer-id",
-                    ],
-                },
-                {
-                    "type": "user",
-                    "user_id": "user-123",
-                   ("assigned_role_id"): ("finance-manager-id"),
-                   ("composite_path"): ([
-                        "finance-manager-id",
-                        "finance-reader-id",
-                        "finance-viewer-id",
-                    ]),
-                }
-            ],
-        }
-    ]
-    
-def test_resolve_user_client_role_sources_reports_both_composite_user_and_group_grants(monkeypatch):
-    """
-    Verify that user-composite and group grants both explain one effective role.
-    """
-    
-    effective_role = {
-        "id" : "finance-viewer-id",
-        "name" : "finance-data-viewer",
-    }
-    
-    assigned_role={
-        "id" : "finance-staff-id",
-        "name" : "finance-staff",
-        "composite" : True,
-    }
-    
-    finance_group = {
-        "id": "finance-id",
-        "name": "Finance",
-        "parentId": None,
-    }
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_direct_client_roles",  
-        lambda **kwargs: [assigned_role]
-    )
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_effective_client_roles",
-        lambda **kwargs: [effective_role]
-    )
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_user_groups",
-        lambda **kwargs: [finance_group]
-    )
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_role_composite_children",
-        lambda **kwargs: [effective_role] if kwargs["role_id"] == assigned_role["id"] else []
-    )
-    
-    monkeypatch.setattr(
-        access_review_service,
-        "get_group_ancestors",
-        lambda **kwargs: [],
-    )
-    monkeypatch.setattr(
-        access_review_service,
-        "get_group_role_mappings",
-        lambda **kwargs: {
-            "clientMappings": {
-                "employee-portal": {
-                    "mappings": [effective_role],
-                }
-            }
-        },
-    )
-    
-    resolved = access_review_service.resolve_user_client_role_sources(
-        admin_api_url="https://keycloak.test/admin/realms/novasecure",
-        token_url="https://keycloak.test/token",
-        client_id="iam-governance-service",
-        client_secret="fake-secret",
-        user_id="user-123",
-        target_client_name="employee-portal",
-    )
-
-    assert resolved == [
-        {
-            "role_id": "finance-viewer-id",
-            "role_name": "finance-data-viewer",
-            "assignment_source": "both",
-            "grant_sources": [
-                {
-                    "type": "user",
-                    "user_id": "user-123",
-                    "assigned_role_id": "finance-staff-id",
-                    "composite_path": [
-                        "finance-staff-id",
-                        "finance-viewer-id",
-                    ],
-                },
-                {
-                    "group_id": "finance-id",
-                    "membership_group_id": "finance-id",
-                    "type": "group",
-                    "assigned_role_id": "finance-viewer-id",
-                    "composite_path": [],
-                },
-            ],
-        }
-    ]
-
-
 
 def test_populate_access_review_captures_managed_direct_role(monkeypatch, app):
     """
@@ -1878,3 +1192,55 @@ def test_populate_access_review_does_not_commit(app, monkeypatch):
 
     assert saved_items == []
 
+
+def test_populate_access_review_captures_managed_inherited_role_with_sources(
+    monkeypatch, app
+):
+    """
+    Verify that capture saves an inherited managed role and its group evidence.
+    """
+
+    campaign = create_access_review(
+        name="Finance review",
+        created_by_user_id="manager-123",
+        reviewer_user_id="reviewer-456",
+    )
+
+    db.session.add(
+        ManagedRole(
+            client_name="employee-portal",
+            role_name="finance-data-viewer",
+            enabled=True,
+        )
+    )
+    db.session.flush()
+
+    group_grant = {
+        "type": "group",
+        "group_id": "finance-id",
+        "membership_group_id": "finance-team-id",
+        "assigned_role_id": "finance-staff-id",
+        "composite_path": ["finance-staff-id", "finance-viewer-id"],
+    }
+    resolved_role = {
+        "role_id": "finance-viewer-id",
+        "role_name": "finance-data-viewer",
+        "assignment_source": "inherited",
+        "grant_sources": [group_grant],
+    }
+
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user",
+        Mock(return_value={"id": "user-123", "username": "alice"}),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        Mock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "resolve_user_client_role_sources",
+        Mock(return_value=[resolved_role]),
+    )

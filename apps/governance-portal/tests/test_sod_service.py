@@ -9,7 +9,12 @@ from extensions import db
 from unittest.mock import Mock
 
 
+
 def test_unmanaged_request_role_is_denied(app):
+    """
+    Verify that requests for roles outside the managed catalogue are denied.
+    """
+    
     result = evaluate_role_assignment("employee-portal", "unknown-role", [])
 
     assert result["decision"] == SOD_DENY
@@ -18,34 +23,10 @@ def test_unmanaged_request_role_is_denied(app):
 
 
 def test_managed_role_without_conflict_is_allowed(app):
-    test_managed_role = ManagedRole(
-        client_name="employee-portal", role_name="finance-data-viewer"
-    )
-
-    db.session.add(test_managed_role)
-    db.session.commit()
-
-    result = evaluate_role_assignment("employee-portal", "finance-data-viewer", [])
-
-    assert result["decision"] == SOD_ALLOW
-    assert result["reason"] == "no_sod_conflict"
-    assert result["rule_id"] is None
-    from services.sod_service import SOD_DENY, SOD_ALLOW, evaluate_role_assignment
-
-
-from models.managed_role import ManagedRole
-from extensions import db
-
-
-def test_unmanaged_request_role_is_denied(app):
-    result = evaluate_role_assignment("employee-portal", "unknown-role", [])
-
-    assert result["decision"] == SOD_DENY
-    assert result["reason"] == "role_not_managed"
-    assert result["rule_id"] is None
-
-
-def test_managed_role_without_conflict_is_allowed(app):
+    """
+    Verify that a managed role without an SoD conflict is allowed.
+    """
+    
     test_managed_role = ManagedRole(
         client_name="employee-portal", role_name="finance-data-viewer"
     )
