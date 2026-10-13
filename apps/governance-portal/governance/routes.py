@@ -23,6 +23,7 @@ from auth.permissions import (
     ROLE_MANAGER,
 )
 from services.access_review_service import (
+    add_access_review_item,
     create_access_review_with_audit,
     get_access_review_for_manager,
     get_access_review_for_reviewer,
@@ -30,7 +31,8 @@ from services.access_review_service import (
     get_access_reviews_for_reviewer,
     populate_access_review_with_audit,
     open_access_review_with_audit,
-    cancel_access_review_with_audit
+    cancel_access_review_with_audit,
+    record_access_review_decision_with_audit,
 )
 from services.audit_service import (
     get_recent_audit_events,
@@ -696,7 +698,7 @@ def open_access_review(review_id):
 
         else:
             abort(400)
-    
+
     except (AuditPersistenceError, SQLAlchemyError) as exc :
         _log_governance_event(
             level=40,
@@ -707,7 +709,7 @@ def open_access_review(review_id):
             target_id=str(review_id),
         )
         abort(503)
-    
+
     return redirect(
         url_for(
             "governance.manage_access_review_detail",
@@ -752,7 +754,7 @@ def cancel_access_review(review_id):
 
         else:
             abort(400)
-    
+
     except (AuditPersistenceError, SQLAlchemyError) as exc :
         _log_governance_event(
             level=40,
@@ -763,13 +765,60 @@ def cancel_access_review(review_id):
             target_id=str(review_id),
         )
         abort(503)
-    
+
     return redirect(
         url_for(
             "governance.manage_access_review_detail",
             review_id = review_id
         ),
         303,
-    )        
-    
-    
+    )
+
+@bp_governance.post("/access-reviews/<int:review_id>/items/<int:item_id>/decision")
+@login_required
+@client_role_required(ACCESS_REVIEWER)
+def record_access_review_decision(review_id: int, item_id: int):
+    """
+    Record the assigned reviewer's decision on a campaign item.
+    """
+    try:
+        record_access_review_decision_with_audit(
+        review_id=review_id,
+        item_id=item_id,
+        reviewer_user_id=current_user.get_id(),
+        actor_username=current_user.username,
+        decision=request.form.get("decision", ""),
+    )
+    except ValueError as exc:
+        if str(exc) in (
+            "access_review_not_found",
+            "access_review_item_not_found",
+        ):
+            abort(404)
+
+        if str(exc) == "access_review_self_certification":
+            abort(403)
+
+        if str(exc) == "invalid_access_review_decision":
+            abort(400)
+
+        if str(exc) == "access_review_not_open":
+            abort(409)
+
+        raise
+
+    except (AuditPersistenceError, SQLAlchemyError) as exc:
+        _log_governance_event(
+            level=40,
+            event="access_review.decision",
+            outcome="failure",
+            reason="decision_persistence_failed",
+            exc=exc,
+            target_id=str(item_id),
+        )
+        abort(503)
+
+    return redirect(
+        url_for("governance.access_review_detail", review_id=review_id),
+        303,
+    )

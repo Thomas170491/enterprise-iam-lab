@@ -1,9 +1,10 @@
 from html.parser import HTMLParser
+from http import client
 from unittest.mock import Mock
 from urllib.parse import urlsplit
 
 import pytest
-from flask import url_for
+from flask import abort, url_for
 from sqlalchemy.exc import SQLAlchemyError
 
 from auth.permissions import ACCESS_REVIEW_MANAGER, ACCESS_REVIEWER
@@ -507,9 +508,9 @@ def test_manager_draft_campaign_displays_capture_form(client):
     assert 'name="user_id"' in html
     assert 'name="csrf_token"' in html
     assert "Capture access" in html
-    
 
-   
+
+
 
 
 def test_manager_nonempty_draft_displays_open_form(client):
@@ -544,7 +545,7 @@ def test_manager_empty_draft_hides_open_form(client):
     """
     Verify that an empty draft campaign does not display the opening form.
     """
-    
+
     _login_user(client, [ACCESS_REVIEW_MANAGER])
 
     campaign = access_review_service.create_access_review(
@@ -560,7 +561,7 @@ def test_manager_empty_draft_hides_open_form(client):
 
     assert response.status_code == 200
     assert f'action="/access-reviews/manage/{campaign.id}/open"' not in html
-  
+
 
 
 
@@ -1102,9 +1103,9 @@ def test_manager_can_open_own_access_review(client):
     Verify that a manager can open their campaign and receives the correct redirect.
     """
     _login_user(client,[ACCESS_REVIEW_MANAGER])
-    
+
     campaign = access_review_service.create_access_review("Test campaign", "test-subject", "reviewer-123")
-    
+
     access_review_service.add_access_review_item(
     review_id=campaign.id,
     user_id="user-123",
@@ -1113,28 +1114,28 @@ def test_manager_can_open_own_access_review(client):
     role_id="finance-role-id",
     role_name="finance-data-viewer",
 )
-    
+
     db.session.commit()
-    
+
     response = client.post(
         f"/access-reviews/manage/{campaign.id}/open"
     )
-    
+
     assert response.status_code == 303
     assert response.headers["Location"] == f"/access-reviews/manage/{campaign.id}"
-    
+
     saved_review = db.session.get(AccessReview, campaign.id)
-    
+
     assert saved_review is not None
     assert saved_review.status == "open"
-    
+
     event = db.session.execute(
         db.select(AuditEvent).where(
             AuditEvent.action == "access_review.open",
             AuditEvent.target_id == str(campaign.id)
         )
     ).scalar_one_or_none()
-    
+
     assert event is not None
     assert event.actor_user_id == "test-subject"
     assert event.outcome == "success"
@@ -1510,10 +1511,10 @@ def test_access_review_mutations_require_valid_csrf_token(
 
     # Isolate CSRF enforcement from persistence and external Keycloak calls.
     fake_service = Mock(return_value=campaign)
-    
+
     monkeypatch.setattr(
-        governance_routes, 
-        f"{action}_access_review_with_audit", 
+        governance_routes,
+        f"{action}_access_review_with_audit",
         fake_service
     )
 
@@ -1551,7 +1552,7 @@ def test_access_review_mutations_require_valid_csrf_token(
     else:
         assert response.status_code == 400
         fake_service.assert_not_called()
-    
+
 def test_access_review_detail_shows_grant_sources(client):
     """
     Verify that the access review detail page displays grant sources for each role assignment.
@@ -1559,11 +1560,11 @@ def test_access_review_detail_shows_grant_sources(client):
     _login_user(client, [ACCESS_REVIEWER])
 
     campaign = access_review_service.create_access_review(
-        name = "Grant source campaign", 
+        name = "Grant source campaign",
         created_by_user_id = "manager-123",
         reviewer_user_id = "test-subject"
     )
-    
+
     assignment_source="direct"
     grant_sources=[
         {
@@ -1573,10 +1574,10 @@ def test_access_review_detail_shows_grant_sources(client):
             "composite_path": ["finance-staff-id", "finance-role-id"],
         }
     ]
-    
+
     assert isinstance(grant_sources, list)
     assert grant_sources[0]["assigned_role_id"] == "finance-staff-id"
-    
+
     access_review_service.add_access_review_item(
         review_id=campaign.id,
         user_id="user-123",
@@ -1604,11 +1605,11 @@ def test_access_review_detail_shows_inherited_group_grant(client):
     _login_user(client, [ACCESS_REVIEWER])
 
     campaign = access_review_service.create_access_review(
-        name = "Inherited group campaign", 
+        name = "Inherited group campaign",
         created_by_user_id = "manager-123",
         reviewer_user_id = "test-subject"
     )
-    
+
     assignment_source="inherited"
     grant_sources=[
         {
@@ -1619,10 +1620,10 @@ def test_access_review_detail_shows_inherited_group_grant(client):
             "composite_path": ["finance-staff-id", "finance-role-id"],
         }
     ]
-    
+
     assert isinstance(grant_sources, list)
     assert grant_sources[0]["assigned_role_id"] == "finance-staff-id"
-    
+
     access_review_service.add_access_review_item(
         review_id=campaign.id,
         user_id="user-123",
@@ -1643,23 +1644,23 @@ def test_access_review_detail_shows_inherited_group_grant(client):
     assert "finance-staff-group-id" in html
     assert "finance-staff-id" in html
     assert "finance-team-id" in html
-    
+
 def test_access_review_detail_marks_missing_grant_evidence(client):
     """
     Verify that a review item without recorded grant evidence is labeled unavailable.
     """
-    
+
     _login_user(client, [ACCESS_REVIEWER])
 
     campaign = access_review_service.create_access_review(
-        name = "Missing grant evidence campaign", 
+        name = "Missing grant evidence campaign",
         created_by_user_id = "manager-123",
         reviewer_user_id = "test-subject"
     )
-    
+
     assignment_source="direct"
     grant_sources=[]
-    
+
     access_review_service.add_access_review_item(
         review_id=campaign.id,
         user_id="user-123",
@@ -1679,6 +1680,376 @@ def test_access_review_detail_marks_missing_grant_evidence(client):
     assert "Grant Sources" in html
     assert "Source evidence unavailable" in html
 
-    
-    
+def test_record_access_review_decision_allows_assigned_reviewer_to_retain(client):
+    """
+    Verify that the assigned reviewer can retain an item in an open campaign.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="test-subject",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    access_review_service.open_access_review(campaign.id)
+    campaign_id, item_id = campaign.id, item.id
+    db.session.commit()
+
+    response = client.post(
+        f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+        data={"decision": "retain"},
+    )
+
+    assert response.status_code == 303
+    assert response.headers["Location"] == f"/access-reviews/{campaign_id}"
+
+    db.session.expire_all()
+    saved_item = db.session.get(AccessReviewItem, item_id)
+    assert saved_item is not None
+    assert saved_item.decision == "retain"
+    assert saved_item.decided_by_user_id == "test-subject"
+    assert saved_item.decided_at is not None
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.decision",
+            AuditEvent.target_id == str(item_id),
+        )
+    ).scalar_one_or_none()
+
+    assert event is not None
+    assert event.actor_user_id == "test-subject"
+    assert event.details["review_id"] == campaign_id
+    assert event.details["decision"] == "retain"
+
+def test_record_access_review_decision_hides_campaign_from_other_reviewer(client):
+    """
+    Verify that a reviewer cannot decide an item in another reviewer's campaign.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="other-reviewer",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    access_review_service.open_access_review(campaign.id)
+    campaign_id, item_id = campaign.id, item.id
+    db.session.commit()
+
+    response = client.post(
+        f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+        data={"decision": "retain"},
+    )
+
+    assert response.status_code == 404
+    db.session.expire_all()
+    saved_item = db.session.get(AccessReviewItem, item_id)
+    assert saved_item is not None
+    assert saved_item.decision is None
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.decision",
+            AuditEvent.target_id == str(item_id),
+        )
+    ).scalar_one_or_none()
+    assert event is None
+
+def test_record_access_review_decision_rejects_self_certification(client):
+    """
+    Verify that a reviewer cannot decide their own access review item.
+    """
+
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="test-subject",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="test-subject",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    access_review_service.open_access_review(campaign.id)
+    campaign_id, item_id = campaign.id, item.id
+    db.session.commit()
+
+    response = client.post(
+        f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+        data={"decision": "retain"},
+    )
+
+    assert response.status_code == 403
+    db.session.expire_all()
+    saved_item = db.session.get(AccessReviewItem, item_id)
+    assert saved_item is not None
+    assert saved_item.decision is None
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.decision",
+            AuditEvent.target_id == str(item_id),
+        )
+    ).scalar_one_or_none()
+    assert event is None
+
+@pytest.mark.parametrize("decision", ["", "approve"])
+def test_record_access_review_decision_rejects_invalid_value(client, decision):
+    """
+    Verify that invalid decisions leave the item unchanged and create no audit event.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="test-subject",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    access_review_service.open_access_review(campaign.id)
+    campaign_id, item_id = campaign.id, item.id
+    db.session.commit()
+
+    response = client.post(
+        f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+        data={"decision": decision},
+    )
+
+    assert response.status_code == 400
+    db.session.expire_all()
+    saved_item = db.session.get(AccessReviewItem, item_id)
+    assert saved_item is not None
+    assert saved_item.decision is None
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.decision",
+            AuditEvent.target_id == str(item_id),
+        )
+    ).scalar_one_or_none()
+    assert event is None
+
+@pytest.mark.parametrize("status", ["draft", "completed", "cancelled"])
+def test_record_access_review_decision_rejects_non_open_campaign(client, status):
+    """
+    Verify that items cannot be decided outside an open campaign.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="test-subject",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    campaign.status = status
+    db.session.commit()
+    campaign_id, item_id = campaign.id, item.id
+
+    response = client.post(
+        f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+        data={"decision": "retain"},
+    )
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.decision",
+            AuditEvent.target_id == str(item_id),
+        )
+    ).scalar_one_or_none()
+
+    assert response.status_code == 409
+    assert item.decision is None
+    assert event is None
+
+def test_record_access_review_decision_rejects_item_from_another_campaign(client):
+    """
+    Verify that a decision URL cannot target an item from another campaign.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="test-subject",
+    )
+    access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+
+    other_campaign = access_review_service.create_access_review(
+        name="Other campaign",
+        created_by_user_id="manager-456",
+        reviewer_user_id="test-subject",
+    )
+    other_item = access_review_service.add_access_review_item(
+        review_id=other_campaign.id,
+        user_id="other-subject",
+        username="bob",
+        client_name="employee-portal",
+        role_id="hr-role-id",
+        role_name="hr-data-viewer",
+    )
+
+    access_review_service.open_access_review(campaign.id)
+    access_review_service.open_access_review(other_campaign.id)
+
+    campaign_id = campaign.id
+    other_item_id = other_item.id
+    db.session.commit()
+
+    response = client.post(
+        f"/access-reviews/{campaign_id}/items/{other_item_id}/decision",
+        data={"decision": "retain"},
+    )
+
+    assert response.status_code == 404
+
+    db.session.expire_all()
+    saved_item = db.session.get(AccessReviewItem, other_item_id)
+    assert saved_item is not None
+    assert saved_item.decision is None
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.decision",
+            AuditEvent.target_id == str(other_item_id),
+        )
+    ).scalar_one_or_none()
+    assert event is None
+def test_record_access_review_decision_rolls_back_on_audit_failure(
+    client, monkeypatch
+):
+    """
+    Verify that an audit failure leaves the review item undecided.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="test-subject",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    access_review_service.open_access_review(campaign.id)
+    campaign_id, item_id = campaign.id, item.id
+    db.session.commit()
+
+    fake_audit = Mock(side_effect=AuditPersistenceError("audit_failed"))
+    monkeypatch.setattr(
+        access_review_service,
+        "record_audit_event",
+        fake_audit,
+    )
+
+    response = client.post(
+        f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+        data={"decision": "retain"},
+    )
+
+    assert response.status_code == 503
+    fake_audit.assert_called_once()
+    db.session.expire_all()
+    saved_item = db.session.get(AccessReviewItem, item_id)
+    assert saved_item is not None
+    assert saved_item.decision is None
+
+@pytest.mark.parametrize("decision", ["retain", "revoke"])
+def test_record_access_review_decision_allows_assigned_reviewer_to_decide(
+client, decision
+):
+    """
+    Verify that the assigned reviewer can retain or revoke an open review item.
+    """
+
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+            name="Decision campaign",
+            created_by_user_id="manager-123",
+            reviewer_user_id="test-subject",
+        )
+    item = access_review_service.add_access_review_item(
+            review_id=campaign.id,
+            user_id="user-123",
+            username="alice",
+            client_name="employee-portal",
+            role_id="finance-role-id",
+            role_name="finance-data-viewer",
+        )
+    access_review_service.open_access_review(campaign.id)
+    campaign_id, item_id = campaign.id, item.id
+    db.session.commit()
+
+
+
+    response = client.post(
+            f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+            data={"decision": decision},
+        )
+
+    assert response.status_code == 303
+    assert response.headers["Location"] == f"/access-reviews/{campaign_id}"
+    db.session.expire_all()
+    saved_item = db.session.get(AccessReviewItem, item_id)
+    assert saved_item is not None
+    assert saved_item.decision == decision
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(
+            AuditEvent.action == "access_review.decision",
+            AuditEvent.target_id == str(item_id),
+        )
+    ).scalar_one_or_none()
+
+    assert event.details["decision"] == decision
+
 

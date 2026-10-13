@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from extensions import db
@@ -89,7 +89,7 @@ def add_access_review_item(
     Validate and trim the required identity and role details.
     Flush the item without committing; the caller owns the transaction.
     """
-    
+
     campaign = db.session.get(AccessReview, review_id)
 
     if campaign is None:
@@ -97,7 +97,7 @@ def add_access_review_item(
 
     if campaign.status != "draft":
         raise ValueError("access_review_not_draft")
-    
+
     if assignment_source not in ("direct", "inherited", "both"):
         raise ValueError("invalid_assignment_source")
 
@@ -224,7 +224,7 @@ def _get_composite_role_paths(
     """
     Return descendant role IDs and paths from an assigned composite role.
     """
-    
+
     if not assigned_role.get("composite"):
         return []
 
@@ -243,13 +243,13 @@ def _get_composite_role_paths(
             )
             for child in children:
                 child_role_id = child["id"]
-                
+
                 if child_role_id in path:
                     continue
-                
+
                 child_path = path + [child_role_id]
                 paths.append((child_role_id, child_path))
-                
+
                 if child.get("composite"):
                     pending.append((child, child_path))
 
@@ -266,7 +266,7 @@ def resolve_user_client_role_sources(
     """
     Identify the direct and group sources of a user's effective client roles.
     """
-    
+
     direct_roles= get_direct_client_roles(
                     admin_api_url = admin_api_url,
                     token_url = token_url,
@@ -274,30 +274,30 @@ def resolve_user_client_role_sources(
                     client_secret = client_secret,
                     user_id = user_id,
                     target_client_name = target_client_name,
-                ) 
-    
-    
-    
+                )
+
+
+
     effective_roles = get_effective_client_roles(
                         admin_api_url = admin_api_url,
                         token_url = token_url,
                         client_id = client_id,
                         client_secret = client_secret,
                         user_id = user_id,
-                        target_client_name = target_client_name,       
+                        target_client_name = target_client_name,
                     )
-    
-    
+
+
     memberships = get_user_groups(
                     admin_api_url = admin_api_url,
                     token_url = token_url,
                     client_id = client_id,
                     client_secret = client_secret,
-                    user_id = user_id,   
+                    user_id = user_id,
    )
-    
+
     group_paths = []
-    
+
     for membership in memberships :
         ancestors = get_group_ancestors(
                             admin_api_url = admin_api_url,
@@ -306,14 +306,14 @@ def resolve_user_client_role_sources(
                             client_secret = client_secret,
                             group_id = membership["id"]
                         )
-        
+
         group_paths.append((membership,membership))
-        
+
         for ancestor in ancestors :
             group_paths.append((ancestor,membership))
-               
+
     group_grants_by_role_id = {}
-            
+
     for group, membership in group_paths:
         mappings = get_group_role_mappings(
                 admin_api_url=admin_api_url,
@@ -322,11 +322,11 @@ def resolve_user_client_role_sources(
                 client_secret=client_secret,
                 group_id=group["id"],
             )
-            
+
         client_mappings = mappings.get("clientMappings") or {}
         client_mapping = client_mappings.get(target_client_name) or {}
         mapped_roles = client_mapping.get("mappings") or []
-                       
+
         for mapped_role in mapped_roles:
             role_id = mapped_role["id"]
 
@@ -339,7 +339,7 @@ def resolve_user_client_role_sources(
                 "composite_path": [],
             }
             grants = group_grants_by_role_id.setdefault(role_id, [])
-            
+
             if grant not in grants:
                 grants.append(grant)
 
@@ -361,11 +361,11 @@ def resolve_user_client_role_sources(
                 child_grants = group_grants_by_role_id.setdefault(child_role_id, [])
                 if child_grant not in child_grants:
                     child_grants.append(child_grant)
-    
+
     direct_role_ids = {role["id"] for role in direct_roles}
-    
+
     user_composite_grants_by_role_id = {}
-    
+
     for assigned_role in direct_roles:
             for child_role_id, child_path in _get_composite_role_paths(
                 assigned_role=assigned_role,
@@ -381,19 +381,19 @@ def resolve_user_client_role_sources(
                     "composite_path": child_path,
                 }
                 grants = user_composite_grants_by_role_id.setdefault(child_role_id, [])
-                
+
                 if grant not in grants:
                     grants.append(grant)
-                    
+
     resolved_roles = []
 
     for role in effective_roles:
-        
+
         role_id = role["id"]
         is_direct = role_id in direct_role_ids
         group_grants = group_grants_by_role_id.get(role_id, [])
         user_grants = []
-        
+
         if is_direct:
             user_grants.append(
                 {
@@ -403,14 +403,14 @@ def resolve_user_client_role_sources(
                     "composite_path": [],
                 }
             )
-        
+
         user_grants.extend(
             user_composite_grants_by_role_id.get(role_id, [])
         )
 
         if user_grants and group_grants:
             assignment_source = "both"
-    
+
         elif user_grants:
             assignment_source = "direct"
 
@@ -428,8 +428,8 @@ def resolve_user_client_role_sources(
             }
                 )
 
-    return resolved_roles 
- 
+    return resolved_roles
+
 def open_access_review_with_audit(
     review_id: int,
     manager_user_id: str,
@@ -518,7 +518,7 @@ def cancel_access_review_with_audit(
         raise
 
     return cancelled_campaign
-    
+
 
 def get_access_reviews_for_reviewer(reviewer_user_id: str) -> list[AccessReview]:
     """
@@ -852,3 +852,79 @@ def populate_access_review_with_audit(
 
     return created_items
 
+def record_access_review_decision(
+    review_id: int,
+    item_id: int,
+    reviewer_user_id: str,
+    decision: str,
+) -> AccessReviewItem:
+    """
+    Record an assigned reviewer's decision on an item in an open campaign.
+    """
+    campaign = get_access_review_for_reviewer(review_id, reviewer_user_id)
+
+    if campaign.status != "open":
+        raise ValueError("access_review_not_open")
+
+    item = db.session.get(AccessReviewItem, item_id)
+
+    if item is None or item.review_id != campaign.id:
+        raise ValueError("access_review_item_not_found")
+
+    if item.user_id == reviewer_user_id:
+        raise ValueError("access_review_self_certification")
+
+    if decision not in ("retain", "revoke"):
+        raise ValueError("invalid_access_review_decision")
+
+    item.decision = decision
+    item.decided_by_user_id = reviewer_user_id
+    item.decided_at = datetime.now(timezone.utc)
+
+    db.session.flush()
+    return item
+
+def record_access_review_decision_with_audit(
+    review_id: int,
+    item_id: int,
+    reviewer_user_id: str,
+    actor_username: str,
+    decision: str,
+) -> AccessReviewItem:
+    """
+    Save a reviewer decision and its audit event in one transaction.
+    """
+
+    try:
+        item = record_access_review_decision(
+            review_id=review_id,
+            item_id=item_id,
+            reviewer_user_id=reviewer_user_id,
+            decision=decision,
+        )
+
+        record_audit_event(
+            actor_user_id=reviewer_user_id,
+            actor_username=actor_username,
+            action="access_review.decision",
+            target_type="access_review_item",
+            target_id=str(item.id),
+            outcome="success",
+            details={
+                "source": "governance-portal",
+                "review_id": review_id,
+                "user_id": item.user_id,
+                "client_name": item.client_name,
+                "role_name": item.role_name,
+                "decision": decision,
+            },
+            commit=False,
+        )
+
+        db.session.commit()
+
+    except Exception:
+        db.session.rollback()
+        raise
+
+    return item

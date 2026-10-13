@@ -29,10 +29,16 @@ class AccessReviewItem(db.Model):
     role_id = db.Column(db.String(255), nullable=False)
 
     role_name = db.Column(db.String(100), nullable=False)
-    
+
     assignment_source = db.Column(db.String(20), nullable=False)
-    
+
     grant_sources = db.Column(db.JSON,nullable=False,default=list)
+
+    decision = db.Column(db.String(20), nullable=True)
+
+    decided_by_user_id = db.Column(db.String(255), nullable=True)
+
+    decided_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     created_at = db.Column(
         db.DateTime(timezone=True),
@@ -55,6 +61,10 @@ class AccessReviewItem(db.Model):
         ),
         db.CheckConstraint(
         "assignment_source IN ('direct', 'inherited', 'both')",
-        name="ck_access_review_items_valid_assignment_source",        
+        name="ck_access_review_items_valid_assignment_source",
+        ),
+        db.CheckConstraint(
+        "decision IS NULL OR decision IN ('retain', 'revoke')",
+        name="ck_access_review_items_valid_decision",
         ),
     )
