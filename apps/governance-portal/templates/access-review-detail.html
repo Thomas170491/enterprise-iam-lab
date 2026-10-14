@@ -129,6 +129,7 @@
                 <td>
                     <strong>{{ item.assignment_source | capitalize }}</strong>
                     {% for grant in item.grant_sources or [] %}
+                    <th scope="col">Decision</th>
                         <div>
                             {% if grant.type == "group" %}
                                 Group {{ grant.group_id }}
@@ -145,10 +146,30 @@
                         <div>Source evidence unavailable</div>
                     {% endfor %}
                 </td>
-         </tr> 
+
+                <td>
+                    {% if not (manager_view | default(false))
+                        and review.status == "open"
+                        and item.decision is none
+                        and item.user_id != review.reviewer_user_id %}
+                        <form
+                            method="POST"
+                            action="{{ url_for('governance.record_access_review_decision', review_id=review.id, item_id=item.id) }}"
+                        >
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" name="decision" value="retain">Retain</button>
+                            <button type="submit" name="decision" value="revoke">Revoke</button>
+                        </form>
+                    {% else %}
+                        {{ item.decision | capitalize if item.decision else "Pending" }}
+                    {% endif %}
+               </td>
+         </tr>
             {% endfor %}
         </tbody>
     </table>
+
+
     {% else %}
     <p>No access items have been captured for this campaign.</p>
     {% endif %}

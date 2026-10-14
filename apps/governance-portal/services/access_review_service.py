@@ -877,6 +877,9 @@ def record_access_review_decision(
     if decision not in ("retain", "revoke"):
         raise ValueError("invalid_access_review_decision")
 
+    if item.decision is not None:
+        raise ValueError("access_review_item_already_decided")
+
     item.decision = decision
     item.decided_by_user_id = reviewer_user_id
     item.decided_at = datetime.now(timezone.utc)

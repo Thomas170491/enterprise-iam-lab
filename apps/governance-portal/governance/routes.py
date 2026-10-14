@@ -805,6 +805,9 @@ def record_access_review_decision(review_id: int, item_id: int):
         if str(exc) == "access_review_not_open":
             abort(409)
 
+        if str(exc) == "access_review_item_already_decided":
+            abort(409)
+
         raise
 
     except (AuditPersistenceError, SQLAlchemyError) as exc:
