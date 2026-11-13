@@ -1,9 +1,11 @@
+import re
 from datetime import datetime, timezone
 from typing import Any
 
 from extensions import db
 from models import AccessReview, AccessReviewItem, ManagedRole
 from services.audit_service import record_audit_event
+from services.exceptions import KeycloakAdminAPIError
 from services.keycloak_admin_service import (
     get_direct_client_roles,
     get_effective_client_roles,
@@ -12,6 +14,11 @@ from services.keycloak_admin_service import (
     get_user_groups,
     get_group_ancestors,
     get_group_role_mappings,
+)
+
+_KEYCLOAK_UUID = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+    re.IGNORECASE,
 )
 
 
@@ -694,6 +701,9 @@ def populate_access_review_from_identity(
 
     user_id = _validate_required_string(user_id, "user_id", 255)
 
+    if _KEYCLOAK_UUID.fullmatch(user_id) is None:
+        raise ValueError("invalid_user_id")
+
     identity = get_user(
         admin_api_url=admin_api_url,
         token_url=token_url,
@@ -701,6 +711,12 @@ def populate_access_review_from_identity(
         client_secret=client_secret,
         user_id=user_id,
     )
+
+    # Use the ID Keycloak returned, so an alias of it is never stored.
+    user_id = identity.get("id")
+
+    if not isinstance(user_id, str) or _KEYCLOAK_UUID.fullmatch(user_id) is None:
+        raise KeycloakAdminAPIError("Unexpected user response")
 
     resolved_roles = resolve_user_client_role_sources(
         admin_api_url=admin_api_url,

@@ -837,7 +837,7 @@ def test_manager_can_populate_own_access_review(client, monkeypatch):
         access_review_service,
         "get_user",
         lambda **kwargs: {
-            "id": "user-123",
+            "id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
             "username": "alice",
         },
     )
@@ -850,7 +850,7 @@ def test_manager_can_populate_own_access_review(client, monkeypatch):
             "assignment_source": "direct",
             "grant_sources": [{
                 "type": "user",
-                "user_id": "user-123",
+                "user_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
                 "assigned_role_id": "finance-role-id",
                 "composite_path": [],
             }],
@@ -859,7 +859,7 @@ def test_manager_can_populate_own_access_review(client, monkeypatch):
 
     response = client.post(
         f"/access-reviews/manage/{campaign.id}/populate",
-        data={"user_id": "user-123"},
+        data={"user_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"},
     )
 
     assert response.status_code == 303
@@ -872,7 +872,7 @@ def test_manager_can_populate_own_access_review(client, monkeypatch):
     ).scalar_one_or_none()
 
     assert item is not None
-    assert item.user_id == "user-123"
+    assert item.user_id == "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"
     assert item.role_id == "finance-role-id"
     assert item.role_name == "finance-data-viewer"
 
@@ -1054,7 +1054,7 @@ def test_populate_access_review_returns_503_on_keycloak_failure(
 
     response = client.post(
         f"/access-reviews/manage/{campaign.id}/populate",
-        data={"user_id": "user-123"},
+        data={"user_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"},
     )
 
     assert response.status_code == 503
@@ -1066,6 +1066,36 @@ def test_populate_access_review_returns_503_on_keycloak_failure(
 
     assert saved_items == []
     fake_resolve_roles.assert_not_called()
+
+
+def test_populate_access_review_returns_400_for_aliased_user_id(client, monkeypatch):
+    """
+    Verify that an aliased identity ID returns HTTP 400 without contacting Keycloak.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    campaign = access_review_service.create_access_review(
+        "Test campaign",
+        "test-subject",
+        "test-reviewer",
+    )
+
+    fake_get_user = Mock()
+
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user",
+        fake_get_user,
+    )
+
+    response = client.post(
+        f"/access-reviews/manage/{campaign.id}/populate",
+        data={"user_id": "./3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"},
+    )
+
+    assert response.status_code == 400
+    fake_get_user.assert_not_called()
+    assert db.session.execute(db.select(AccessReviewItem)).scalars().all() == []
 
 
 @pytest.mark.parametrize(

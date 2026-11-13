@@ -4,6 +4,7 @@ from unittest.mock import Mock
 from extensions import db
 from models import AccessReview, AccessReviewItem, ManagedRole
 import services.access_review_service as access_review_service
+from services.exceptions import KeycloakAdminAPIError
 
 create_access_review = access_review_service.create_access_review
 
@@ -17,7 +18,7 @@ def _resolved_direct_role(role_id: str, role_name: str) -> dict:
         "grant_sources": [
             {
                 "type": "user",
-                "user_id": "user-123",
+                "user_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
                 "assigned_role_id": role_id,
                 "composite_path": [],
             }
@@ -39,7 +40,7 @@ def test_populate_access_review_captures_managed_direct_role(monkeypatch, app):
     db.session.add(managed_role)
     db.session.flush()
 
-    fake_get_user = Mock(return_value={"id": "user-123", "username": "alice"})
+    fake_get_user = Mock(return_value={"id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b", "username": "alice"})
     fake_resolve_roles = Mock(
         return_value=[_resolved_direct_role("finance-role-id", "finance-data-viewer")]
     )
@@ -53,7 +54,7 @@ def test_populate_access_review_captures_managed_direct_role(monkeypatch, app):
     created_items = access_review_service.populate_access_review_from_identity(
         review_id=campaign.id,
         manager_user_id="manager-123",
-        user_id="user-123",
+        user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
         admin_api_url="https://keycloak.test/admin",
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
@@ -66,7 +67,7 @@ def test_populate_access_review_captures_managed_direct_role(monkeypatch, app):
 
     assert item.id is not None
     assert item.review_id == campaign.id
-    assert item.user_id == "user-123"
+    assert item.user_id == "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"
     assert item.username == "alice"
     assert item.client_name == "employee-portal"
     assert item.role_id == "finance-role-id"
@@ -100,7 +101,7 @@ def test_populate_access_review_skips_existing_items(app, monkeypatch):
         "get_user",
         Mock(
             return_value={
-                "id": "user-123",
+                "id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
                 "username": "alice",
             }
         ),
@@ -119,7 +120,7 @@ def test_populate_access_review_skips_existing_items(app, monkeypatch):
     arguments = {
         "review_id": campaign.id,
         "manager_user_id": "manager-123",
-        "user_id": "user-123",
+        "user_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
         "admin_api_url": "https://keycloak.test/admin",
         "token_url": "https://keycloak.test/token",
         "client_id": "iam-governance-service",
@@ -179,7 +180,7 @@ def test_populate_access_review_rejects_other_manager(app, monkeypatch):
         access_review_service.populate_access_review_from_identity(
             review_id=campaign.id,
             manager_user_id="other-manager",
-            user_id="user-123",
+            user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
             admin_api_url="https://keycloak.test/admin",
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
@@ -234,7 +235,7 @@ def test_populate_access_review_rejects_non_draft_campaign(app, monkeypatch, sta
         result = access_review_service.populate_access_review_from_identity(
             review_id=campaign.id,
             manager_user_id="manager-123",
-            user_id="user-123",
+            user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
             admin_api_url="https://keycloak.test/admin",
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
@@ -278,7 +279,7 @@ def test_populate_access_review_skips_unmanaged_roles(app, monkeypatch):
         "get_user",
         Mock(
             return_value={
-                "id": "user-123",
+                "id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
                 "username": "alice",
             }
         ),
@@ -298,7 +299,7 @@ def test_populate_access_review_skips_unmanaged_roles(app, monkeypatch):
     created_items = access_review_service.populate_access_review_from_identity(
         review_id=campaign.id,
         manager_user_id="manager-123",
-        user_id="user-123",
+        user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
         admin_api_url="https://keycloak.test/admin",
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
@@ -349,7 +350,7 @@ def test_populate_access_review_does_not_commit(app, monkeypatch):
         "get_user",
         Mock(
             return_value={
-                "id": "user-123",
+                "id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
                 "username": "alice",
             }
         ),
@@ -368,7 +369,7 @@ def test_populate_access_review_does_not_commit(app, monkeypatch):
     created_items = access_review_service.populate_access_review_from_identity(
         review_id=campaign_id,
         manager_user_id="manager-123",
-        user_id="user-123",
+        user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
         admin_api_url="https://keycloak.test/admin",
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
@@ -436,7 +437,7 @@ def test_populate_access_review_captures_managed_inherited_role_with_sources(
     monkeypatch.setattr(
         access_review_service,
         "get_user",
-        Mock(return_value={"id": "user-123", "username": "alice"}),
+        Mock(return_value={"id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b", "username": "alice"}),
     )
     monkeypatch.setattr(
         access_review_service,
@@ -447,7 +448,7 @@ def test_populate_access_review_captures_managed_inherited_role_with_sources(
     created_items = access_review_service.populate_access_review_from_identity(
         review_id=campaign.id,
         manager_user_id="manager-123",
-        user_id="user-123",
+        user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
         admin_api_url="https://keycloak.test/admin/realms/novasecure",
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
@@ -488,7 +489,7 @@ def test_populate_access_review_captures_both_user_and_group_sources(monkeypatch
         "grant_sources": [
             {
                 "type": "user",
-                "user_id": "user-123",
+                "user_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
                 "assigned_role_id": "finance-viewer-id",
                 "composite_path": [],
             },
@@ -511,13 +512,13 @@ def test_populate_access_review_captures_both_user_and_group_sources(monkeypatch
     monkeypatch.setattr(
         access_review_service,
         "get_user",
-        Mock(return_value={"id": "user-123", "username": "alice"}),
+        Mock(return_value={"id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b", "username": "alice"}),
     )
     
     created_items = access_review_service.populate_access_review_from_identity(
         review_id=campaign.id,
         manager_user_id="manager-123",
-        user_id="user-123",
+        user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
         admin_api_url="https://keycloak.test/admin/realms/novasecure",
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
@@ -534,3 +535,122 @@ def test_populate_access_review_captures_both_user_and_group_sources(monkeypatch
     
 
 
+
+@pytest.mark.parametrize(
+    "aliased_user_id",
+    [
+        "./3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
+        "../3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
+        "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b?briefRepresentation=true",
+        "user-123",
+    ],
+)
+def test_populate_access_review_rejects_non_uuid_user_id_before_keycloak(
+    app, monkeypatch, aliased_user_id
+):
+    """
+    Verify that a user ID that is not a Keycloak UUID is rejected before any Keycloak call.
+    """
+    campaign = create_access_review("test campaign", "manager-123", "reviewer-456")
+
+    fake_get_user = Mock()
+    fake_resolve_roles = Mock()
+
+    monkeypatch.setattr(access_review_service, "get_user", fake_get_user)
+    monkeypatch.setattr(
+        access_review_service, "resolve_user_client_role_sources", fake_resolve_roles
+    )
+
+    with pytest.raises(ValueError, match="^invalid_user_id$"):
+        access_review_service.populate_access_review_from_identity(
+            review_id=campaign.id,
+            manager_user_id="manager-123",
+            user_id=aliased_user_id,
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
+        )
+
+    fake_get_user.assert_not_called()
+    fake_resolve_roles.assert_not_called()
+    assert db.session.execute(db.select(AccessReviewItem)).scalars().all() == []
+
+
+def test_populate_access_review_stores_user_id_returned_by_keycloak(app, monkeypatch):
+    """
+    Verify that the captured item stores the identity ID Keycloak returned, not the submitted spelling.
+    """
+    campaign = create_access_review("test campaign", "manager-123", "reviewer-456")
+
+    db.session.add(
+        ManagedRole(
+            client_name="employee-portal", role_name="finance-data-viewer", enabled=True
+        )
+    )
+    db.session.flush()
+
+    keycloak_user_id = "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"
+
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user",
+        Mock(return_value={"id": keycloak_user_id, "username": "alice"}),
+    )
+    fake_resolve_roles = Mock(
+        return_value=[_resolved_direct_role("finance-role-id", "finance-data-viewer")]
+    )
+    monkeypatch.setattr(
+        access_review_service, "resolve_user_client_role_sources", fake_resolve_roles
+    )
+
+    created_items = access_review_service.populate_access_review_from_identity(
+        review_id=campaign.id,
+        manager_user_id="manager-123",
+        user_id=keycloak_user_id.upper(),
+        admin_api_url="https://keycloak.test/admin",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="test-secret",
+    )
+
+    assert [item.user_id for item in created_items] == [keycloak_user_id]
+    assert fake_resolve_roles.call_args.kwargs["user_id"] == keycloak_user_id
+
+
+@pytest.mark.parametrize(
+    "returned_user",
+    [
+        {"username": "alice"},
+        {"id": None, "username": "alice"},
+        {"id": "./3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b", "username": "alice"},
+    ],
+)
+def test_populate_access_review_rejects_user_response_without_uuid_id(
+    app, monkeypatch, returned_user
+):
+    """
+    Verify that capture fails as a Keycloak error when the returned user has no usable ID.
+    """
+    campaign = create_access_review("test campaign", "manager-123", "reviewer-456")
+
+    monkeypatch.setattr(
+        access_review_service, "get_user", Mock(return_value=returned_user)
+    )
+    fake_resolve_roles = Mock()
+    monkeypatch.setattr(
+        access_review_service, "resolve_user_client_role_sources", fake_resolve_roles
+    )
+
+    with pytest.raises(KeycloakAdminAPIError):
+        access_review_service.populate_access_review_from_identity(
+            review_id=campaign.id,
+            manager_user_id="manager-123",
+            user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
+        )
+
+    fake_resolve_roles.assert_not_called()

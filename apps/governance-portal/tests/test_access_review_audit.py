@@ -427,7 +427,7 @@ def population_setup(app, monkeypatch):
 
     fake_get_user = Mock(
         return_value={
-            "id": "user-123",
+            "id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
             "username": "alice",
         }
     )
@@ -440,7 +440,7 @@ def population_setup(app, monkeypatch):
                 "grant_sources": [
                     {
                         "type": "user",
-                        "user_id": "user-123",
+                        "user_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
                         "assigned_role_id": "finance-role-id",
                         "composite_path": [],
                     }
@@ -465,7 +465,7 @@ def population_setup(app, monkeypatch):
             "review_id": campaign.id,
             "manager_user_id": "manager-123",
             "actor_username": "leo",
-            "user_id": "user-123",
+            "user_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
             "admin_api_url": "https://keycloak.test/admin",
             "token_url": "https://keycloak.test/token",
             "client_id": "iam-governance-service",
@@ -500,7 +500,7 @@ def test_populate_access_review_with_audit_records_actor(population_setup):
 
     assert saved_item is not None
     assert saved_item.review_id == review_id
-    assert saved_item.user_id == "user-123"
+    assert saved_item.user_id == "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"
     assert saved_item.role_id == "finance-role-id"
 
     assert event is not None
@@ -509,7 +509,7 @@ def test_populate_access_review_with_audit_records_actor(population_setup):
     assert event.target_type == "access_review"
     assert event.outcome == "success"
     assert event.details["source"] == "governance-portal"
-    assert event.details["user_id"] == "user-123"
+    assert event.details["user_id"] == "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"
     assert event.details["client_name"] == "employee-portal"
     assert event.details["items_added"] == 1
 
