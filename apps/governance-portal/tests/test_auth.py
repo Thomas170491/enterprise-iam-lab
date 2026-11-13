@@ -151,6 +151,50 @@ def test_oidc_callback_creates_user_session(
         assert sess["id_token"] == "fake-id-token"
 
 
+def test_oidc_callback_accepts_account_without_name(
+    client,
+    monkeypatch,
+):
+    """
+    A callback for an account with no name claim should still sign the user in.
+    """
+
+    fake_token = {
+        "access_token": "fake-access-token",
+        "id_token": "fake-id-token",
+        "userinfo": {
+            "sub": "test-leo-sub",
+            "preferred_username": "e1004",
+            "email": "leo@example.test",
+        },
+    }
+
+    monkeypatch.setattr(
+        auth_routes.oauth.keycloak,
+        "authorize_access_token",
+        lambda: fake_token,
+    )
+
+    monkeypatch.setattr(
+        auth_routes,
+        "validate_access_token",
+        lambda **kwargs: {"sub": "test-leo-sub"},
+    )
+
+    response = client.get(
+        "/auth/callback",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+
+    with client.session_transaction() as sess:
+        assert sess["user"]["sub"] == "test-leo-sub"
+        assert sess["user"]["username"] == "e1004"
+        assert sess["user"]["name"] is None
+        assert sess["_user_id"] == "test-leo-sub"
+
+
 def test_authenticated_user_visible_on_dashboard(
     client,
     monkeypatch,

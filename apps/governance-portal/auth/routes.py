@@ -63,7 +63,7 @@ def callback():
 
     user = User(
         sub=userinfo["sub"],
-        name=userinfo["name"],
+        name=userinfo.get("name"),
         username=userinfo.get("preferred_username"),
         email=userinfo.get("email"),
         # Role extraction comes in the next step.
