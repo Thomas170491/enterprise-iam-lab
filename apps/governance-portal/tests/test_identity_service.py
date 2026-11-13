@@ -1,3 +1,7 @@
+from unittest.mock import Mock
+
+import pytest
+
 import services.identity_service as identity_service
 
 
@@ -99,3 +103,33 @@ def test_search_identities_handles_missing_attributes(
     assert identity["employment_status"] is None
     assert identity["job_title"] is None
     assert identity["risk_level"] is None
+
+@pytest.mark.parametrize(
+    "bad_user_id",
+    [
+        "./3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
+        "../3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
+        "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b?briefRepresentation=true",
+        "user-123",
+    ],
+)
+def test_get_identity_access_rejects_non_uuid_user_id_before_keycloak(
+    monkeypatch, bad_user_id
+):
+    """
+    Verify that a user ID that is not a Keycloak UUID is rejected before any Keycloak call.
+    """
+    fake_get_user = Mock()
+    monkeypatch.setattr(identity_service, "get_user", fake_get_user)
+
+    with pytest.raises(ValueError, match="^invalid_user_id$"):
+        identity_service.get_identity_access(
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
+            user_id=bad_user_id,
+            target_client_name="employee-portal",
+        )
+
+    fake_get_user.assert_not_called()

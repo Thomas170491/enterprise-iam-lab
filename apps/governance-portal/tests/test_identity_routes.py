@@ -1,4 +1,5 @@
 from pytest import MonkeyPatch
+import pytest
 
 import governance.routes as governance_routes
 from unittest.mock import Mock, ANY
@@ -388,7 +389,7 @@ def test_get_identity_access(monkeypatch: MonkeyPatch):
         identity_service,
         "get_user",
         lambda **kwargs: {
-            "id": "user-123",
+            "id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
             "username": "e1004",
             "firstName": "Leo",
             "lastName": "Bernard",
@@ -448,7 +449,7 @@ def test_get_identity_access(monkeypatch: MonkeyPatch):
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
-        user_id="user-123",
+        user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
         target_client_name="iam-admin-portal",
     )
 
@@ -457,7 +458,7 @@ def test_get_identity_access(monkeypatch: MonkeyPatch):
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
-        user_id="user-123",
+        user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
         target_client_name="iam-admin-portal",
     )
 
@@ -526,3 +527,25 @@ def test_role_manager_sees_managed_role_choices(
     assert b"finance-data-viewer" in response.data
     assert b"manager-dashboard" in response.data
     assert b"Assign role" in response.data
+
+@pytest.mark.parametrize(
+    "bad_path_id",
+    [
+        "user-123",
+        "%2E%2E",                                          # arrives as user_id ".."
+        "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b%3Fx%3D1",    # arrives as "<uuid>?x=1"
+    ],
+)
+def test_identity_detail_returns_404_for_non_uuid_user_id(client, monkeypatch, bad_path_id):
+    """
+    Verify that a non-UUID identity ID answers 404 without contacting Keycloak.
+    """
+    _login_user(client, client_roles=[IDENTITY_VIEWER])
+
+    fake_get_user = Mock()
+    monkeypatch.setattr(identity_service, "get_user", fake_get_user)
+
+    response = client.get(f"/identities/{bad_path_id}")
+
+    assert response.status_code == 404
+    fake_get_user.assert_not_called()

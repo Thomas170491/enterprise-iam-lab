@@ -9,6 +9,7 @@ from services.keycloak_admin_service import (
     get_direct_client_roles,
 )
 
+from services.validation import is_keycloak_uuid
 
 def _first_attribute(attributes: Mapping[str, list[str]], name: str) -> str | None:
     """
@@ -96,6 +97,10 @@ def get_identity_access(
     Combines the user's identity information, groups,
     effective realm roles, and effective client roles.
     """
+    
+    if not is_keycloak_uuid(user_id):
+        raise ValueError("invalid_user_id")
+
 
     user = get_user(
         admin_api_url=admin_api_url,

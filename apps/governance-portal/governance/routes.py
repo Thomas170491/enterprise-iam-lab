@@ -168,6 +168,16 @@ def identity_detail(user_id):
 
         return render_template("identity-detail-error.html"), 502
 
+    except ValueError:
+        _log_governance_event(
+            level=30,
+            event="identity.view",
+            outcome="denied",
+            reason="invalid_user_id",
+        )
+
+        abort(404)
+        
     try:
         record_audit_event(
             actor_user_id=current_user.get_id(),
@@ -193,6 +203,8 @@ def identity_detail(user_id):
             target_id=user_id,
             audited_action="identity.view",
         )
+ 
+
 
     return render_template(
         "identity_detail.html",
