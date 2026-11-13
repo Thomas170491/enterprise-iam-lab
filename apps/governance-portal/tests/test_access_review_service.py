@@ -642,13 +642,45 @@ def test_get_access_reviews_for_manager_returns_empty_list(app):
 
     assert result == []
 
+@pytest.mark.parametrize(    "bad_reviewer_id",
+    [
+        "./3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",                          # alias of a real ID
+        "../3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",                         # climbs to another path
+        "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b?briefRepresentation=true",   # adds a query string
+        "reviewer-123",                                                     # not a UUID at all
+    ],
+)
 
+def test_validate_access_review_reviewer_rejects_non_uuid_id_before_keycloak(
+    monkeypatch, bad_reviewer_id
+):
+    """
+    Verify that a reviewer ID that is not a Keycloak UUID is rejected before any Keycloak call.
+    """
+    fake_get_user = Mock()
+    fake_get_roles = Mock()
+
+    monkeypatch.setattr(access_review_service, "get_user", fake_get_user)
+    monkeypatch.setattr(access_review_service, "get_effective_client_roles", fake_get_roles)
+
+    with pytest.raises(ValueError, match="^invalid_reviewer_user_id$"):
+        validate_access_review_reviewer(
+            reviewer_user_id=bad_reviewer_id,
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
+        )
+
+    fake_get_user.assert_not_called()
+    fake_get_roles.assert_not_called()
+    
 def test_validate_access_review_reviewer_accepts_eligible_user(monkeypatch):
     """
     Verify that an enabled user with reviewer access is accepted.
     """
     reviewer = {
-        "id": "reviewer-123",
+        "id": "7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
         "username": "e1005",
         "enabled": True,
     }
@@ -664,7 +696,7 @@ def test_validate_access_review_reviewer_accepts_eligible_user(monkeypatch):
     )
 
     result = validate_access_review_reviewer(
-        reviewer_user_id=" reviewer-123 ",
+        reviewer_user_id=" 7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d ",
         admin_api_url="https://keycloak.test/admin",
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
@@ -678,7 +710,7 @@ def test_validate_access_review_reviewer_accepts_eligible_user(monkeypatch):
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="test-secret",
-        user_id="reviewer-123",
+        user_id="7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
     )
 
     fake_get_roles.assert_called_once_with(
@@ -686,7 +718,7 @@ def test_validate_access_review_reviewer_accepts_eligible_user(monkeypatch):
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="test-secret",
-        user_id="reviewer-123",
+        user_id="7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
         target_client_name="iam-admin-portal",
     )
 
@@ -709,7 +741,7 @@ def test_validate_access_review_reviewer_rejects_disabled_user(monkeypatch):
 
     with pytest.raises(ValueError, match="reviewer_not_enabled"):
         validate_access_review_reviewer(
-            reviewer_user_id=" reviewer-123 ",
+            reviewer_user_id=" 7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d ",
             admin_api_url="https://keycloak.test/admin",
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
@@ -737,7 +769,7 @@ def test_validate_access_review_reviewer_rejects_missing_roles(monkeypatch):
 
     with pytest.raises(ValueError, match="reviewer_missing_required_role"):
         validate_access_review_reviewer(
-            reviewer_user_id=" reviewer-123 ",
+            reviewer_user_id=" 7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d ",
             admin_api_url="https://keycloak.test/admin",
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
@@ -766,7 +798,7 @@ def test_validate_access_review_reviewer_propagates_lookup_failure(monkeypatch):
 
     with pytest.raises(KeycloakAdminAPIError, match="User retrieval failed"):
         validate_access_review_reviewer(
-            reviewer_user_id="reviewer-123",
+            reviewer_user_id=" 7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d ",
             admin_api_url="https://keycloak.test/admin",
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
@@ -795,7 +827,7 @@ def test_validate_access_review_reviewer_propagates_role_lookup_failure(monkeypa
 
     with pytest.raises(KeycloakAdminAPIError, match="Role retrieval failed"):
         validate_access_review_reviewer(
-            reviewer_user_id="reviewer-123",
+            reviewer_user_id=" 7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d ",
             admin_api_url="https://keycloak.test/admin",
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",

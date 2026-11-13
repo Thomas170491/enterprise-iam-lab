@@ -661,6 +661,9 @@ def validate_access_review_reviewer(
     reviewer_user_id = _validate_required_string(
         reviewer_user_id, "reviewer_user_id", 255
     )
+    
+    if _KEYCLOAK_UUID.fullmatch(reviewer_user_id) is None:
+        raise ValueError("invalid_reviewer_user_id")
 
     reviewer = get_user(
         admin_api_url=admin_api_url,
