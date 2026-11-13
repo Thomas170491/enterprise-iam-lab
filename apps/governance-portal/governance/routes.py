@@ -830,6 +830,19 @@ def record_access_review_decision(review_id: int, item_id: int):
             )
             abort(denial_statuses[str(exc)])
 
+        if str(exc) in (
+            "invalid_access_review_comment",
+            "invalid_access_review_decision",
+        ):
+            _log_governance_event(
+                level=30,
+                event="access_review.decision",
+                outcome="denied",
+                reason=str(exc),
+                target_id=str(item_id),
+                review_id=str(review_id),
+            )
+
         abort(400)
 
     except (AuditPersistenceError, SQLAlchemyError) as exc:

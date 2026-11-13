@@ -628,3 +628,59 @@ def test_record_access_review_decision_accepts_crlf_comment_within_browser_limit
     db.session.expire_all()
     saved_item = db.session.get(AccessReviewItem, item_id)
     assert saved_item.decision_comment == "x" + "\n" * 5 + "x" * 994
+
+
+def _logged_events(caplog):
+    """
+    Return the structured governance log events captured so far.
+    """
+    return [
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if record.getMessage().startswith("{")
+    ]
+
+
+def test_record_access_review_decision_logs_rejected_comment_without_text(client, caplog):
+    """
+    Verify that an overlong comment logs one denied event and never the comment text.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+    campaign_id, item_id = _open_campaign_for_test_subject()
+
+    with caplog.at_level("WARNING"):
+        response = client.post(
+            f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+            data={"decision": "revoke", "comment": "SECRETWORD" + "x" * 1001},
+        )
+
+    assert response.status_code == 400
+    events = _logged_events(caplog)
+    assert len(events) == 1
+    assert events[0]["event"] == "access_review.decision"
+    assert events[0]["outcome"] == "denied"
+    assert events[0]["reason"] == "invalid_access_review_comment"
+    assert events[0]["actor_user_id"] == "test-subject"
+    assert events[0]["target_id"] == str(item_id)
+    assert events[0]["review_id"] == str(campaign_id)
+    assert "SECRETWORD" not in caplog.text
+
+
+def test_record_access_review_decision_logs_invalid_decision_value(client, caplog):
+    """
+    Verify that an invalid decision value logs one denied event with its stable reason.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+    campaign_id, item_id = _open_campaign_for_test_subject()
+
+    with caplog.at_level("WARNING"):
+        response = client.post(
+            f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+            data={"decision": "maybe"},
+        )
+
+    assert response.status_code == 400
+    events = _logged_events(caplog)
+    assert len(events) == 1
+    assert events[0]["outcome"] == "denied"
+    assert events[0]["reason"] == "invalid_access_review_decision"
