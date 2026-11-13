@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import pytest
 
 from extensions import db
@@ -154,3 +155,40 @@ def test_record_access_review_decision_rejects_invalid_comment(app, bad_comment)
     assert saved.decision is None
     assert saved.remediation_status is None
     assert db.session.execute(db.select(AuditEvent)).scalars().all() == []
+
+def test_record_access_review_decision_does_not_overwrite_concurrent_decision(app):
+    """
+    Verify that a decision recorded by another request first is kept, even when this one read the item as undecided.
+    """
+    review_id, item_id = _open_campaign_with_item()
+
+    # This request reads the item while it is still undecided...
+    stale_item = db.session.get(AccessReviewItem, item_id)
+    assert stale_item.decision is None
+
+    # ...then another request decides it, without this session's copy noticing.
+    db.session.execute(
+        db.update(AccessReviewItem)
+        .where(AccessReviewItem.id == item_id)
+        .values(
+            decision="retain",
+            remediation_status="not_required",
+            decided_by_user_id=REVIEWER_ID,
+            decided_at=datetime.now(timezone.utc),
+        )
+        .execution_options(synchronize_session=False)
+    )
+    assert stale_item.decision is None
+
+    with pytest.raises(ValueError, match="^access_review_item_already_decided$"):
+        access_review_service.record_access_review_decision(
+            review_id=review_id,
+            item_id=item_id,
+            reviewer_user_id=REVIEWER_ID,
+            decision="revoke",
+        )
+
+    db.session.expire_all()
+    saved = db.session.get(AccessReviewItem, item_id)
+    assert saved.decision == "retain"
+    assert saved.remediation_status == "not_required"

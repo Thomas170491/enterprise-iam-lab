@@ -876,13 +876,26 @@ def record_access_review_decision(
     if comment is not None and len(comment) > 1000:
         raise ValueError("invalid_access_review_comment")
 
-    item.decision = decision
-    item.remediation_status = "not_required" if decision == "retain" else "pending"
-    item.decision_comment = comment
-    item.decided_by_user_id = reviewer_user_id
-    item.decided_at = datetime.now(timezone.utc)
+    result = db.session.execute(
+        db.update(AccessReviewItem)
+        .where(
+            AccessReviewItem.id == item.id,
+            AccessReviewItem.decision.is_(None),
+        )
+        .values(
+            decision=decision,
+            remediation_status="not_required" if decision == "retain" else "pending",
+            decision_comment=comment,
+            decided_by_user_id=reviewer_user_id,
+            decided_at=datetime.now(timezone.utc),
+        )
+        .execution_options(synchronize_session=False)
+    )
 
-    db.session.flush()
+    if result.rowcount != 1:
+        raise ValueError("access_review_item_already_decided")
+
+    db.session.refresh(item)
     return item
 
 def record_access_review_decision_with_audit(
