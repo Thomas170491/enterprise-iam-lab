@@ -8,6 +8,10 @@ This is a learning and portfolio project. The repository owner writes the code, 
 slice at a time.
 
 - Guide and explain by default. Write or edit application code only when explicitly asked.
+- Exception: the `code-fixer` subagent (`.claude/agents/code-fixer.md`) may write tests and
+  application code, but only to fix findings from the `code-reviewer` subagent that the owner
+  has asked it to fix. It works test-first, one finding per slice, and never commits; the
+  owner reviews and commits each slice. Do not run it unprompted.
 - Work test-first in small slices: a failing test, the smallest change that passes, a commit.
 - Whenever a step ends in a commit, supply the exact commit message, one per commit, in the
   style `type(scope): summary` (for example `test(access-reviews): cover ...`,
