@@ -12,15 +12,6 @@ class TokenValidationError(Exception):
         super().__init__(f"Access token validation failed: {reason}")
 
 
-class KeycloakServiceAuthenticationError(Exception):
-    """
-    Raised when the Governance backend cannot authenticate
-    its service account with Keycloak.
-    """
-
-    pass
-
-
 class KeycloakAdminAPIError(Exception):
     """
     Raised when communication with the
@@ -30,6 +21,18 @@ class KeycloakAdminAPIError(Exception):
     def __init__(self, reason: str) -> None:
         self.reason = reason
         super().__init__(f"Keycloak Admin API request failed: {reason}")
+
+
+class KeycloakServiceAuthenticationError(KeycloakAdminAPIError):
+    """
+    Raised when the Governance backend cannot authenticate
+    its service account with Keycloak.
+
+    It is a KeycloakAdminAPIError so that callers handling Admin API
+    failures also handle a failed service-account token request.
+    """
+
+    pass
 
 
 class AuditPersistenceError(Exception):

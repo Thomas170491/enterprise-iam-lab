@@ -4,6 +4,7 @@ from unittest.mock import Mock
 from urllib.parse import urlsplit
 
 import pytest
+import requests
 from flask import abort, url_for
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -14,6 +15,7 @@ from services.exceptions import AuditPersistenceError, KeycloakAdminAPIError
 
 import governance.routes as governance_routes
 import services.access_review_service as access_review_service
+import services.keycloak_auth_service as keycloak_auth_service
 
 
 class _CSRFFormParser(HTMLParser):
@@ -1127,6 +1129,47 @@ def test_populate_access_review_returns_503_on_persistence_failure(
 
     assert response.status_code == 503
     fake_route.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "token_failure",
+    ["unreachable", "non_json"],
+)
+def test_populate_access_review_returns_503_on_service_token_failure(
+    client,
+    monkeypatch,
+    token_failure,
+):
+    """
+    Verify that a failed service-account token request returns HTTP 503.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    campaign = access_review_service.create_access_review(
+        "Test campaign",
+        "test-subject",
+        "test-reviewer",
+    )
+
+    fake_response = Mock()
+    fake_response.raise_for_status.return_value = None
+    fake_response.json.side_effect = ValueError("not json")
+
+    if token_failure == "unreachable":
+        fake_post = Mock(side_effect=requests.ConnectionError("unavailable"))
+    else:
+        fake_post = Mock(return_value=fake_response)
+
+    monkeypatch.setattr(keycloak_auth_service.requests, "post", fake_post)
+
+    response = client.post(
+        f"/access-reviews/manage/{campaign.id}/populate",
+        data={"user_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"},
+    )
+
+    assert response.status_code == 503
+    fake_post.assert_called_once()
+    assert db.session.execute(db.select(AccessReviewItem)).scalars().all() == []
 
 def test_manager_can_open_own_access_review(client):
     """

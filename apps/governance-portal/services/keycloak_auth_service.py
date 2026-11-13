@@ -31,7 +31,18 @@ def get_service_access_token(
             "Unable to authenticate Governence service with Keycloak"
         ) from exc
 
-    payload = response.json()
+    try:
+        payload = response.json()
+
+    except ValueError as exc:
+        raise KeycloakServiceAuthenticationError(
+            "Keycloak token response was not valid JSON"
+        ) from exc
+
+    if not isinstance(payload, dict):
+        raise KeycloakServiceAuthenticationError(
+            "Keycloak token response was not a JSON object"
+        )
 
     access_token = payload.get("access_token")
 
