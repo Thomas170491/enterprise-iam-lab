@@ -512,12 +512,14 @@ def get_access_reviews_for_reviewer(reviewer_user_id: str) -> list[AccessReview]
 
 
 def get_access_review_for_reviewer(
-    review_id: int, reviewer_user_id: str
+    review_id: int, reviewer_user_id: str, lock_shared: bool = False
 ) -> AccessReview:
     """
     Return a campaign only when it is assigned to the specified reviewer.
 
     Raise the same not-found error for missing and unassigned campaigns.
+    With lock_shared, read the row with FOR SHARE so a concurrent cancel
+    conflicts with the caller's transaction (ignored by SQLite).
     """
 
     reviewer_user_id = _validate_required_string(
@@ -526,12 +528,17 @@ def get_access_review_for_reviewer(
         255,
     )
 
-    campaign = db.session.execute(
-        db.select(AccessReview).where(
-            AccessReview.id == review_id,
-            AccessReview.reviewer_user_id == reviewer_user_id,
+    statement = db.select(AccessReview).where(
+        AccessReview.id == review_id,
+        AccessReview.reviewer_user_id == reviewer_user_id,
+    )
+
+    if lock_shared:
+        statement = statement.with_for_update(read=True).execution_options(
+            populate_existing=True
         )
-    ).scalar_one_or_none()
+
+    campaign = db.session.execute(statement).scalar_one_or_none()
 
     if campaign is None:
         raise ValueError("access_review_not_found")
@@ -849,7 +856,9 @@ def record_access_review_decision(
     """
     Record an assigned reviewer's decision on an item in an open campaign.
     """
-    campaign = get_access_review_for_reviewer(review_id, reviewer_user_id)
+    campaign = get_access_review_for_reviewer(
+        review_id, reviewer_user_id, lock_shared=True
+    )
 
     if campaign.status != "open":
         raise ValueError("access_review_not_open")

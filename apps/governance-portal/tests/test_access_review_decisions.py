@@ -192,3 +192,37 @@ def test_record_access_review_decision_does_not_overwrite_concurrent_decision(ap
     saved = db.session.get(AccessReviewItem, item_id)
     assert saved.decision == "retain"
     assert saved.remediation_status == "not_required"
+
+
+def test_record_access_review_decision_locks_campaign_row_shared(app, monkeypatch):
+    """
+    Verify that the campaign lookup requests a shared row lock (FOR SHARE); SQLite cannot show blocking.
+    """
+    review_id, item_id = _open_campaign_with_item()
+
+    selects = []
+    real_execute = db.session.execute
+
+    def capture(statement, *args, **kwargs):
+        selects.append(statement)
+        return real_execute(statement, *args, **kwargs)
+
+    monkeypatch.setattr(db.session, "execute", capture)
+
+    access_review_service.record_access_review_decision(
+        review_id=review_id,
+        item_id=item_id,
+        reviewer_user_id=REVIEWER_ID,
+        decision="retain",
+    )
+
+    campaign_selects = [
+        s for s in selects
+        if getattr(s, "is_select", False)
+        and s.column_descriptions
+        and s.column_descriptions[0]["entity"].__name__ == "AccessReview"
+    ]
+    assert len(campaign_selects) == 1
+    lock = campaign_selects[0]._for_update_arg
+    assert lock is not None
+    assert lock.read is True
