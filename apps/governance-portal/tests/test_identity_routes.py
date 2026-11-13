@@ -536,9 +536,9 @@ def test_role_manager_sees_managed_role_choices(
         "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b%3Fx%3D1",    # arrives as "<uuid>?x=1"
     ],
 )
-def test_identity_detail_returns_404_for_non_uuid_user_id(client, monkeypatch, bad_path_id):
+def test_identity_detail_returns_400_for_non_uuid_user_id(client, monkeypatch, bad_path_id):
     """
-    Verify that a non-UUID identity ID answers 404 without contacting Keycloak.
+    Verify that a non-UUID identity ID answers 400 without contacting Keycloak.
     """
     _login_user(client, client_roles=[IDENTITY_VIEWER])
 
@@ -547,5 +547,5 @@ def test_identity_detail_returns_404_for_non_uuid_user_id(client, monkeypatch, b
 
     response = client.get(f"/identities/{bad_path_id}")
 
-    assert response.status_code == 404
+    assert response.status_code == 400
     fake_get_user.assert_not_called()

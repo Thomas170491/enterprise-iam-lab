@@ -176,7 +176,7 @@ def identity_detail(user_id):
             reason="invalid_user_id",
         )
 
-        abort(404)
+        abort(400)
         
     try:
         record_audit_event(
@@ -277,6 +277,9 @@ def assign_identity_role(user_id):
             client_name="employee-portal",
             role_name=role_name,
         )
+        
+        if exc.reason == "invalid_user_id":
+            abort(400)
 
         sod_messages = {
             "sod_deny": (
@@ -371,6 +374,9 @@ def remove_identity_role(user_id, role_name):
             client_name="employee-portal",
             role_name=role_name,
         )
+
+        if exc.reason == "invalid_user_id":
+            abort(400)
 
         abort(403)
 
