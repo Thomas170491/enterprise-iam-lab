@@ -520,7 +520,7 @@ def test_role_manager_sees_managed_role_choices(
             "finance-data-viewer",
             "manager-dashboard",
         ],
-    ),
+    )
     response = client.get("/identities/user-123")
 
     assert response.status_code == 200

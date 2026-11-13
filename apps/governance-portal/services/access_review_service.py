@@ -653,7 +653,7 @@ def validate_access_review_reviewer(
     token_url: str,
     client_id: str,
     client_secret: str,
-) -> dict[str]:
+) -> dict[str, Any]:
     """
     Verify that the assigned reviewer exists, is enabled, and has reviewer access.
     """

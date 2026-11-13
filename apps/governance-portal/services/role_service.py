@@ -40,7 +40,7 @@ def _record_role_audit_event(
     action: str,
     user_id: str,
     target_client_name: str,
-    role: dict[str],
+    role: dict[str, Any],
     service_client_id: str,
     outcome: str,
 ) -> Any:
@@ -114,7 +114,7 @@ def _record_sod_audit_event(
     requested_role_name: str,
     current_role_names: list[str],
     service_client_id: str,
-    sod_result: dict[str],
+    sod_result: dict[str, Any],
 ) -> None:
     """
     Persist the SoD evaluation result for a requested role assignment.
@@ -172,7 +172,7 @@ def assign_identity_client_role(
     role_name: str,
     actor_user_id: str,
     actor_username: str,
-) -> dict[str]:
+) -> dict[str, Any]:
     """
     Assign a managed client role to an identity.
 

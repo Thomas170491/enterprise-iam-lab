@@ -1,6 +1,5 @@
 import json
 from html.parser import HTMLParser
-from http import client
 from unittest.mock import Mock
 from urllib.parse import urlsplit
 
@@ -765,7 +764,7 @@ def test_create_access_review_rejects_ineligible_reviewer(client, monkeypatch):
         "/access-reviews/new",
         data={
             "name": "September access review",
-            "reviewer_user_id": "reviewer-123",
+            "reviewer_user_id": "4e7b2a9c-1d3f-4c8e-b5a6-7f0e1d2c3b4a",
             "due_at": "",
         },
     )
@@ -844,7 +843,7 @@ def test_create_access_review_returns_503_when_reviewer_verification_fails(
         "/access-reviews/new",
         data={
             "name": "September access review",
-            "reviewer_user_id": "reviewer-123",
+            "reviewer_user_id": "4e7b2a9c-1d3f-4c8e-b5a6-7f0e1d2c3b4a",
             "due_at": "",
         },
     )
@@ -886,7 +885,7 @@ def test_create_access_review_returns_503_on_persistence_failure(
         "/access-reviews/new",
         data={
             "name": "September access review",
-            "reviewer_user_id": "reviewer-123",
+            "reviewer_user_id": "4e7b2a9c-1d3f-4c8e-b5a6-7f0e1d2c3b4a",
             "due_at": "",
         },
     )
@@ -1680,7 +1679,7 @@ def test_access_review_mutations_require_valid_csrf_token(
         post_url = form_url
         data = {
             "name": "CSRF campaign",
-            "reviewer_user_id": "reviewer-123",
+            "reviewer_user_id": "4e7b2a9c-1d3f-4c8e-b5a6-7f0e1d2c3b4a",
             "due_at": "",
         }
     else:

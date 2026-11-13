@@ -1,3 +1,5 @@
+from typing import Any
+
 from models import ManagedRole, SoDRule
 from extensions import db
 
@@ -9,8 +11,8 @@ SOD_REQUIRES_REVIEW = "requires_review"
 def evaluate_role_assignment(
     target_client_name: str,
     requested_role_name: str,
-    current_role_names: list,
-) -> dict[str]:
+    current_role_names: list[str],
+) -> dict[str, Any]:
     """
     Evaluate a requested client-role assignment against enabled SoD rules.
 
