@@ -437,7 +437,7 @@ def test_access_review_manager_can_create_campaign(client, monkeypatch):
         access_review_service,
         "validate_access_review_reviewer",
         lambda **kwargs: {
-            "id": "reviewer-123",
+            "id": "9a1d4c7e-2b3f-4e58-8c6a-0d1e2f3a4b5c",
             "username": "reviewer",
             "enabled": True,
         },
@@ -447,7 +447,7 @@ def test_access_review_manager_can_create_campaign(client, monkeypatch):
         "/access-reviews/new",
         data={
             "name": "September access review",
-            "reviewer_user_id": "reviewer-123",
+            "reviewer_user_id": "9a1d4c7e-2b3f-4e58-8c6a-0d1e2f3a4b5c",
             "due_at": "",
         },
     )
@@ -461,7 +461,7 @@ def test_access_review_manager_can_create_campaign(client, monkeypatch):
     ).scalar_one()
 
     assert review.created_by_user_id == "test-subject"
-    assert review.reviewer_user_id == "reviewer-123"
+    assert review.reviewer_user_id == "9a1d4c7e-2b3f-4e58-8c6a-0d1e2f3a4b5c"
     assert review.status == "draft"
     assert review.due_at is None
 

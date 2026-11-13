@@ -16,7 +16,7 @@ def fake_validate_reviewer(monkeypatch):
     """
     validator = Mock(
         return_value={
-            "id": "reviewer-456",
+            "id": "9a1d4c7e-2b3f-4e58-8c6a-0d1e2f3a4b5c",
             "enabled": True,
         }
     )
@@ -72,7 +72,7 @@ def test_create_access_review_with_audit_records_actor(
     assert saved_review.name == "September review"
     assert saved_review.status == "draft"
     assert saved_review.created_by_user_id == "operator-123"
-    assert saved_review.reviewer_user_id == "reviewer-456"
+    assert saved_review.reviewer_user_id == "9a1d4c7e-2b3f-4e58-8c6a-0d1e2f3a4b5c"
 
     assert event is not None
     assert event.actor_user_id == "operator-123"
@@ -81,7 +81,7 @@ def test_create_access_review_with_audit_records_actor(
     assert event.target_name == "September review"
     assert event.outcome == "success"
     assert event.details["source"] == "governance-portal"
-    assert event.details["reviewer_user_id"] == "reviewer-456"
+    assert event.details["reviewer_user_id"] == "9a1d4c7e-2b3f-4e58-8c6a-0d1e2f3a4b5c"
     assert event.details["status"] == "draft"
 
 
@@ -402,6 +402,69 @@ def test_create_access_review_with_audit_rejects_ineligible_reviewer(
 
     assert db.session.execute(db.select(AccessReview)).scalars().all() == []
 
+    assert db.session.execute(db.select(AuditEvent)).scalars().all() == []
+
+
+def test_create_access_review_with_audit_stores_reviewer_id_returned_by_keycloak(
+    app,
+    fake_validate_reviewer,
+):
+    """
+    Verify that an uppercase submitted reviewer ID is stored as the lowercase ID Keycloak returned.
+    """
+    returned_id = "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"
+    fake_validate_reviewer.return_value = {"id": returned_id, "enabled": True}
+
+    review = access_review_service.create_access_review_with_audit(
+        name="September review",
+        created_by_user_id="operator-123",
+        actor_username="leo",
+        reviewer_user_id=returned_id.upper(),
+        admin_api_url="https://keycloak.test/admin",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="test-secret",
+    )
+
+    event = db.session.execute(
+        db.select(AuditEvent).where(AuditEvent.action == "access_review.create")
+    ).scalar_one()
+
+    assert review.reviewer_user_id == returned_id
+    assert event.details["reviewer_user_id"] == returned_id
+
+
+@pytest.mark.parametrize(
+    "returned_user",
+    [
+        {"enabled": True},
+        {"id": None, "enabled": True},
+        {"id": "not-a-uuid", "enabled": True},
+    ],
+)
+def test_create_access_review_with_audit_rejects_unexpected_reviewer_id(
+    app,
+    fake_validate_reviewer,
+    returned_user,
+):
+    """
+    Verify that a missing or malformed returned reviewer ID raises and saves nothing.
+    """
+    fake_validate_reviewer.return_value = returned_user
+
+    with pytest.raises(KeycloakAdminAPIError):
+        access_review_service.create_access_review_with_audit(
+            name="September review",
+            created_by_user_id="operator-123",
+            actor_username="leo",
+            reviewer_user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
+        )
+
+    assert db.session.execute(db.select(AccessReview)).scalars().all() == []
     assert db.session.execute(db.select(AuditEvent)).scalars().all() == []
 
 

@@ -557,13 +557,19 @@ def create_access_review_with_audit(
     """
 
     try:
-        validate_access_review_reviewer(
+        reviewer = validate_access_review_reviewer(
             reviewer_user_id=reviewer_user_id,
             admin_api_url=admin_api_url,
             token_url=token_url,
             client_id=client_id,
             client_secret=client_secret,
         )
+
+        # Store the ID Keycloak returned, so it matches the reviewer's token subject.
+        reviewer_user_id = reviewer.get("id")
+
+        if not is_keycloak_uuid(reviewer_user_id):
+            raise KeycloakAdminAPIError("Unexpected user response")
 
         review = create_access_review(
             name, created_by_user_id, reviewer_user_id, due_at
