@@ -365,15 +365,15 @@ def get_user_groups_with_ancestors(
                 )
         
         for ancestor in ancestors:
-            
-         ancestor_id = ancestor.get("id")        
-        
-        if not isinstance(ancestor_id, str) or not ancestor_id.strip() :
-            raise KeycloakAdminAPIError("Invalid ancestor group ID")
 
-        if ancestor["id"] not in seen_ids:
-            groups.append(ancestor)
-            seen_ids.add(ancestor_id)
+            ancestor_id = ancestor.get("id")
+
+            if not isinstance(ancestor_id, str) or not ancestor_id.strip() :
+                raise KeycloakAdminAPIError("Invalid ancestor group ID")
+
+            if ancestor_id not in seen_ids:
+                groups.append(ancestor)
+                seen_ids.add(ancestor_id)
     
     return groups
 

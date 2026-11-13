@@ -564,3 +564,88 @@ def test_get_user_groups_with_ancestors_rejects_invalid_ancestor_id(
         )
 
     assert fake_get_group_ancestors.call_args.kwargs["group_id"] == ("finance-team-id")
+
+
+def test_get_user_groups_with_ancestors_handles_root_group_membership(monkeypatch):
+    """Verify that a membership in a root group is returned without ancestors."""
+    fake_get_user_groups = Mock(
+        return_value=[{"id": "finance-id", "name": "Finance"}]
+    )
+    fake_get_group_ancestors = Mock(return_value=[])
+
+    monkeypatch.setattr(admin_service, "get_user_groups", fake_get_user_groups)
+    monkeypatch.setattr(admin_service, "get_group_ancestors", fake_get_group_ancestors)
+
+    groups = admin_service.get_user_groups_with_ancestors(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+    )
+
+    assert [group["id"] for group in groups] == ["finance-id"]
+
+
+def test_get_user_groups_with_ancestors_includes_every_ancestor(monkeypatch):
+    """Verify that every ancestor of a membership is returned, not only the last one."""
+    fake_get_user_groups = Mock(
+        return_value=[
+            {"id": "payroll-id", "name": "Payroll", "parentId": "finance-id"}
+        ]
+    )
+    fake_get_group_ancestors = Mock(
+        return_value=[
+            {"id": "finance-id", "name": "Finance", "parentId": "company-id"},
+            {"id": "company-id", "name": "Company"},
+        ]
+    )
+
+    monkeypatch.setattr(admin_service, "get_user_groups", fake_get_user_groups)
+    monkeypatch.setattr(admin_service, "get_group_ancestors", fake_get_group_ancestors)
+
+    groups = admin_service.get_user_groups_with_ancestors(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+    )
+
+    assert [group["id"] for group in groups] == [
+        "payroll-id",
+        "finance-id",
+        "company-id",
+    ]
+
+
+def test_get_user_groups_with_ancestors_rejects_invalid_nearer_ancestor_id(
+    monkeypatch,
+):
+    """Verify that an invalid ID on any ancestor, not only the last, is rejected."""
+    fake_get_user_groups = Mock(
+        return_value=[
+            {"id": "payroll-id", "name": "Payroll", "parentId": "finance-id"}
+        ]
+    )
+    fake_get_group_ancestors = Mock(
+        return_value=[
+            {"id": None, "name": "Finance", "parentId": "company-id"},
+            {"id": "company-id", "name": "Company"},
+        ]
+    )
+
+    monkeypatch.setattr(admin_service, "get_user_groups", fake_get_user_groups)
+    monkeypatch.setattr(admin_service, "get_group_ancestors", fake_get_group_ancestors)
+
+    with pytest.raises(
+        KeycloakAdminAPIError,
+        match="Invalid ancestor group ID",
+    ):
+        admin_service.get_user_groups_with_ancestors(
+            admin_api_url="https://keycloak.test/admin/realms/novasecure",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="fake-secret",
+            user_id="user-123",
+        )
