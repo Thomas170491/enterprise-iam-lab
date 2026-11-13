@@ -16,6 +16,8 @@ slice at a time.
 - Whenever a step ends in a commit, supply the exact commit message, one per commit, in the
   style `type(scope): summary` (for example `test(access-reviews): cover ...`,
   `feat(access-reviews): ...`, `fix: ...`, `docs: ...`).
+- Never read `apps/governance-portal/services/access_review_service.py` whole. Search it
+  (grep for the function or error code), or read only the line range you need.
 
 ## What this is
 
