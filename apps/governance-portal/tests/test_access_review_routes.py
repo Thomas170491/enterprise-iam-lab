@@ -2234,3 +2234,44 @@ def test_access_review_detail_hides_decision_controls_for_own_item(client):
     assert response.status_code == 200
     assert f"/access-reviews/{campaign.id}/items/{item.id}/decision" not in html
     assert "finance-data-viewer" in html
+    
+def test_manager_access_review_detail_shows_group_evidence_without_decision_controls(client):
+    """
+    Verify that a manager sees group grant evidence but cannot submit a reviewer decision.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="test-subject",
+        reviewer_user_id="test-review-subject",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="test-subject",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+        assignment_source="inherited",
+        grant_sources=[
+            {
+                "type": "group",
+                "group_id": "finance-staff-group-id",
+                "membership_group_id": "finance-team-id",
+                "assigned_role_id": "finance-staff-id",
+                "composite_path": ["finance-staff-id", "finance-role-id"],
+            }
+        ],
+    )
+    access_review_service.open_access_review(campaign.id)
+    db.session.commit()
+
+    response = client.get(f"/access-reviews/manage/{campaign.id}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "finance-staff-group-id" in html
+    assert "finance-team-id" in html
+    assert f"/access-reviews/{campaign.id}/items/{item.id}/decision" not in html
+    assert "finance-data-viewer" in html
