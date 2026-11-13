@@ -56,7 +56,7 @@ source venv/bin/activate            # this checkout uses venv/; the docs say .ve
 python -m pip install -r requirements-dev.txt
 
 python -m pytest -q                                              # whole suite
-python -m pytest -q tests/test_access_review_routes.py           # one file
+python -m pytest -q tests/test_access_review_decision_routes.py  # one file
 python -m pytest -q tests/test_sod_service.py::test_name         # one test
 python -m pytest -q -k "decision"                                # by keyword
 
@@ -162,7 +162,7 @@ Conventions that span files:
   `db.create_all()`, not from migrations, so migration-seeded rows (managed roles, SoD rules)
   must be inserted by the test.
 - Route tests sign in by writing the session directly; see `_login_user(client, client_roles)`
-  at the top of `tests/test_access_review_routes.py`.
+  in `tests/access_review_helpers.py`, which the access-review route test files import.
 - Keycloak is never contacted. Tests monkeypatch `get_service_access_token` and
   `requests.get`/`post`/`delete` on the `services.keycloak_admin_service` module, or patch the
   service function where the route or service imported it.

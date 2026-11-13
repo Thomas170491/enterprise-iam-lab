@@ -18,7 +18,7 @@ If your existing environment is named `venv`, activate `venv/bin/activate` inste
 Focused G11 checks:
 
 ```bash
-python -m pytest -q tests/test_access_review_models.py tests/test_access_review_service.py tests/test_access_review_audit.py tests/test_access_review_routes.py
+python -m pytest -q tests/test_access_review_*.py
 ```
 
 Coverage includes model constraints, input validation, campaign state changes, manager ownership, reviewer assignment, role eligibility, direct managed-role capture, duplicate suppression, transaction rollback, audit actor attribution, route errors, form visibility and missing/invalid/valid CSRF tokens.
