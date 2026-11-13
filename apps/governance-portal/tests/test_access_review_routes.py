@@ -778,6 +778,51 @@ def test_create_access_review_rejects_ineligible_reviewer(client, monkeypatch):
     fake_validate.assert_called_once()
 
 
+def test_create_access_review_logs_non_uuid_reviewer_denial(
+    client, monkeypatch, caplog
+):
+    """
+    Verify that a non-UUID reviewer ID answers 400 and logs one denial without the submitted text.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    fake_get_user = Mock()
+    fake_get_roles = Mock()
+    monkeypatch.setattr(access_review_service, "get_user", fake_get_user)
+    monkeypatch.setattr(
+        access_review_service, "get_effective_client_roles", fake_get_roles
+    )
+
+    bad_id = "../3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"
+
+    with caplog.at_level("WARNING"):
+        response = client.post(
+            "/access-reviews/new",
+            data={
+                "name": "September access review",
+                "reviewer_user_id": bad_id,
+                "due_at": "",
+            },
+        )
+
+    assert response.status_code == 400
+    fake_get_user.assert_not_called()
+    fake_get_roles.assert_not_called()
+    assert db.session.execute(db.select(AccessReview)).scalars().all() == []
+
+    events = [
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if record.getMessage().startswith("{")
+    ]
+
+    assert len(events) == 1
+    assert events[0]["event"] == "access_review.create"
+    assert events[0]["outcome"] == "denied"
+    assert events[0]["reason"] == "invalid_reviewer_user_id"
+    assert bad_id not in caplog.text
+
+
 def test_create_access_review_returns_503_when_reviewer_verification_fails(
     client,
     monkeypatch,

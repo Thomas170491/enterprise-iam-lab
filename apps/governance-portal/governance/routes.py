@@ -506,6 +506,7 @@ def create_access_review():
         if reason in (
             "reviewer_not_enabled",
             "reviewer_missing_required_role",
+            "invalid_reviewer_user_id",
         ):
             _log_governance_event(
                 level=30,
