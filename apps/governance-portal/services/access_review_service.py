@@ -868,6 +868,7 @@ def record_access_review_decision(
         raise ValueError("access_review_item_already_decided")
 
     item.decision = decision
+    item.remediation_status = "not_required" if decision == "retain" else "pending"
     item.decided_by_user_id = reviewer_user_id
     item.decided_at = datetime.now(timezone.utc)
 

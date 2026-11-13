@@ -5,6 +5,30 @@ from models import AccessReview, AccessReviewItem
 from sqlalchemy.exc import IntegrityError
 
 
+def _decided_item(decision, remediation_status, decision_comment=None):
+    """
+    Build an access review item with the given decision and remediation status.
+    """
+    review = AccessReview(
+        name="test_review",
+        created_by_user_id="testuser1",
+        reviewer_user_id="testuser2",
+    )
+    item = AccessReviewItem(
+        review=review,
+        user_id="testuser3",
+        username="testuser",
+        client_name="employee-portal",
+        role_name="testrole",
+        role_id="fake-id",
+        assignment_source="direct",
+        decision=decision,
+        remediation_status=remediation_status,
+        decision_comment=decision_comment,
+    )
+    db.session.add_all([review, item])
+    return item
+
 def test_access_review_defaults_to_draft(app):
     """
     Verify that a new access review defaults to draft and receives creation timestamps.
@@ -138,3 +162,57 @@ def test_access_review_rejects_duplicate_items(app):
         db.session.flush()
 
     db.session.rollback()
+    
+@pytest.mark.parametrize(
+    "decision, remediation_status",
+    [
+        (None, None),
+        ("retain", "not_required"),
+        ("revoke", "pending"),
+        ("revoke", "completed"),
+        ("revoke", "incomplete"),
+    ],
+)
+def test_access_review_item_accepts_consistent_remediation_status(app, decision, remediation_status):
+    """
+    Verify that each decision accepts only its matching remediation statuses.
+    """
+    _decided_item(decision, remediation_status)
+    db.session.flush()
+
+@pytest.mark.parametrize(
+    "decision, remediation_status",
+    [
+        (None, "pending"),          # undecided but already remediating
+        ("retain", None),           # decided with no status
+        ("retain", "pending"),      # retained access must not be remediated
+        ("revoke", None),
+        ("revoke", "not_required"),
+        ("revoke", "unknown"),
+    ],
+)
+def test_access_review_item_rejects_inconsistent_remediation_status(app, decision, remediation_status):
+    """
+    Verify that the database rejects a remediation status that does not match the decision.
+    """
+    _decided_item(decision, remediation_status)
+
+    with pytest.raises(IntegrityError, match="ck_access_review_items_valid_remediation_status"):
+        db.session.flush()
+
+    db.session.rollback()
+
+def test_access_review_item_stores_full_length_decision_comment(app):
+    """
+    Verify that a decision comment of the maximum length is stored unchanged.
+    """
+    comment = "x" * 1000
+
+    item = _decided_item("revoke", "pending", decision_comment=comment)
+    db.session.commit()
+
+    db.session.expire_all()
+    saved = db.session.get(AccessReviewItem, item.id)
+
+    assert saved.decision_comment == comment
+
