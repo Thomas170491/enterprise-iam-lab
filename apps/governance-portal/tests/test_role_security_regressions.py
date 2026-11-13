@@ -103,7 +103,7 @@ def test_access_reviewer_cannot_forge_role_removal(
     fake_remove.assert_not_called()
 
 
-def test_role_removal_rejects_missing_csrf_token(
+def test_role_removal_without_csrf_token_returns_400(
     app,
     client,
     monkeypatch,

@@ -173,7 +173,7 @@ def test_access_reviewer_cannot_assign_role(
     fake_assign.assert_not_called()
 
 
-def test_role_assignment_requires_login(
+def test_role_assignment_redirects_anonymous_user_to_login(
     client,
     monkeypatch,
 ):

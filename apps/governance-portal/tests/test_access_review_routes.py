@@ -2315,7 +2315,7 @@ def test_access_review_detail_shows_decision_controls_for_pending_item(client):
     assert 'name="csrf_token"' in html
     assert 'method="POST"' in html
 
-def test_access_review_detail_shows_saved_decision_without_controls(client):
+def test_access_review_detail_shows_service_recorded_decision_without_controls(client):
     """
     Verify that a decided item shows its decision without retain or revoke controls.
     """
