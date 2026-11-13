@@ -204,3 +204,35 @@ def test_get_effective_realm_roles(monkeypatch):
     assert len(roles) == 3
 
     assert roles[1]["name"] == "iam-operator"
+
+
+@pytest.mark.parametrize(
+    "request_error",
+    [requests.Timeout("timed out"), requests.ConnectionError("unavailable")],
+)
+def test_get_effective_realm_roles_propagates_request_failure(
+    monkeypatch, request_error
+):
+    """Verify that a failed effective realm-role request raises a Keycloak Admin API error."""
+    monkeypatch.setattr(
+        admin_service,
+        "get_service_access_token",
+        lambda **kwargs: "fake-service-token",
+    )
+    monkeypatch.setattr(
+        admin_service.requests,
+        "get",
+        Mock(side_effect=request_error),
+    )
+
+    with pytest.raises(
+        KeycloakAdminAPIError,
+        match="Effective realm roles retrieval failed",
+    ):
+        admin_service.get_effective_realm_roles(
+            admin_api_url="https://keycloak.test/admin/realms/novasecure",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="fake-secret",
+            user_id="user-123",
+        )

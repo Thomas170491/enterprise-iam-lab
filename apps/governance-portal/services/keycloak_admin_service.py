@@ -446,7 +446,7 @@ def get_effective_realm_roles(
         )
         response.raise_for_status()
         
-    except ValueError as exc:
+    except requests.RequestException as exc:
         raise KeycloakAdminAPIError("Effective realm roles retrieval failed") from exc
 
     try:
