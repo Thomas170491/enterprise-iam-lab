@@ -116,6 +116,7 @@
                 <th scope="col">Client</th>
                 <th scope="col">Role</th>
                 <th scope="col">Grant Sources</th>
+                <th scope="col">Decision</th>
             </tr>
         </thead>
 
@@ -129,7 +130,6 @@
                 <td>
                     <strong>{{ item.assignment_source | capitalize }}</strong>
                     {% for grant in item.grant_sources or [] %}
-                    <th scope="col">Decision</th>
                         <div>
                             {% if grant.type == "group" %}
                                 Group {{ grant.group_id }}

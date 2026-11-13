@@ -1792,6 +1792,53 @@ def test_access_review_detail_marks_missing_grant_evidence(client):
     assert "Grant Sources" in html
     assert "Source evidence unavailable" in html
 
+
+@pytest.mark.parametrize("grant_count", [0, 1, 2])
+def test_access_review_detail_has_one_decision_header_per_table(client, grant_count):
+    """
+    Verify that the Decision column header appears once in the table head for any number of grants.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        "Header campaign",
+        "manager-123",
+        "test-subject",
+    )
+    access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+        assignment_source="direct",
+        grant_sources=[
+            {
+                "type": "user",
+                "user_id": "user-123",
+                "assigned_role_id": f"assigned-role-{index}",
+                "composite_path": [],
+            }
+            for index in range(grant_count)
+        ],
+    )
+    db.session.commit()
+
+    response = client.get(f"/access-reviews/{campaign.id}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert html.count("<th ") == 6
+    assert html.count('<th scope="col">Decision</th>') == 1
+
+    table_head = html[html.index("<thead>"):html.index("</thead>")]
+    table_body = html[html.index("<tbody>"):html.index("</tbody>")]
+
+    assert '<th scope="col">Decision</th>' in table_head
+    assert "<th " not in table_body
+    assert table_body.count("<td") == table_head.count("<th ")
+
 def test_record_access_review_decision_allows_assigned_reviewer_to_retain(client):
     """
     Verify that the assigned reviewer can retain an item in an open campaign.
