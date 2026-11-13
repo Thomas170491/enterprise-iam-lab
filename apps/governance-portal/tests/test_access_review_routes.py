@@ -815,6 +815,44 @@ def test_create_access_review_returns_503_when_reviewer_verification_fails(
     fake_validate.assert_called_once()
 
 
+@pytest.mark.parametrize(
+    "error_type",
+    [AuditPersistenceError, SQLAlchemyError],
+)
+def test_create_access_review_returns_503_on_persistence_failure(
+    client,
+    monkeypatch,
+    error_type,
+):
+    """
+    Verify that audit or database failures during campaign creation return HTTP 503.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    fake_create = Mock(side_effect=error_type("campaign_persistence_failed"))
+
+    monkeypatch.setattr(
+        governance_routes,
+        "create_access_review_with_audit",
+        fake_create,
+    )
+
+    response = client.post(
+        "/access-reviews/new",
+        data={
+            "name": "September access review",
+            "reviewer_user_id": "reviewer-123",
+            "due_at": "",
+        },
+    )
+
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 503
+    assert "The campaign could not be saved. Please try again." in html
+    fake_create.assert_called_once()
+
+
 def test_manager_can_populate_own_access_review(client, monkeypatch):
     """
     Verify that a manager can capture access in their campaign and receives the correct redirect.

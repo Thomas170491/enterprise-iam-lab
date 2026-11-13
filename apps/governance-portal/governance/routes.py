@@ -518,7 +518,7 @@ def create_access_review():
                 "access-review-create.html",
                 error="The campaign could not be saved. Please try again.",
             ),
-            500,
+            503,
         )
 
     except KeycloakAdminAPIError as exc:
