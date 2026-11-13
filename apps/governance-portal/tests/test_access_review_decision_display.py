@@ -172,3 +172,72 @@ def test_access_review_detail_hides_decision_controls_for_own_item(client):
     assert response.status_code == 200
     assert f"/access-reviews/{campaign.id}/items/{item.id}/decision" not in html
     assert "finance-data-viewer" in html
+
+
+def test_access_review_detail_shows_remediation_status_and_comment(client):
+    """
+    Verify that a decided item shows its remediation status and the reviewer's comment.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="test-subject",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    access_review_service.open_access_review(campaign.id)
+    campaign_id, item_id = campaign.id, item.id
+    db.session.commit()
+
+    client.post(
+        f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+        data={"decision": "revoke", "comment": "moved to Security in October"},
+    )
+
+    html = client.get(f"/access-reviews/{campaign_id}").get_data(as_text=True)
+
+    assert "Revoke" in html
+    assert "Remediation: Pending" in html
+    assert "Comment: moved to Security in October" in html
+
+
+def test_access_review_detail_escapes_decision_comment(client):
+    """
+    Verify that a decision comment is rendered as escaped text, not as HTML.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="test-subject",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    access_review_service.open_access_review(campaign.id)
+    campaign_id, item_id = campaign.id, item.id
+    db.session.commit()
+
+    client.post(
+        f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+        data={"decision": "revoke", "comment": "<script>alert(1)</script>"},
+    )
+
+    html = client.get(f"/access-reviews/{campaign_id}").get_data(as_text=True)
+
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html

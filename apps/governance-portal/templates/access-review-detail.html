@@ -165,9 +165,15 @@
                         </form>
                     {% else %}
                         {{ item.decision | capitalize if item.decision else "Pending" }}
+                        {% if item.remediation_status %}
+                            <div>Remediation: {{ item.remediation_status | replace("_", " ") | capitalize }}</div>
+                        {% endif %}
+                        {% if item.decision_comment %}
+                            <div>Comment: {{ item.decision_comment }}</div>
+                        {% endif %}
                     {% endif %}
-               </td>
-         </tr>
+                </td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>
