@@ -1,7 +1,8 @@
 from unittest.mock import ANY, Mock
+import pytest
 import requests
 import governance.routes as governance_routes
-
+import services.role_service as role_service
 from auth.permissions import (
     ACCESS_REVIEWER,
     IDENTITY_VIEWER,
@@ -329,3 +330,81 @@ def test_sod_review_returns_specific_403_message(app, client, monkeypatch):
         "This role assignment requires review. No role was assigned."
         in response.get_data(as_text=True)
     )
+    
+@pytest.mark.parametrize(
+    "bad_path_id",
+    [
+        "user-123",
+        "%2E%2E",
+        "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b%3Fx%3D1",
+    ],
+)
+def test_role_assignment_returns_400_for_non_uuid_user_id(client, monkeypatch, bad_path_id):
+    """
+    Verify that assigning a role to a non-UUID identity ID answers 400 without contacting Keycloak.
+    """
+    
+    _login_user(client, [ROLE_MANAGER])
+    
+    fake_get_roles = Mock()
+    fake_get_client_uuid = Mock()
+
+    monkeypatch.setattr(
+        role_service, 
+        "get_effective_client_roles", 
+        fake_get_roles
+        )
+    
+    monkeypatch.setattr(
+        role_service, 
+        "get_client_uuid", 
+        fake_get_client_uuid
+        )
+
+    response = client.post(
+        f"/identities/{bad_path_id}/roles",
+        data={"role_name": "finance-data-viewer"},
+    )
+
+    assert response.status_code == 400
+    fake_get_roles.assert_not_called()
+    fake_get_client_uuid.assert_not_called()
+    
+@pytest.mark.parametrize(
+    "bad_path_id",
+    [
+        "user-123",
+        "%2E%2E",
+        "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b%3Fx%3D1",
+    ],
+)
+
+def test_role_removal_returns_400_for_non_uuid_user_id(client, monkeypatch, bad_path_id):
+    """
+    Verify that removing a role from a non-UUID identity ID answers 400 without contacting Keycloak.
+    """
+    
+    _login_user(client, [ROLE_MANAGER])
+    
+    fake_get_roles = Mock()
+    fake_get_client_uuid = Mock()
+
+    monkeypatch.setattr(
+        role_service, 
+        "get_effective_client_roles", 
+        fake_get_roles
+        )
+    
+    monkeypatch.setattr(
+        role_service, 
+        "get_client_uuid", 
+        fake_get_client_uuid
+        )
+
+    response = client.post(
+        f"/identities/{bad_path_id}/roles/finance-data-viewer/remove",
+    )
+
+    assert response.status_code == 400
+    fake_get_roles.assert_not_called()
+    fake_get_client_uuid.assert_not_called()

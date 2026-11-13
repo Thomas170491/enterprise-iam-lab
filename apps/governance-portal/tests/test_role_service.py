@@ -138,7 +138,7 @@ def test_assign_identity_client_role(monkeypatch):
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
-        user_id="user-123",
+        user_id="5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
         target_client_name="employee-portal",
         role_name="finance-data-viewer",
         actor_user_id="leo-sub-123",
@@ -150,13 +150,13 @@ def test_assign_identity_client_role(monkeypatch):
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
-        user_id="user-123",
+        user_id="5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
         client_uuid="client-uuid-123",
         role=role,
     )
 
     assert result == {
-        "user_id": "user-123",
+        "user_id": "5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
         "client_name": "employee-portal",
         "role_id": "role-uuid-123",
         "role_name": "finance-data-viewer",
@@ -198,7 +198,7 @@ def test_remove_identity_client_role(monkeypatch):
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
-        user_id="user-123",
+        user_id="5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
         target_client_name="employee-portal",
         role_name="finance-data-viewer",
         actor_user_id="leo-sub-123",
@@ -210,13 +210,13 @@ def test_remove_identity_client_role(monkeypatch):
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
-        user_id="user-123",
+        user_id="5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
         client_uuid="client-uuid-123",
         role=role,
     )
 
     assert result == {
-        "user_id": "user-123",
+        "user_id": "5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
         "client_name": "employee-portal",
         "role_id": "role-uuid-123",
         "role_name": "finance-data-viewer",
@@ -251,7 +251,7 @@ def test_role_administration_rejects_unmanaged_client(
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
-            user_id="user-123",
+            user_id="5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
             # Deliberately attempt to modify the
             # Governance Portal itself.
             target_client_name="iam-admin-portal",
@@ -307,7 +307,7 @@ def test_assign_identity_client_role_audits_human_actor(
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
-        user_id="target-user-123",
+        user_id="9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d",
         target_client_name="employee-portal",
         role_name="finance-data-viewer",
         actor_user_id="leo-sub-123",
@@ -332,7 +332,7 @@ def test_assign_identity_client_role_audits_human_actor(
     for event in (sod_event, attempted_event, success_event):
         assert event["actor_user_id"] == "leo-sub-123"
         assert event["actor_username"] == "e1004"
-        assert event["target_id"] == "target-user-123"
+        assert event["target_id"] == "9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d"
         assert event["details"]["service_client"] == "iam-governance-service"
         assert event["details"]["client_name"] == "employee-portal"
     assert success_event["action"] == "role.assign"
@@ -343,7 +343,7 @@ def test_assign_identity_client_role_audits_human_actor(
 
     assert attempted_event["action"] == "role.assign"
 
-    assert attempted_event["target_id"] == "target-user-123"
+    assert attempted_event["target_id"] == "9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d"
 
     assert attempted_event["outcome"] == "attempted"
 
@@ -391,7 +391,7 @@ def test_remove_identity_client_role_audits_human_actor(
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
-        user_id="target-user-123",
+        user_id="9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d",
         target_client_name="employee-portal",
         role_name="finance-data-viewer",
         actor_user_id="leo-sub-123",
@@ -459,7 +459,7 @@ def test_assignment_not_performed_when_initial_audit_fails(
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
-            user_id="target-user-123",
+            user_id="9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d",
             target_client_name="employee-portal",
             role_name="finance-data-viewer",
             actor_user_id="leo-sub-123",
@@ -505,7 +505,7 @@ def test_removal_not_performed_when_initial_audit_fails(
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
-            user_id="target-user-123",
+            user_id="9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d",
             target_client_name="employee-portal",
             role_name="finance-data-viewer",
             actor_user_id="leo-sub-123",
@@ -551,7 +551,7 @@ def test_assignment_failure_is_audited(
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
-            user_id="target-user-123",
+            user_id="9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d",
             target_client_name="employee-portal",
             role_name="finance-data-viewer",
             actor_user_id="leo-sub-123",
@@ -606,7 +606,7 @@ def test_removal_failure_is_audited(
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
-            user_id="target-user-123",
+            user_id="9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d",
             target_client_name="employee-portal",
             role_name="finance-data-viewer",
             actor_user_id="leo-sub-123",
@@ -670,7 +670,7 @@ def test_assignment_success_not_masked_by_final_audit_failure(
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
-        user_id="target-user-123",
+        user_id="9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d",
         target_client_name="employee-portal",
         role_name="finance-data-viewer",
         actor_user_id="leo-sub-123",
@@ -725,7 +725,7 @@ def test_removal_success_not_masked_by_final_audit_failure(
         token_url="https://keycloak.test/token",
         client_id="iam-governance-service",
         client_secret="fake-secret",
-        user_id="target-user-123",
+        user_id="9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d",
         target_client_name="employee-portal",
         role_name="finance-data-viewer",
         actor_user_id="leo-sub-123",
@@ -784,7 +784,7 @@ def test_final_audit_failure_log_omits_exception_message(
         "token_url": "https://keycloak.test/token",
         "client_id": "iam-governance-service",
         "client_secret": "fake-secret",
-        "user_id": "target-user-123",
+        "user_id": "9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d",
         "target_client_name": "employee-portal",
         "role_name": "finance-data-viewer",
         "actor_user_id": "leo-sub-123",
@@ -820,7 +820,7 @@ def test_role_administration_rejects_unmanaged_role(monkeypatch):
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
-            user_id="user-123",
+            user_id="5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
             target_client_name="employee-portal",
             # Deliberately not in MANAGED_ROLES.
             role_name="portal-user",
@@ -849,7 +849,7 @@ def test_role_administration_rejects_unmanaged_role_removal(monkeypatch):
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
-            user_id="user-123",
+            user_id="5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
             target_client_name="employee-portal",
             # Deliberately not in MANAGED_ROLES.
             role_name="portal-user",
@@ -892,7 +892,7 @@ def test_sod_deny_prevents_keycloak_assignment(monkeypatch):
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="test-secret",
-            user_id="user-123",
+            user_id="5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
             target_client_name="employee-portal",
             role_name="security-data-viewer",
             actor_user_id="operator-123",
@@ -934,7 +934,7 @@ def test_sod_review_prevents_immediate_keycloak_assignment(monkeypatch):
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="test-secret",
-            user_id="user-123",
+            user_id="5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
             target_client_name="employee-portal",
             role_name="security-data-viewer",
             actor_user_id="operator-123",
@@ -977,7 +977,7 @@ def test_assignment_not_performed_when_attempt_audit_fails(monkeypatch):
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="fake-secret",
-            user_id="target-user-123",
+            user_id="9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d",
             target_client_name="employee-portal",
             role_name="finance-data-viewer",
             actor_user_id="leo-sub-123",
@@ -985,3 +985,34 @@ def test_assignment_not_performed_when_attempt_audit_fails(monkeypatch):
         )
 
     fake_assign.assert_not_called()
+    
+@pytest.mark.parametrize(
+    "bad_user_id",
+    ["./3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b", "..", "user-123"],
+)
+
+def test_assign_identity_client_role_rejects_non_uuid_user_id_before_keycloak(
+    app, monkeypatch, bad_user_id
+):
+    """
+    Verify that role assignment rejects a non-UUID user ID before any Keycloak call.
+    """
+    fake_get_roles = Mock()
+    monkeypatch.setattr(role_service, "get_effective_client_roles", fake_get_roles)
+
+    with pytest.raises(RoleAdministrationPolicyError) as excinfo:
+        role_service.assign_identity_client_role(
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
+            user_id=bad_user_id,
+            target_client_name="employee-portal",
+            role_name="finance-viewer",
+            actor_user_id="actor-123",
+            actor_username="operator",
+        )
+
+    assert excinfo.value.reason == "invalid_user_id"
+    fake_get_roles.assert_not_called()
+

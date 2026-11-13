@@ -22,6 +22,7 @@ from services.sod_service import (
 
 from extensions import db
 from models import ManagedRole
+from services.validation import is_keycloak_uuid
 
 # The Governance Portal is currently allowed to administer
 # application access for the Employee Portal only.
@@ -187,6 +188,9 @@ def assign_identity_client_role(
     # ---------------------------------------------------------
     # 1. Enforce Governance policy
     # ---------------------------------------------------------
+    
+    if not is_keycloak_uuid(user_id):
+        raise RoleAdministrationPolicyError("invalid_user_id")
 
     _ensure_managed_client(target_client_name)
 
@@ -374,6 +378,9 @@ def remove_identity_client_role(
     # ---------------------------------------------------------
     # 1. Enforce Governance policy
     # ---------------------------------------------------------
+    
+    if not is_keycloak_uuid(user_id):
+        raise RoleAdministrationPolicyError("invalid_user_id")
 
     _ensure_managed_client(target_client_name)
 

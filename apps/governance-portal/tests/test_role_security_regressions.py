@@ -37,7 +37,7 @@ def test_forged_unmanaged_role_assignement_is_blocked(client, monkeypatch):
 
     monkeypatch.setattr(role_service, "get_client_uuid", fake_client_lookup)
     response = client.post(
-        "/identities/user-123/roles",
+        "/identities/5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f/roles",
         data={
             "role_name": "portal-user",
         },
@@ -54,7 +54,7 @@ def test_forged_unmanaged_role_removal_is_blocked(client, monkeypatch):
 
     monkeypatch.setattr(role_service, "get_client_uuid", fake_client_lookup)
     response = client.post(
-        "/identities/user-123/roles/portal-user/remove",
+        "/identities/5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f/roles/portal-user/remove",
     )
 
     assert response.status_code == 403
@@ -72,7 +72,7 @@ def test_identity_viewer_cannot_forge_role_removal(
     monkeypatch.setattr(governance_routes, "remove_identity_client_role", fake_remove)
 
     response = client.post(
-        "/identities/user-123/roles/finance-data-viewer/remove",
+        "/identities/5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f/roles/finance-data-viewer/remove",
     )
 
     assert response.status_code == 403
@@ -97,7 +97,7 @@ def test_access_reviewer_cannot_forge_role_removal(
     )
 
     response = client.post(
-        "/identities/user-123/roles/finance-data-viewer/remove",
+        "/identities/5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f/roles/finance-data-viewer/remove",
     )
     assert response.status_code == 403
     fake_remove.assert_not_called()
@@ -121,7 +121,7 @@ def test_role_removal_without_csrf_token_returns_400(
     )
 
     response = client.post(
-        "/identities/user-123/roles/finance-data-viewer/remove",
+        "/identities/5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f/roles/finance-data-viewer/remove",
     )
 
     assert response.status_code == 400
@@ -152,7 +152,7 @@ def test_role_removal_rejects_missing_csrf_token(
 
     # Deliberately submit the POST without a csrf_token.
     response = client.post(
-        ("/identities/user-123/roles/" "finance-data-viewer/remove"),
+        ("/identities/5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f/roles/" "finance-data-viewer/remove"),
     )
 
     # Flask-WTF must reject the request before the
@@ -172,7 +172,7 @@ def test_role_assignment_cannot_override_governed_client(
 
     fake_assign = Mock(
         return_value={
-            "user_id": "user-123",
+            "user_id": "5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
             "client_name": "employee-portal",
             "role_id": "role-123",
             "role_name": "finance-data-viewer",
@@ -186,7 +186,7 @@ def test_role_assignment_cannot_override_governed_client(
     )
 
     response = client.post(
-        "/identities/user-123/roles",
+        "/identities/5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f/roles",
         data={
             "role_name": "finance-data-viewer",
             # Attacker tries to make the route modify a
@@ -205,7 +205,7 @@ def test_role_assignment_cannot_override_governed_client(
         token_url=ANY,
         client_id=ANY,
         client_secret=ANY,
-        user_id="user-123",
+        user_id="5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
         target_client_name="employee-portal",
         role_name="finance-data-viewer",
         actor_user_id="test-subject",
