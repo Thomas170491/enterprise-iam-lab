@@ -1,4 +1,3 @@
-import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -15,12 +14,7 @@ from services.keycloak_admin_service import (
     get_group_ancestors,
     get_group_role_mappings,
 )
-
-_KEYCLOAK_UUID = re.compile(
-    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-    re.IGNORECASE,
-)
-
+from services.validation import is_keycloak_uuid
 
 def _validate_required_string(value: Any, field_name: str, max_length: int) -> str:
     """
@@ -662,7 +656,7 @@ def validate_access_review_reviewer(
         reviewer_user_id, "reviewer_user_id", 255
     )
     
-    if _KEYCLOAK_UUID.fullmatch(reviewer_user_id) is None:
+    if not is_keycloak_uuid(reviewer_user_id):
         raise ValueError("invalid_reviewer_user_id")
 
     reviewer = get_user(
@@ -715,7 +709,7 @@ def populate_access_review_from_identity(
 
     user_id = _validate_required_string(user_id, "user_id", 255)
 
-    if _KEYCLOAK_UUID.fullmatch(user_id) is None:
+    if not is_keycloak_uuid(user_id):
         raise ValueError("invalid_user_id")
 
     identity = get_user(
@@ -729,7 +723,7 @@ def populate_access_review_from_identity(
     # Use the ID Keycloak returned, so an alias of it is never stored.
     user_id = identity.get("id")
 
-    if not isinstance(user_id, str) or _KEYCLOAK_UUID.fullmatch(user_id) is None:
+    if not is_keycloak_uuid(user_id):
         raise KeycloakAdminAPIError("Unexpected user response")
 
     resolved_roles = resolve_user_client_role_sources(
