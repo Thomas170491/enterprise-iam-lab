@@ -1,5 +1,9 @@
 from unittest.mock import Mock
+
+import pytest
+
 import services.access_review_service as access_review_service
+from services.exceptions import KeycloakAdminAPIError
 
 
 def test_resolve_user_client_role_sources_inherits_parent_group_role(monkeypatch):
@@ -697,3 +701,95 @@ def test_resolve_user_client_role_sources_reports_both_composite_user_and_group_
             ],
         }
     ]
+
+
+@pytest.mark.parametrize(
+    "malformed_payload",
+    [
+        "direct_role_without_id",
+        "effective_role_without_id",
+        "effective_role_without_name",
+        "membership_without_id",
+        "ancestor_without_id",
+        "group_mapped_role_without_id",
+        "composite_child_without_id",
+    ],
+)
+def test_resolve_user_client_role_sources_rejects_malformed_keycloak_payload(
+    monkeypatch, malformed_payload
+):
+    """
+    Verify that a Keycloak payload missing a role or group field raises a Keycloak Admin API error.
+    """
+    direct_roles = [{"id": "finance-role-id", "name": "finance-data-viewer"}]
+    effective_roles = [
+        {"id": "finance-role-id", "name": "finance-data-viewer"},
+        {"id": "finance-staff-id", "name": "finance-staff"},
+        {"id": "finance-report-id", "name": "finance-report-viewer"},
+    ]
+    memberships = [{"id": "finance-team-id", "name": "Finance Team"}]
+    ancestors = [{"id": "finance-id", "name": "Finance"}]
+    mapped_roles = [
+        {"id": "finance-staff-id", "name": "finance-staff", "composite": True}
+    ]
+    children = [{"id": "finance-report-id", "name": "finance-report-viewer"}]
+
+    if malformed_payload == "direct_role_without_id":
+        direct_roles = [{"name": "finance-data-viewer"}]
+    elif malformed_payload == "effective_role_without_id":
+        effective_roles = [{"name": "finance-data-viewer"}]
+    elif malformed_payload == "effective_role_without_name":
+        effective_roles = [{"id": "finance-role-id"}]
+    elif malformed_payload == "membership_without_id":
+        memberships = [{"name": "Finance Team"}]
+    elif malformed_payload == "ancestor_without_id":
+        ancestors = [{"name": "Finance"}]
+    elif malformed_payload == "group_mapped_role_without_id":
+        mapped_roles = [{"name": "finance-staff"}]
+    elif malformed_payload == "composite_child_without_id":
+        children = [{"name": "finance-report-viewer"}]
+
+    monkeypatch.setattr(
+        access_review_service,
+        "get_direct_client_roles",
+        Mock(return_value=direct_roles),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        Mock(return_value=effective_roles),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_user_groups",
+        Mock(return_value=memberships),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_group_ancestors",
+        Mock(return_value=ancestors),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_group_role_mappings",
+        Mock(
+            return_value={
+                "clientMappings": {"employee-portal": {"mappings": mapped_roles}}
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_role_composite_children",
+        Mock(return_value=children),
+    )
+
+    with pytest.raises(KeycloakAdminAPIError):
+        access_review_service.resolve_user_client_role_sources(
+            admin_api_url="https://keycloak.test/admin/realms/novasecure",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="fake-secret",
+            user_id="user-123",
+            target_client_name="employee-portal",
+        )

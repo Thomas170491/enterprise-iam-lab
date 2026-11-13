@@ -221,6 +221,17 @@ def cancel_access_review(review_id: int) -> AccessReview:
 
     return campaign
 
+def _require_payload_string(payload: Any, key: str) -> str:
+    """
+    Return a non-empty string field of a Keycloak payload or raise KeycloakAdminAPIError.
+    """
+    value = payload.get(key) if isinstance(payload, dict) else None
+
+    if not isinstance(value, str) or not value.strip():
+        raise KeycloakAdminAPIError("Unexpected Keycloak response")
+
+    return value
+
 def _get_composite_role_paths(
     assigned_role: dict[str, Any],
     admin_api_url: str,
@@ -249,7 +260,7 @@ def _get_composite_role_paths(
                 role_id=current_role["id"],
             )
             for child in children:
-                child_role_id = child["id"]
+                child_role_id = _require_payload_string(child, "id")
 
                 if child_role_id in path:
                     continue
@@ -311,7 +322,7 @@ def resolve_user_client_role_sources(
                             token_url = token_url,
                             client_id = client_id,
                             client_secret = client_secret,
-                            group_id = membership["id"]
+                            group_id = _require_payload_string(membership, "id")
                         )
 
         group_paths.append((membership,membership))
@@ -327,7 +338,7 @@ def resolve_user_client_role_sources(
                 token_url=token_url,
                 client_id=client_id,
                 client_secret=client_secret,
-                group_id=group["id"],
+                group_id=_require_payload_string(group, "id"),
             )
 
         client_mappings = mappings.get("clientMappings") or {}
@@ -335,7 +346,7 @@ def resolve_user_client_role_sources(
         mapped_roles = client_mapping.get("mappings") or []
 
         for mapped_role in mapped_roles:
-            role_id = mapped_role["id"]
+            role_id = _require_payload_string(mapped_role, "id")
 
             # Record the role assigned directly to this group.
             grant = {
@@ -369,7 +380,7 @@ def resolve_user_client_role_sources(
                 if child_grant not in child_grants:
                     child_grants.append(child_grant)
 
-    direct_role_ids = {role["id"] for role in direct_roles}
+    direct_role_ids = {_require_payload_string(role, "id") for role in direct_roles}
 
     user_composite_grants_by_role_id = {}
 
@@ -396,7 +407,7 @@ def resolve_user_client_role_sources(
 
     for role in effective_roles:
 
-        role_id = role["id"]
+        role_id = _require_payload_string(role, "id")
         is_direct = role_id in direct_role_ids
         group_grants = group_grants_by_role_id.get(role_id, [])
         user_grants = []
@@ -429,7 +440,7 @@ def resolve_user_client_role_sources(
         resolved_roles.append(
             {
                 "role_id": role_id,
-                "role_name": role["name"],
+                "role_name": _require_payload_string(role, "name"),
                 "assignment_source": assignment_source,
                 "grant_sources": user_grants + group_grants,
             }
