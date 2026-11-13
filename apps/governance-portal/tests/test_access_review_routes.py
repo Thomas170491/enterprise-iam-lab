@@ -1993,6 +1993,42 @@ def test_record_access_review_decision_allows_assigned_reviewer_to_retain(client
     assert event.details["review_id"] == campaign_id
     assert event.details["decision"] == "retain"
 
+def test_record_access_review_decision_stores_form_comment(client):
+    """
+    Verify that the reviewer's comment from the decision form is stored with the decision.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="test-subject",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    access_review_service.open_access_review(campaign.id)
+    campaign_id, item_id = campaign.id, item.id
+    db.session.commit()
+
+    response = client.post(
+        f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+        data={"decision": "revoke", "comment": "  moved to Security in October  "},
+    )
+
+    assert response.status_code == 303
+
+    db.session.expire_all()
+    saved_item = db.session.get(AccessReviewItem, item_id)
+    assert saved_item.decision == "revoke"
+    assert saved_item.decision_comment == "moved to Security in October"
+
+
 def test_record_access_review_decision_hides_campaign_from_other_reviewer(client):
     """
     Verify that a reviewer cannot decide an item in another reviewer's campaign.
@@ -2034,6 +2070,43 @@ def test_record_access_review_decision_hides_campaign_from_other_reviewer(client
         )
     ).scalar_one_or_none()
     assert event is None
+
+def test_record_access_review_decision_overlong_comment_returns_400(client):
+    """
+    Verify that an overlong comment from the decision form returns HTTP 400
+    and leaves the item unchanged.
+    """
+    
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="test-subject",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    access_review_service.open_access_review(campaign.id)
+    campaign_id, item_id = campaign.id, item.id
+    db.session.commit()
+
+    response = client.post(
+        f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+        data={"decision": "revoke", "comment": "x" * 1001},
+    )
+
+    assert response.status_code == 400
+
+    db.session.expire_all()
+    saved_item = db.session.get(AccessReviewItem, item_id)
+    assert saved_item.decision is None
+
 
 def test_record_access_review_decision_rejects_self_certification(client):
     """
@@ -2418,6 +2491,37 @@ def test_access_review_detail_shows_decision_controls_for_pending_item(client):
     assert 'value="revoke"' in html
     assert 'name="csrf_token"' in html
     assert 'method="POST"' in html
+    
+def test_access_review_detail_offers_comment_box_for_pending_item(client):
+    """
+    Verify that the decision form for an open item offers an optional comment limited to 1000 characters.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="test-subject",
+    )
+    access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    access_review_service.open_access_review(campaign.id)
+    db.session.commit()
+
+    response = client.get(f"/access-reviews/{campaign.id}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "<textarea" in html
+    assert 'name="comment"' in html
+    assert 'maxlength="1000"' in html
+
 
 def test_access_review_detail_shows_service_recorded_decision_without_controls(client):
     """

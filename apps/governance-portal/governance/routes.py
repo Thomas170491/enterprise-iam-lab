@@ -802,12 +802,14 @@ def record_access_review_decision(review_id: int, item_id: int):
     """
     try:
         record_access_review_decision_with_audit(
-        review_id=review_id,
-        item_id=item_id,
-        reviewer_user_id=current_user.get_id(),
-        actor_username=current_user.username,
-        decision=request.form.get("decision", ""),
-    )
+            review_id=review_id,
+            item_id=item_id,
+            reviewer_user_id=current_user.get_id(),
+            actor_username=current_user.username,
+            decision=request.form.get("decision", ""),
+            comment=request.form.get("comment"), 
+        )
+    
     except ValueError as exc:
         denial_statuses = {
             "access_review_not_found": 404,

@@ -157,8 +157,11 @@
                             action="{{ url_for('governance.record_access_review_decision', review_id=review.id, item_id=item.id) }}"
                         >
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <label for="comment-{{ item.id }}">Comment (optional)</label>
+                            <textarea id="comment-{{ item.id }}" name="comment" maxlength="1000" rows="2"></textarea>
                             <button type="submit" name="decision" value="retain">Retain</button>
                             <button type="submit" name="decision" value="revoke">Revoke</button>
+
                         </form>
                     {% else %}
                         {{ item.decision | capitalize if item.decision else "Pending" }}
