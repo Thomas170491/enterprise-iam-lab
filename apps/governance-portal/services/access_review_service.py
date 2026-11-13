@@ -844,6 +844,7 @@ def record_access_review_decision(
     item_id: int,
     reviewer_user_id: str,
     decision: str,
+    comment: str | None = None,
 ) -> AccessReviewItem:
     """
     Record an assigned reviewer's decision on an item in an open campaign.
@@ -867,8 +868,17 @@ def record_access_review_decision(
     if item.decision is not None:
         raise ValueError("access_review_item_already_decided")
 
+    if comment is not None:
+        if not isinstance(comment, str):
+            raise ValueError("invalid_access_review_comment")
+        comment = comment.strip() or None
+
+    if comment is not None and len(comment) > 1000:
+        raise ValueError("invalid_access_review_comment")
+
     item.decision = decision
     item.remediation_status = "not_required" if decision == "retain" else "pending"
+    item.decision_comment = comment
     item.decided_by_user_id = reviewer_user_id
     item.decided_at = datetime.now(timezone.utc)
 
@@ -881,6 +891,7 @@ def record_access_review_decision_with_audit(
     reviewer_user_id: str,
     actor_username: str,
     decision: str,
+    comment: str | None = None,
 ) -> AccessReviewItem:
     """
     Save a reviewer decision and its audit event in one transaction.
@@ -892,6 +903,7 @@ def record_access_review_decision_with_audit(
             item_id=item_id,
             reviewer_user_id=reviewer_user_id,
             decision=decision,
+            comment=comment,
         )
 
         record_audit_event(
@@ -908,6 +920,7 @@ def record_access_review_decision_with_audit(
                 "client_name": item.client_name,
                 "role_name": item.role_name,
                 "decision": decision,
+                "remediation_status": item.remediation_status,
             },
             commit=False,
         )
