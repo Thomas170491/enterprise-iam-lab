@@ -1,3 +1,4 @@
+import json
 from html.parser import HTMLParser
 from http import client
 from unittest.mock import Mock
@@ -2074,6 +2075,77 @@ def test_record_access_review_decision_rolls_back_on_audit_failure(
     saved_item = db.session.get(AccessReviewItem, item_id)
     assert saved_item is not None
     assert saved_item.decision is None
+
+
+@pytest.mark.parametrize(
+    ("reason", "expected_status"),
+    [
+        ("access_review_not_found", 404),
+        ("access_review_item_not_found", 404),
+        ("access_review_self_certification", 403),
+        ("access_review_not_open", 409),
+        ("access_review_item_already_decided", 409),
+    ],
+)
+def test_record_access_review_decision_logs_denial(
+    client, monkeypatch, caplog, reason, expected_status
+):
+    """
+    Verify that a denied decision is logged as a structured event with its stable reason.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    monkeypatch.setattr(
+        governance_routes,
+        "record_access_review_decision_with_audit",
+        Mock(side_effect=ValueError(reason)),
+    )
+
+    with caplog.at_level("WARNING"):
+        response = client.post(
+            "/access-reviews/7/items/42/decision",
+            data={"decision": "retain"},
+        )
+
+    assert response.status_code == expected_status
+
+    events = [
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if record.getMessage().startswith("{")
+    ]
+
+    assert len(events) == 1
+    assert events[0]["event"] == "access_review.decision"
+    assert events[0]["outcome"] == "denied"
+    assert events[0]["reason"] == reason
+    assert events[0]["actor_user_id"] == "test-subject"
+    assert events[0]["target_id"] == "42"
+    assert events[0]["review_id"] == "7"
+
+
+def test_record_access_review_decision_returns_400_for_unmapped_error(
+    client, monkeypatch, caplog
+):
+    """
+    Verify that an unmapped service error returns HTTP 400 and its message is not logged.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+
+    monkeypatch.setattr(
+        governance_routes,
+        "record_access_review_decision_with_audit",
+        Mock(side_effect=ValueError("unexpected detail from a lower layer")),
+    )
+
+    with caplog.at_level("WARNING"):
+        response = client.post(
+            "/access-reviews/7/items/42/decision",
+            data={"decision": "retain"},
+        )
+
+    assert response.status_code == 400
+    assert "unexpected detail from a lower layer" not in caplog.text
 
 @pytest.mark.parametrize("decision", ["retain", "revoke"])
 def test_record_access_review_decision_allows_assigned_reviewer_to_decide(

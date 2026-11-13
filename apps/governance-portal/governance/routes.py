@@ -790,25 +790,26 @@ def record_access_review_decision(review_id: int, item_id: int):
         decision=request.form.get("decision", ""),
     )
     except ValueError as exc:
-        if str(exc) in (
-            "access_review_not_found",
-            "access_review_item_not_found",
-        ):
-            abort(404)
+        denial_statuses = {
+            "access_review_not_found": 404,
+            "access_review_item_not_found": 404,
+            "access_review_self_certification": 403,
+            "access_review_not_open": 409,
+            "access_review_item_already_decided": 409,
+        }
 
-        if str(exc) == "access_review_self_certification":
-            abort(403)
+        if str(exc) in denial_statuses:
+            _log_governance_event(
+                level=30,
+                event="access_review.decision",
+                outcome="denied",
+                reason=str(exc),
+                target_id=str(item_id),
+                review_id=str(review_id),
+            )
+            abort(denial_statuses[str(exc)])
 
-        if str(exc) == "invalid_access_review_decision":
-            abort(400)
-
-        if str(exc) == "access_review_not_open":
-            abort(409)
-
-        if str(exc) == "access_review_item_already_decided":
-            abort(409)
-
-        raise
+        abort(400)
 
     except (AuditPersistenceError, SQLAlchemyError) as exc:
         _log_governance_event(
