@@ -739,6 +739,70 @@ def test_removal_success_not_masked_by_final_audit_failure(
     assert fake_audit.call_count == 2
 
 
+@pytest.mark.parametrize("operation", ["assign", "remove"])
+@pytest.mark.parametrize("keycloak_outcome", ["success", "failure"])
+def test_final_audit_failure_log_omits_exception_message(
+    monkeypatch,
+    caplog,
+    operation,
+    keycloak_outcome,
+):
+    """Keep the audit failure's exception message out of the application log."""
+    role = _fake_role()
+
+    _patch_role_resolution(
+        monkeypatch,
+        role,
+    )
+
+    keycloak_call = Mock()
+
+    if keycloak_outcome == "failure":
+        keycloak_call.side_effect = KeycloakAdminAPIError("Client role change failed")
+
+    monkeypatch.setattr(
+        role_service,
+        f"{operation}_client_role",
+        keycloak_call,
+    )
+
+    sql_text = "INSERT INTO audit_events VALUES (sensitive-parameter)"
+
+    def fake_audit(**kwargs):
+        if kwargs["outcome"] in ("success", "failure"):
+            raise AuditPersistenceError(f"Failed to persist audit event: {sql_text}")
+
+    monkeypatch.setattr(
+        role_service,
+        "record_audit_event",
+        fake_audit,
+    )
+
+    service_call = getattr(role_service, f"{operation}_identity_client_role")
+    arguments = {
+        "admin_api_url": "https://keycloak.test/admin/realms/novasecure",
+        "token_url": "https://keycloak.test/token",
+        "client_id": "iam-governance-service",
+        "client_secret": "fake-secret",
+        "user_id": "target-user-123",
+        "target_client_name": "employee-portal",
+        "role_name": "finance-data-viewer",
+        "actor_user_id": "leo-sub-123",
+        "actor_username": "e1004",
+    }
+
+    with caplog.at_level("ERROR", logger=role_service.logger.name):
+        if keycloak_outcome == "failure":
+            with pytest.raises(KeycloakAdminAPIError):
+                service_call(**arguments)
+        else:
+            service_call(**arguments)
+
+    assert "audit outcome" in caplog.text
+    assert sql_text not in caplog.text
+    assert "sensitive-parameter" not in caplog.text
+
+
 def test_role_administration_rejects_unmanaged_role(monkeypatch):
     """Reject an unlisted role before contacting Keycloak."""
 

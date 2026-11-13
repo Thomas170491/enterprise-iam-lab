@@ -307,7 +307,7 @@ def assign_identity_client_role(
             )
 
         except AuditPersistenceError:
-            logger.exception("Failed to persist failed role assignment audit outcome")
+            logger.error("Failed to persist failed role assignment audit outcome")
 
         # Re-raise the original KeycloakAdminAPIError.
         raise
@@ -336,7 +336,7 @@ def assign_identity_client_role(
         # the second audit record could not be persisted.
         #
         # The original "attempted" record still exists.
-        logger.exception("Failed to persist successful role assignment audit outcome")
+        logger.error("Failed to persist successful role assignment audit outcome")
 
     # ---------------------------------------------------------
     # 7. Return normalized result
@@ -451,7 +451,7 @@ def remove_identity_client_role(
             )
 
         except AuditPersistenceError:
-            logger.exception("Failed to persist failed role removal audit outcome")
+            logger.error("Failed to persist failed role removal audit outcome")
 
         raise
 
@@ -472,7 +472,7 @@ def remove_identity_client_role(
         )
 
     except AuditPersistenceError:
-        logger.exception("Failed to persist successful role removal audit outcome")
+        logger.error("Failed to persist successful role removal audit outcome")
 
     # ---------------------------------------------------------
     # 7. Return normalized result
