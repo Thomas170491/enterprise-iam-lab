@@ -226,3 +226,36 @@ def test_record_access_review_decision_locks_campaign_row_shared(app, monkeypatc
     lock = campaign_selects[0]._for_update_arg
     assert lock is not None
     assert lock.read is True
+
+
+def test_record_access_review_decision_normalises_crlf_before_length_check(app):
+    """
+    Verify that CRLF and lone CR count as one character and are stored as a newline.
+    """
+    review_id, item_id = _open_campaign_with_item()
+
+    item = access_review_service.record_access_review_decision(
+        review_id=review_id,
+        item_id=item_id,
+        reviewer_user_id=REVIEWER_ID,
+        decision="retain",
+        comment="x" + "\r\n" * 3 + "\r" * 2 + "x" * 994,
+    )
+
+    assert item.decision_comment == "x" + "\n" * 5 + "x" * 994
+
+
+def test_record_access_review_decision_rejects_comment_over_limit_after_normalising(app):
+    """
+    Verify that a comment still over 1000 characters after normalisation is rejected.
+    """
+    review_id, item_id = _open_campaign_with_item()
+
+    with pytest.raises(ValueError, match="invalid_access_review_comment"):
+        access_review_service.record_access_review_decision(
+            review_id=review_id,
+            item_id=item_id,
+            reviewer_user_id=REVIEWER_ID,
+            decision="retain",
+            comment="x" * 500 + "\r\n" * 4 + "x" * 497,
+        )

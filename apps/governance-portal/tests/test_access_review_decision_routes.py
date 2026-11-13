@@ -586,3 +586,45 @@ def test_record_access_review_decision_rejects_second_decision(client):
 
     assert event is not None
     assert event.details["decision"] == "retain"
+
+
+def _open_campaign_for_test_subject():
+    """
+    Create an open campaign assigned to the test user with one undecided item, and return both ids.
+    """
+    campaign = access_review_service.create_access_review(
+        name="Decision campaign",
+        created_by_user_id="manager-123",
+        reviewer_user_id="test-subject",
+    )
+    item = access_review_service.add_access_review_item(
+        review_id=campaign.id,
+        user_id="user-123",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+    )
+    access_review_service.open_access_review(campaign.id)
+    campaign_id, item_id = campaign.id, item.id
+    db.session.commit()
+    return campaign_id, item_id
+
+
+def test_record_access_review_decision_accepts_crlf_comment_within_browser_limit(client):
+    """
+    Verify that a comment of 1000 browser-counted characters posted with CRLF is stored with newlines.
+    """
+    _login_user(client, [ACCESS_REVIEWER])
+    campaign_id, item_id = _open_campaign_for_test_subject()
+
+    response = client.post(
+        f"/access-reviews/{campaign_id}/items/{item_id}/decision",
+        data={"decision": "revoke", "comment": "x" + "\r\n" * 5 + "x" * 994},
+    )
+
+    assert response.status_code == 303
+
+    db.session.expire_all()
+    saved_item = db.session.get(AccessReviewItem, item_id)
+    assert saved_item.decision_comment == "x" + "\n" * 5 + "x" * 994

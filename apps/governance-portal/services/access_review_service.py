@@ -16,6 +16,29 @@ from services.keycloak_admin_service import (
 )
 from services.validation import is_keycloak_uuid
 
+DECISION_COMMENT_MAX_LENGTH = 1000
+
+
+def _normalise_decision_comment(value: Any) -> str | None:
+    """
+    Return a decision comment with browser line breaks normalised and trimmed.
+
+    Raise invalid_access_review_comment for a non-string or an overlong value.
+    """
+    if value is None:
+        return None
+
+    if not isinstance(value, str):
+        raise ValueError("invalid_access_review_comment")
+
+    value = value.replace("\r\n", "\n").replace("\r", "\n").strip() or None
+
+    if value is not None and len(value) > DECISION_COMMENT_MAX_LENGTH:
+        raise ValueError("invalid_access_review_comment")
+
+    return value
+
+
 def _validate_required_string(value: Any, field_name: str, max_length: int) -> str:
     """
     Return a trimmed required string or raise a field-specific ValueError.
@@ -877,13 +900,7 @@ def record_access_review_decision(
     if item.decision is not None:
         raise ValueError("access_review_item_already_decided")
 
-    if comment is not None:
-        if not isinstance(comment, str):
-            raise ValueError("invalid_access_review_comment")
-        comment = comment.strip() or None
-
-    if comment is not None and len(comment) > 1000:
-        raise ValueError("invalid_access_review_comment")
+    comment = _normalise_decision_comment(comment)
 
     result = db.session.execute(
         db.update(AccessReviewItem)
