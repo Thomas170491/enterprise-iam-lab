@@ -549,3 +549,34 @@ def test_identity_detail_returns_400_for_non_uuid_user_id(client, monkeypatch, b
 
     assert response.status_code == 400
     fake_get_user.assert_not_called()
+
+
+def test_identity_detail_does_not_map_unrelated_value_error_to_400(
+    client, monkeypatch, caplog
+):
+    """
+    Verify that a ValueError from the managed-role lookup is not logged or answered as an invalid id.
+    """
+    _login_user(client, client_roles=[IDENTITY_VIEWER])
+
+    monkeypatch.setattr(
+        governance_routes,
+        "get_identity_access",
+        lambda **kwargs: {
+            "identity": {"username": "alice"},
+            "direct_client_roles": [],
+            "effective_client_roles": [],
+        },
+    )
+    monkeypatch.setattr(governance_routes, "record_audit_event", Mock())
+    monkeypatch.setattr(
+        governance_routes,
+        "get_managed_roles",
+        Mock(side_effect=ValueError("unrelated_failure")),
+    )
+
+    with caplog.at_level("WARNING"):
+        with pytest.raises(ValueError, match="unrelated_failure"):
+            client.get("/identities/3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b")
+
+    assert "invalid_user_id" not in caplog.text

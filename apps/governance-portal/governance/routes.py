@@ -149,12 +149,6 @@ def identity_detail(user_id):
             target_client_name="employee-portal",
         )
 
-        direct_role_names = {
-            role["name"] for role in identity_access["direct_client_roles"]
-        }
-
-        managed_roles = get_managed_roles("employee-portal")
-
     except KeycloakAdminAPIError as exc:
         _log_governance_event(
             level=40,
@@ -177,7 +171,13 @@ def identity_detail(user_id):
         )
 
         abort(400)
-        
+
+    direct_role_names = {
+        role["name"] for role in identity_access["direct_client_roles"]
+    }
+
+    managed_roles = get_managed_roles("employee-portal")
+
     try:
         record_audit_event(
             actor_user_id=current_user.get_id(),
