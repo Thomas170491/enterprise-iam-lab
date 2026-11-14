@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import pytest
 
 from extensions import db
-from models import AccessReviewItem, AuditEvent
+from models import AccessReview, AccessReviewItem, AuditEvent
 import services.access_review_service as access_review_service
 
 REVIEWER_ID = "7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
@@ -259,3 +259,49 @@ def test_record_access_review_decision_rejects_comment_over_limit_after_normalis
             decision="retain",
             comment="x" * 500 + "\r\n" * 4 + "x" * 497,
         )
+
+
+def _legacy_open_campaign_reviewed_by_creator():
+    """
+    Insert an open campaign created before the rule, whose creator is its reviewer, and return both ids.
+    """
+    campaign = AccessReview(
+        name="Legacy campaign",
+        created_by_user_id=REVIEWER_ID,
+        reviewer_user_id=REVIEWER_ID,
+        status="open",
+    )
+    db.session.add(campaign)
+    db.session.flush()
+    item = AccessReviewItem(
+        review_id=campaign.id,
+        user_id="5c6d7e8f-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
+        username="alice",
+        client_name="employee-portal",
+        role_id="finance-role-id",
+        role_name="finance-data-viewer",
+        assignment_source="direct",
+    )
+    db.session.add(item)
+    db.session.commit()
+    return campaign.id, item.id
+
+
+def test_record_decision_refuses_campaign_reviewed_by_its_creator(app):
+    """
+    Verify that a legacy campaign whose creator is its reviewer accepts no decision.
+    """
+    review_id, item_id = _legacy_open_campaign_reviewed_by_creator()
+
+    with pytest.raises(ValueError, match="^access_review_creator_cannot_be_reviewer$"):
+        access_review_service.record_access_review_decision_with_audit(
+            review_id=review_id,
+            item_id=item_id,
+            reviewer_user_id=REVIEWER_ID,
+            actor_username="reviewer",
+            decision="revoke",
+        )
+
+    db.session.expire_all()
+    assert db.session.get(AccessReviewItem, item_id).decision is None
+    assert db.session.execute(db.select(AuditEvent)).scalars().all() == []

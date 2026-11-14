@@ -824,6 +824,7 @@ def record_access_review_decision(review_id: int, item_id: int):
             "access_review_not_found": 404,
             "access_review_item_not_found": 404,
             "access_review_self_certification": 403,
+            "access_review_creator_cannot_be_reviewer": 403,
             "access_review_not_open": 409,
             "access_review_item_already_decided": 409,
         }
