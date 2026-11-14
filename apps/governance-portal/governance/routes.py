@@ -507,6 +507,7 @@ def create_access_review():
             "reviewer_not_enabled",
             "reviewer_missing_required_role",
             "invalid_reviewer_user_id",
+            "access_review_creator_cannot_be_reviewer",
         ):
             _log_governance_event(
                 level=30,
@@ -514,14 +515,22 @@ def create_access_review():
                 outcome="denied",
                 reason=reason,
             )
+            
+        error = (
+            "You cannot review a campaign you created. Choose another reviewer."
+            if reason == "access_review_creator_cannot_be_reviewer"
+            else "Enter a campaign name and a valid reviewer ID."
+        )
 
         return (
             render_template(
                 "access-review-create.html",
-                error="Enter a campaign name and a valid reviewer ID.",
+                error=error,
             ),
             400,
         )
+
+
 
     except (AuditPersistenceError, SQLAlchemyError) as exc:
         _log_governance_event(

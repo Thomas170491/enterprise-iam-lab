@@ -206,3 +206,42 @@ def test_create_access_review_returns_503_on_persistence_failure(
     assert response.status_code == 503
     assert "The campaign could not be saved. Please try again." in html
     fake_create.assert_called_once()
+    
+def test_create_access_review_explains_and_logs_self_assigned_reviewer(
+    client, monkeypatch, caplog
+):
+    """
+    Verify that naming yourself as reviewer answers 400 with an explanation and logs one denial.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    monkeypatch.setattr(
+        governance_routes,
+        "create_access_review_with_audit",
+        Mock(side_effect=ValueError("access_review_creator_cannot_be_reviewer")),
+    )
+
+    with caplog.at_level("WARNING"):
+        response = client.post(
+            "/access-reviews/new",
+            data={
+                "name": "September access review",
+                "reviewer_user_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
+                "due_at": "",
+            },
+        )
+
+    assert response.status_code == 400
+    assert "You cannot review a campaign you created" in response.get_data(as_text=True)
+
+    events = [
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if record.getMessage().startswith("{")
+    ]
+
+    assert len(events) == 1
+    assert events[0]["event"] == "access_review.create"
+    assert events[0]["outcome"] == "denied"
+    assert events[0]["reason"] == "access_review_creator_cannot_be_reviewer"
+
