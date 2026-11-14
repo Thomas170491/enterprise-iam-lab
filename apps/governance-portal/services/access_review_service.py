@@ -64,7 +64,8 @@ def create_access_review(
     Create a draft access review campaign with an assigned reviewer.
 
     Validate and trim required strings. An optional due date must
-    be a timezone-aware datetime.
+    be a timezone-aware datetime. A reviewer who is the creator is refused
+    (compared after trimming, case-insensitively).
 
     Flush the campaign without committing; the caller owns the transaction.
     """
@@ -888,6 +889,9 @@ def record_access_review_decision(
     campaign = get_access_review_for_reviewer(
         review_id, reviewer_user_id, lock_shared=True
     )
+
+    if campaign.created_by_user_id.lower() == reviewer_user_id.lower():
+        raise ValueError("access_review_creator_cannot_be_reviewer")
 
     if campaign.status != "open":
         raise ValueError("access_review_not_open")

@@ -245,3 +245,70 @@ def test_create_access_review_explains_and_logs_self_assigned_reviewer(
     assert events[0]["outcome"] == "denied"
     assert events[0]["reason"] == "access_review_creator_cannot_be_reviewer"
 
+
+def test_create_access_review_keeps_generic_message_for_other_reasons(client, monkeypatch):
+    """
+    Verify that a reason other than the creator rule shows the generic message, not the creator one.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    monkeypatch.setattr(
+        governance_routes,
+        "create_access_review_with_audit",
+        Mock(side_effect=ValueError("reviewer_not_enabled")),
+    )
+
+    response = client.post(
+        "/access-reviews/new",
+        data={
+            "name": "September access review",
+            "reviewer_user_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
+            "due_at": "",
+        },
+    )
+
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 400
+    assert "Enter a campaign name and a valid reviewer ID." in html
+    assert "You cannot review a campaign you created" not in html
+
+
+def test_create_access_review_refuses_creator_through_the_real_service(
+    client, monkeypatch, caplog
+):
+    """
+    Verify end to end that a manager whose own id Keycloak returns for the reviewer is refused.
+    """
+    manager_id = "9a1d4c7e-2b3f-4e58-8c6a-0d1e2f3a4b5c"
+    _login_user(client, [ACCESS_REVIEW_MANAGER], sub=manager_id)
+
+    monkeypatch.setattr(
+        access_review_service,
+        "validate_access_review_reviewer",
+        lambda **kwargs: {"id": manager_id, "enabled": True},
+    )
+
+    with caplog.at_level("WARNING"):
+        response = client.post(
+            "/access-reviews/new",
+            data={
+                "name": "September access review",
+                "reviewer_user_id": manager_id,
+                "due_at": "",
+            },
+        )
+
+    assert response.status_code == 400
+    assert "You cannot review a campaign you created" in response.get_data(as_text=True)
+    assert db.session.execute(db.select(AccessReview)).scalars().all() == []
+
+    events = [
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if record.getMessage().startswith("{")
+    ]
+
+    assert len(events) == 1
+    assert events[0]["outcome"] == "denied"
+    assert events[0]["reason"] == "access_review_creator_cannot_be_reviewer"

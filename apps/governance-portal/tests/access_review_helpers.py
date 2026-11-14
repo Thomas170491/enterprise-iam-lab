@@ -39,18 +39,18 @@ class _CSRFFormParser(HTMLParser):
             self.in_target_form = False
 
 
-def _login_user(client, client_roles):
+def _login_user(client, client_roles, sub="test-subject"):
     """
     Authenticate a test user with the specified client roles.
     """
     with client.session_transaction() as session:
         session["user"] = {
-            "sub": "test-subject",
+            "sub": sub,
             "username": "test-user",
             "name": "Test User",
             "email": "test@example.test",
             "client_roles": client_roles,
             "realm_roles": [],
         }
-        session["_user_id"] = "test-subject"
+        session["_user_id"] = sub
         session["_fresh"] = True

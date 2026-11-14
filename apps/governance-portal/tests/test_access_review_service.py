@@ -858,3 +858,15 @@ def test_create_access_review_rejects_creator_as_reviewer(app, reviewer_user_id)
     assert db.session.execute(
         db.select(AccessReview)
         ).scalars().all() == []
+
+
+def test_create_access_review_rejects_creator_as_reviewer_despite_whitespace(app):
+    """
+    Verify that surrounding whitespace does not let a creator review their own campaign.
+    """
+    with pytest.raises(ValueError, match="^access_review_creator_cannot_be_reviewer$"):
+        create_access_review(
+            name="test campaign",
+            created_by_user_id="  3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
+            reviewer_user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b  ",
+        )

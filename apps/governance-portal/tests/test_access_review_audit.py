@@ -982,21 +982,24 @@ def test_create_access_review_with_audit_rejects_creator_as_reviewer(
     app,
     fake_validate_reviewer,):
     """
-    Verify that a creator cannot be assigned as the reviewer.
+    Verify that the creator is refused when Keycloak's returned id matches, whatever ID was submitted.
     """
-    with pytest.raises(ValueError, match="creator_cannot_be_reviewer"):
+    creator_id = "9a1d4c7e-2b3f-4e58-8c6a-0d1e2f3a4b5c"
+    fake_validate_reviewer.return_value = {"id": creator_id, "enabled": True}
+
+    with pytest.raises(ValueError, match="^access_review_creator_cannot_be_reviewer$"):
         access_review_service.create_access_review_with_audit(
             name="September review",
-            created_by_user_id="9a1d4c7e-2b3f-4e58-8c6a-0d1e2f3a4b5c",
+            created_by_user_id=creator_id,
             actor_username="leo",
-            reviewer_user_id="9a1d4c7e-2b3f-4e58-8c6a-0d1e2f3a4b5c",
+            reviewer_user_id="4e7b2a9c-1d3f-4c8e-b5a6-7f0e1d2c3b4a",
             admin_api_url="https://keycloak.test/admin",
             token_url="https://keycloak.test/token",
             client_id="iam-governance-service",
             client_secret="test-secret",
         )
 
+    fake_validate_reviewer.assert_called_once()
     assert db.session.execute(db.select(AccessReview)).scalars().all() == []
-    
-    assert db.session.execute(db.select(AuditEvent)).scalars().all() == []
 
+    assert db.session.execute(db.select(AuditEvent)).scalars().all() == []
