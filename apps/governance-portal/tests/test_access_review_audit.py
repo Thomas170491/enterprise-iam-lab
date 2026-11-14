@@ -978,5 +978,25 @@ def test_populate_access_review_with_audit_propagates_keycloak_failure(
         == []
     )
     
+def test_create_access_review_with_audit_rejects_creator_as_reviewer(
+    app,
+    fake_validate_reviewer,):
+    """
+    Verify that a creator cannot be assigned as the reviewer.
+    """
+    with pytest.raises(ValueError, match="creator_cannot_be_reviewer"):
+        access_review_service.create_access_review_with_audit(
+            name="September review",
+            created_by_user_id="9a1d4c7e-2b3f-4e58-8c6a-0d1e2f3a4b5c",
+            actor_username="leo",
+            reviewer_user_id="9a1d4c7e-2b3f-4e58-8c6a-0d1e2f3a4b5c",
+            admin_api_url="https://keycloak.test/admin",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="test-secret",
+        )
 
+    assert db.session.execute(db.select(AccessReview)).scalars().all() == []
+    
+    assert db.session.execute(db.select(AuditEvent)).scalars().all() == []
 

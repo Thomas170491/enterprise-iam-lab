@@ -74,7 +74,13 @@ def create_access_review(
     )
     reviewer_user_id = _validate_required_string(
         reviewer_user_id, "reviewer_user_id", 255
-    )
+    )   
+    
+    if created_by_user_id.lower() == reviewer_user_id.lower():
+        raise ValueError("access_review_creator_cannot_be_reviewer")
+
+    
+    
 
     if due_at is not None:
         if not isinstance(due_at, datetime):

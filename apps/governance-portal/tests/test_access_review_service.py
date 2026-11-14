@@ -835,3 +835,26 @@ def test_validate_access_review_reviewer_propagates_role_lookup_failure(monkeypa
         )
 
     fake_get_roles.assert_called_once()
+
+@pytest.mark.parametrize(
+    "reviewer_user_id",
+    [
+        "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
+        "3F2B8C1E-5D4A-4E6F-9A7B-1C2D3E4F5A6B",
+    ],
+    ids=["same_id", "same_id_other_case"],
+)
+def test_create_access_review_rejects_creator_as_reviewer(app, reviewer_user_id):
+    """
+    Verify that a campaign cannot be assigned to the manager who created it.
+    """
+    with pytest.raises(ValueError, match="access_review_creator_cannot_be_reviewer"):
+        create_access_review(
+            name="test campaign",
+            created_by_user_id="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
+            reviewer_user_id=reviewer_user_id,
+        )
+    
+    assert db.session.execute(
+        db.select(AccessReview)
+        ).scalars().all() == []
