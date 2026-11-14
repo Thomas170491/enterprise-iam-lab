@@ -152,7 +152,9 @@ Conventions that span files:
   `enterprise-iam-docs/docs/access-review-role-sources.md`; a group source is never inferred
   from a role merely being absent from direct mappings. Decisions are `retain` or `revoke`,
   made once, only by the assigned reviewer, only on an open campaign, and never on the
-  reviewer's own access. Recording a decision does not change anything in Keycloak.
+  reviewer's own access. A campaign's reviewer is never its creator
+  (`access_review_creator_cannot_be_reviewer`). Recording a decision does not change
+  anything in Keycloak.
 
 ## Governance tests
 
