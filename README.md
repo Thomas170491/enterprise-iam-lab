@@ -2,6 +2,17 @@
 
 NovaSecure is a fictional enterprise IAM environment built with **Keycloak, Flask, PostgreSQL and OpenID Connect**. The lab demonstrates how authentication, application authorization, governed role changes and access reviews fit together.
 
+**In short:** employees sign in once through a central identity provider (single sign-on), each application decides what they may do based on their roles, and administrators change and periodically review that access with a full audit trail, the way identity and access management works in a real company.
+
+| Term | Meaning in this lab |
+| --- | --- |
+| IAM | Identity and access management: who a user is and what they are allowed to access |
+| OIDC | OpenID Connect, the single sign-on protocol between Keycloak and the applications |
+| RBAC | Role-based access control: permissions granted through roles, not to individuals |
+| SoD | Segregation of duties: rules that block risky combinations of roles |
+| JML | Joiner-mover-leaver: access changes when people join, change jobs or leave |
+| G1–G17 | The project's milestones; G1–G11 are implemented and documented, later ones are planned |
+
 ## Current scope
 
 | Component | Implemented scope |
@@ -18,7 +29,7 @@ The September 22, 2026 manual walkthrough exercised campaign creation, capture, 
 
 | Document | Contents |
 | --- | --- |
-| [G1–G11 milestone guides](enterprise-iam-docs/docs/guides/README.md) | Step-by-step implementation explanations, focused tests and boundaries |
+| [Milestone guides (G1–G11, implemented)](enterprise-iam-docs/docs/guides/README.md) | Step-by-step implementation explanations, focused tests and boundaries |
 | [Local setup](enterprise-iam-docs/docs/local-setup.md) | TLS, Docker, environment configuration, databases and app startup |
 | [Identity model](enterprise-iam-docs/docs/identity-model.md) | Fictional users, attributes, groups, realm roles and client roles |
 | [Employee Portal](enterprise-iam-docs/docs/employee-portal.md) | Browser features, REST endpoints and application data |
@@ -27,7 +38,7 @@ The September 22, 2026 manual walkthrough exercised campaign creation, capture, 
 | [Access reviews](enterprise-iam-docs/docs/guides/g11-access-review-workflows.md) | G11 workflow, permissions, snapshots, audit trail and manual evidence |
 | [Security controls](enterprise-iam-docs/docs/security-controls.md) | OIDC, sessions, JWT validation, CSRF and deployment limits |
 | [Testing](enterprise-iam-docs/docs/testing.md) | Automated tests, CI and integration checks |
-| [Roadmap](enterprise-iam-docs/docs/roadmap.md) | G1–G17 progress and later enterprise-lab phases |
+| [Roadmap](enterprise-iam-docs/docs/roadmap.md) | Progress across all milestones (G1–G17) and later enterprise-lab phases |
 | [Lifecycle and monitoring](enterprise-iam-docs/docs/lifecycle-and-monitoring.md) | Planned JML processes, SIEM integration and investigation scenarios |
 
 Architecture: [Employee Portal](enterprise-iam-docs/diagrams/employee-portal-architecture.md) · [Governance Portal](enterprise-iam-docs/diagrams/iam-governance-portal-architecture.md).
@@ -38,9 +49,9 @@ Architecture: [Employee Portal](enterprise-iam-docs/diagrams/employee-portal-arc
 | --- | --- |
 | `apps/employee-portal/` | Employee-facing Flask application and Bearer API test script |
 | `apps/governance-portal/` | Governance application, models, migrations and pytest suite |
-| `docs/` | Topic-specific documentation |
-| `diagrams/` | Architecture references |
-| `portfolio/` | Configuration and workflow evidence |
+| `enterprise-iam-docs/docs/` | Topic-specific documentation |
+| `enterprise-iam-docs/diagrams/` | Architecture references |
+| `enterprise-iam-docs/portfolio/` | Configuration and workflow evidence |
 | `compose.yaml` | Keycloak and its PostgreSQL database, plus Employee Portal PostgreSQL |
 | `.github/workflows/ci.yml` | Governance tests, Bandit and dependency auditing |
 
