@@ -13,6 +13,22 @@ NovaSecure is a fictional enterprise IAM environment built with **Keycloak, Flas
 | JML | Joiner-mover-leaver: access changes when people join, change jobs or leave |
 | G1–G17 | The project's milestones; G1–G11 are implemented and documented, later ones are planned |
 
+## Architecture
+
+```mermaid
+flowchart LR
+    Employee["Employee (browser)"] -->|"OIDC login"| KC["Keycloak<br/>realm novasecure"]
+    Admin["IAM administrator<br/>or reviewer (browser)"] -->|"OIDC login"| KC
+    Employee -->|"HTTPS session"| EP["Employee Portal<br/>Flask, RBAC, REST API"]
+    Admin -->|"HTTPS session"| GP["Governance Portal<br/>Flask, role admin, SoD,<br/>access reviews, audit"]
+    EP --> EPDB[("Employee Portal<br/>PostgreSQL")]
+    GP --> GPDB[("Governance<br/>PostgreSQL")]
+    GP -->|"Admin REST API<br/>service-account token"| KC
+    KC -.->|"Client roles enforced by"| EP
+```
+
+Keycloak handles who users are. The Employee Portal enforces what they may do through its client roles. The Governance Portal changes and reviews those roles, checks segregation-of-duties rules first, and audits every change. Detailed diagrams: [Employee Portal](enterprise-iam-docs/diagrams/employee-portal-architecture.md) · [Governance Portal](enterprise-iam-docs/diagrams/iam-governance-portal-architecture.md).
+
 ## Current scope
 
 | Component | Implemented scope |
@@ -40,8 +56,6 @@ The September 22, 2026 manual walkthrough exercised campaign creation, capture, 
 | [Testing](enterprise-iam-docs/docs/testing.md) | Automated tests, CI and integration checks |
 | [Roadmap](enterprise-iam-docs/docs/roadmap.md) | Progress across all milestones (G1–G17) and later enterprise-lab phases |
 | [Lifecycle and monitoring](enterprise-iam-docs/docs/lifecycle-and-monitoring.md) | Planned JML processes, SIEM integration and investigation scenarios |
-
-Architecture: [Employee Portal](enterprise-iam-docs/diagrams/employee-portal-architecture.md) · [Governance Portal](enterprise-iam-docs/diagrams/iam-governance-portal-architecture.md).
 
 ## Repository map
 
