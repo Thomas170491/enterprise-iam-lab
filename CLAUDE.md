@@ -155,6 +155,16 @@ Conventions that span files:
   reviewer's own access. A campaign's reviewer is never its creator
   (`access_review_creator_cannot_be_reviewer`). Recording a decision does not change
   anything in Keycloak.
+- **Remediation.** `services/remediation_service.py`. A revoke sets `remediation_status`
+  to `pending`; only the campaign's manager remediates it, on an open campaign. Live access
+  for that one role is read first (`get_live_access_assessment`), and the two flags decide
+  the action, never `drift` alone: role already gone → `completed`; no direct mapping →
+  `incomplete` (manual); otherwise the direct mapping is removed through
+  `role_service.remove_identity_client_role` with `expected_role_id`, live access is read
+  again, and the item becomes `completed` or `incomplete`. role_service commits its own
+  `role.remove` audit rows (the attempt before the Keycloak call, fail-closed); the status
+  and the `access_review.remediation` event commit together at the end, and the status
+  only moves from `pending`. Any failure before that leaves the item `pending` for a retry.
 
 ## Governance tests
 
