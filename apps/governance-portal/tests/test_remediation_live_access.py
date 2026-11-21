@@ -68,3 +68,50 @@ def test_get_live_access_assessment_reads_only_the_item_role(monkeypatch):
         "direct_grant_present": True,
         "other_grants_present": False,
     }
+
+
+def test_get_live_access_assessment_propagates_keycloak_failure(monkeypatch):
+    """
+    Verify that a Keycloak failure is not turned into a role_removed assessment.
+    """
+    fake_resolve = Mock(side_effect=KeycloakAdminAPIError("keycloak_unavailable"))
+    monkeypatch.setattr(
+        remediation_service, "resolve_user_client_role_sources", fake_resolve
+    )
+
+    with pytest.raises(KeycloakAdminAPIError):
+        remediation_service.get_live_access_assessment(_item(), **KEYCLOAK_ARGS)
+
+
+def test_get_live_access_assessment_propagates_untraceable_role(monkeypatch):
+    """
+    Verify that an untraceable role is not turned into a role_removed assessment.
+    """
+    fake_resolve = Mock(side_effect=ValueError("role_source_untraceable"))
+    monkeypatch.setattr(
+        remediation_service, "resolve_user_client_role_sources", fake_resolve
+    )
+
+    with pytest.raises(ValueError, match="^role_source_untraceable$"):
+        remediation_service.get_live_access_assessment(_item(), **KEYCLOAK_ARGS)
+
+
+def test_get_live_access_assessment_reads_the_items_own_client(monkeypatch):
+    """
+    Verify that live access is read from the client named on the item, not a fixed one.
+    """
+    fake_resolve = Mock(return_value=[])
+    monkeypatch.setattr(
+        remediation_service, "resolve_user_client_role_sources", fake_resolve
+    )
+    item = _item()
+    item.client_name = "other-client"
+
+    remediation_service.get_live_access_assessment(item, **KEYCLOAK_ARGS)
+
+    fake_resolve.assert_called_once_with(
+        **KEYCLOAK_ARGS,
+        user_id=USER_ID,
+        target_client_name="other-client",
+        role_ids={ROLE_ID},
+    )

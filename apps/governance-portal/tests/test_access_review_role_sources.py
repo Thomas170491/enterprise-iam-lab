@@ -838,7 +838,7 @@ def test_resolve_user_client_role_sources_skips_roles_outside_the_requested_ids(
     monkeypatch,
 ):
     """
-    Verify that roles outside the requested IDs are skipped before tracing, so an untraced one cannot fail the lookup.
+    Verify that roles outside the requested IDs are left out of the result, so an untraced one cannot fail the lookup.
     """
     _patch_direct_finance_role_and_untraced_role(monkeypatch)
 
@@ -887,3 +887,24 @@ def test_resolve_user_client_role_sources_reports_requested_untraceable_role(
             target_client_name="employee-portal",
             role_ids={"audit-role-id"},
         )
+
+
+def test_resolve_user_client_role_sources_returns_nothing_for_a_role_that_is_not_effective(
+    monkeypatch,
+):
+    """
+    Verify that a requested role ID the user does not hold returns an empty list.
+    """
+    _patch_direct_finance_role_and_untraced_role(monkeypatch)
+
+    resolved = access_review_service.resolve_user_client_role_sources(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+        target_client_name="employee-portal",
+        role_ids={"hr-role-id"},
+    )
+
+    assert resolved == []

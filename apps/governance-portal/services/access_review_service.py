@@ -309,7 +309,8 @@ def resolve_user_client_role_sources(
     """
     Identify the direct and group sources of a user's effective client roles.
 
-    role_ids limits the result to those roles; the others are skipped before tracing.
+    role_ids limits the result to those roles; the others are skipped when results are
+    assembled, so an untraceable unrequested role cannot fail the lookup.
     A requested role with no traceable grant raises role_source_untraceable instead of
     being guessed.
     """
