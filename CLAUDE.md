@@ -164,7 +164,11 @@ Conventions that span files:
   again, and the item becomes `completed` or `incomplete`. role_service commits its own
   `role.remove` audit rows (the attempt before the Keycloak call, fail-closed); the status
   and the `access_review.remediation` event commit together at the end, and the status
-  only moves from `pending`. Any failure before that leaves the item `pending` for a retry.
+  only moves from `pending` and only while the campaign is still open. Failures before that
+  leave the item `pending` for a retry, except that a recheck after removal that raises
+  `role_source_untraceable` is recorded as `incomplete` (the role is still effective). The
+  Keycloak write itself can still happen after a concurrent cancel; this is accepted and
+  documented, like the double-removal race.
 
 ## Governance tests
 
