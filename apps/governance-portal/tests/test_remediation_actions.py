@@ -3,9 +3,10 @@ from unittest.mock import Mock
 import pytest
 
 import services.access_review_service as access_review_service
+import services.keycloak_admin_service as keycloak_admin_service
 import services.remediation_service as remediation_service
 from extensions import db
-from models import AccessReviewItem, AuditEvent
+from models import AccessReviewItem, AuditEvent, ManagedRole
 from services.exceptions import (
     AuditPersistenceError,
     KeycloakAdminAPIError,
@@ -45,7 +46,7 @@ ROLE_REMOVED = {
 }
 
 
-def _campaign_with_decided_item(decision="revoke"):
+def _campaign_with_decided_item(decision="revoke", user_id=USER_ID):
     """
     Create an open campaign owned by MANAGER_ID with one item decided by REVIEWER_ID, and return both ids.
     """
@@ -56,7 +57,7 @@ def _campaign_with_decided_item(decision="revoke"):
     )
     item = access_review_service.add_access_review_item(
         review_id=campaign.id,
-        user_id=USER_ID,
+        user_id=user_id,
         username="alice",
         client_name="employee-portal",
         role_id=ROLE_ID,
@@ -356,3 +357,156 @@ def test_remediation_rolls_back_status_when_remediation_audit_fails(app, monkeyp
 
     assert _saved_item(item_id).remediation_status == "pending"
     assert _remediation_events() == []
+
+
+def test_remediation_marks_incomplete_when_recheck_is_untraceable(app, monkeypatch):
+    """
+    Verify that an untraceable recheck after removal records the item as incomplete instead of failing.
+    """
+    review_id, item_id = _campaign_with_decided_item()
+    _, fake_remove = _patch_keycloak(
+        monkeypatch, [DIRECT_ONLY, ValueError("role_source_untraceable")]
+    )
+
+    _remediate(review_id, item_id)
+
+    fake_remove.assert_called_once()
+    assert _saved_item(item_id).remediation_status == "incomplete"
+    events = _remediation_events()
+    assert len(events) == 1
+    assert events[0].details["action"] == "direct_role_removed"
+    assert events[0].details["remediation_status"] == "incomplete"
+
+
+def test_remediation_reraises_other_recheck_value_errors(app, monkeypatch):
+    """
+    Verify that a recheck ValueError other than role_source_untraceable still propagates.
+    """
+    review_id, item_id = _campaign_with_decided_item()
+    _patch_keycloak(monkeypatch, [DIRECT_ONLY, ValueError("something_else")])
+
+    with pytest.raises(ValueError, match="^something_else$"):
+        _remediate(review_id, item_id)
+
+    assert _saved_item(item_id).remediation_status == "pending"
+    assert _remediation_events() == []
+
+
+def test_remediation_refuses_non_uuid_user_id_before_any_keycloak_call(app, monkeypatch):
+    """
+    Verify that an item whose user id is not a UUID is refused before Keycloak is contacted.
+    """
+    review_id, item_id = _campaign_with_decided_item(user_id="user-123")
+    fake_assess, fake_remove = _patch_keycloak(monkeypatch, [DIRECT_ONLY])
+
+    with pytest.raises(RoleAdministrationPolicyError) as exc_info:
+        _remediate(review_id, item_id)
+
+    assert exc_info.value.reason == "invalid_user_id"
+    fake_assess.assert_not_called()
+    fake_remove.assert_not_called()
+    assert _saved_item(item_id).remediation_status == "pending"
+    assert _remediation_events() == []
+
+
+def test_remediation_does_not_write_status_when_campaign_cancelled_during_removal(
+    app, monkeypatch
+):
+    """
+    Verify that a cancel committed during the Keycloak calls stops the status write and the event.
+    """
+    review_id, item_id = _campaign_with_decided_item()
+
+    def cancel_campaign(**kwargs):
+        access_review_service.cancel_access_review(review_id)
+        db.session.commit()
+
+    _patch_keycloak(
+        monkeypatch, [DIRECT_ONLY, ROLE_REMOVED], remove_side_effect=cancel_campaign
+    )
+
+    with pytest.raises(ValueError, match="^access_review_not_open$"):
+        _remediate(review_id, item_id)
+
+    assert _saved_item(item_id).remediation_status == "pending"
+    assert _remediation_events() == []
+
+
+def test_remediation_does_not_overwrite_status_set_during_removal(app, monkeypatch):
+    """
+    Verify that an item completed by someone else during removal is not rewritten or audited again.
+    """
+    review_id, item_id = _campaign_with_decided_item()
+
+    def complete_item(**kwargs):
+        db.session.execute(
+            db.update(AccessReviewItem)
+            .where(AccessReviewItem.id == item_id)
+            .values(remediation_status="completed")
+        )
+        db.session.commit()
+
+    _patch_keycloak(
+        monkeypatch, [DIRECT_ONLY, ROLE_REMOVED], remove_side_effect=complete_item
+    )
+
+    with pytest.raises(
+        ValueError, match="^access_review_item_not_pending_remediation$"
+    ):
+        _remediate(review_id, item_id)
+
+    assert _saved_item(item_id).remediation_status == "completed"
+    assert _remediation_events() == []
+
+
+def test_remediation_commits_removal_attempt_before_keycloak_delete(app, monkeypatch):
+    """
+    Verify the unmocked removal path commits its role.remove attempt before the Keycloak delete and completes the item.
+    """
+    review_id, item_id = _campaign_with_decided_item()
+    db.session.add(ManagedRole(client_name="employee-portal", role_name="finance-data-viewer"))
+    db.session.commit()
+    monkeypatch.setattr(
+        keycloak_admin_service, "get_service_access_token", lambda **kwargs: "fake-token"
+    )
+    monkeypatch.setattr(
+        remediation_service,
+        "get_live_access_assessment",
+        Mock(side_effect=[DIRECT_ONLY, ROLE_REMOVED]),
+    )
+
+    def fake_get(url, **kwargs):
+        response = Mock()
+        response.raise_for_status.return_value = None
+        if url.endswith("/clients"):
+            response.json.return_value = [{"id": "client-uuid-123"}]
+        else:
+            assert url.endswith("/clients/client-uuid-123/roles/finance-data-viewer")
+            response.json.return_value = {"id": ROLE_ID, "name": "finance-data-viewer"}
+        return response
+
+    seen_at_delete = []
+
+    def fake_delete(url, **kwargs):
+        # Drop anything uncommitted, so only a committed attempt row survives.
+        db.session.rollback()
+        seen_at_delete.extend(
+            event.outcome
+            for event in db.session.execute(
+                db.select(AuditEvent).where(AuditEvent.action == "role.remove")
+            )
+            .scalars()
+            .all()
+        )
+        response = Mock()
+        response.raise_for_status.return_value = None
+        return response
+
+    monkeypatch.setattr(keycloak_admin_service.requests, "get", fake_get)
+    monkeypatch.setattr(keycloak_admin_service.requests, "delete", fake_delete)
+
+    _remediate(review_id, item_id)
+
+    assert seen_at_delete == ["attempted"]
+    assert _saved_item(item_id).remediation_status == "completed"
+    assert len(_remediation_events()) == 1

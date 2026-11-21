@@ -7,13 +7,15 @@ import json
 from typing import Any
 
 from extensions import db
-from models import AccessReviewItem
+from models import AccessReview, AccessReviewItem
 from services.access_review_service import (
     get_access_review_for_manager,
     resolve_user_client_role_sources,
 )
 from services.audit_service import record_audit_event
+from services.exceptions import RoleAdministrationPolicyError
 from services.role_service import remove_identity_client_role
+from services.validation import is_keycloak_uuid
 
 
 def _is_direct_mapping(grant: dict[str, Any], role_id: str) -> bool:
@@ -105,7 +107,7 @@ def remediate_access_review_item_with_audit(
     token_url: str,
     client_id: str,
     client_secret: str,
-) -> AccessReviewItem:
+) -> None:
     """
     Remediate one revoked item of an open campaign owned by the manager.
 
@@ -120,7 +122,11 @@ def remediate_access_review_item_with_audit(
     role_service commits its own role.remove audit rows. The item's remediation status
     and the access_review.remediation audit event are committed together at the end,
     and the status only moves from pending, so a concurrent or repeated run cannot
-    overwrite a result. Any failure before that leaves the item pending for a retry.
+    overwrite a result. The final status write also requires the campaign to still be
+    open. Failures before it leave the item pending for a retry, except that an
+    untraceable recheck after removal is recorded as incomplete, since the role is
+    still effective. The Keycloak write itself can still happen after a concurrent
+    cancel; that is accepted, like the double-removal race.
     """
     keycloak_args = {
         "admin_api_url": admin_api_url,
@@ -143,6 +149,9 @@ def remediate_access_review_item_with_audit(
         if item.decision != "revoke" or item.remediation_status != "pending":
             raise ValueError("access_review_item_not_pending_remediation")
 
+        if not is_keycloak_uuid(item.user_id):
+            raise RoleAdministrationPolicyError("invalid_user_id")
+
         before = get_live_access_assessment(item, **keycloak_args)
 
         if before["drift"] == "role_removed":
@@ -162,21 +171,46 @@ def remediate_access_review_item_with_audit(
                 expected_role_id=item.role_id,
             )
 
-            after = get_live_access_assessment(item, **keycloak_args)
             action = "direct_role_removed"
-            result = "completed" if after["drift"] == "role_removed" else "incomplete"
+
+            try:
+                after = get_live_access_assessment(item, **keycloak_args)
+                result = (
+                    "completed" if after["drift"] == "role_removed" else "incomplete"
+                )
+            except ValueError as exc:
+                # The role is still effective through a path that cannot be traced.
+                if str(exc) != "role_source_untraceable":
+                    raise
+
+                result = "incomplete"
 
         updated = db.session.execute(
             db.update(AccessReviewItem)
             .where(
                 AccessReviewItem.id == item.id,
                 AccessReviewItem.remediation_status == "pending",
+                AccessReviewItem.review_id.in_(
+                    db.select(AccessReview.id).where(
+                        AccessReview.id == review_id,
+                        AccessReview.status == "open",
+                    )
+                ),
             )
             .values(remediation_status=result)
             .execution_options(synchronize_session=False)
         )
 
         if updated.rowcount != 1:
+            # role_service committed mid-flow, so re-read what changed meanwhile.
+            db.session.expire_all()
+            current_status = db.session.scalar(
+                db.select(AccessReview.status).where(AccessReview.id == review_id)
+            )
+
+            if current_status != "open":
+                raise ValueError("access_review_not_open")
+
             raise ValueError("access_review_item_not_pending_remediation")
 
         record_audit_event(
@@ -206,6 +240,3 @@ def remediate_access_review_item_with_audit(
     except Exception:
         db.session.rollback()
         raise
-
-    db.session.refresh(item)
-    return item
