@@ -304,9 +304,14 @@ def resolve_user_client_role_sources(
     client_secret: str,
     user_id: str,
     target_client_name: str,
+    role_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     """
     Identify the direct and group sources of a user's effective client roles.
+
+    role_ids limits the result to those roles; the others are skipped before tracing.
+    A requested role with no traceable grant raises role_source_untraceable instead of
+    being guessed.
     """
 
     direct_roles= get_direct_client_roles(
@@ -432,6 +437,10 @@ def resolve_user_client_role_sources(
     for role in effective_roles:
 
         role_id = _require_payload_string(role, "id")
+
+        if role_ids is not None and role_id not in role_ids:
+            continue
+
         is_direct = role_id in direct_role_ids
         group_grants = group_grants_by_role_id.get(role_id, [])
         user_grants = []
@@ -459,7 +468,7 @@ def resolve_user_client_role_sources(
         elif group_grants:
             assignment_source = "inherited"
         else:
-            raise ValueError(f"No grant source found for effective role {role_id}")
+            raise ValueError("role_source_untraceable")
 
         resolved_roles.append(
             {

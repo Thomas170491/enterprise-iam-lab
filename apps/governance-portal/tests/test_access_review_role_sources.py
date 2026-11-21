@@ -5,6 +5,26 @@ import pytest
 import services.access_review_service as access_review_service
 from services.exceptions import KeycloakAdminAPIError
 
+FINANCE_ROLE = {"id": "finance-role-id", "name": "finance-data-viewer"}
+UNTRACED_ROLE = {"id": "audit-role-id", "name": "audit-viewer"}
+
+
+def _patch_direct_finance_role_and_untraced_role(monkeypatch):
+    """
+    Make the user hold the finance role directly and an extra effective role with no traceable grant.
+    """
+    monkeypatch.setattr(
+        access_review_service, "get_direct_client_roles", Mock(return_value=[FINANCE_ROLE])
+    )
+    monkeypatch.setattr(
+        access_review_service,
+        "get_effective_client_roles",
+        Mock(return_value=[FINANCE_ROLE, UNTRACED_ROLE]),
+    )
+    monkeypatch.setattr(access_review_service, "get_user_groups", Mock(return_value=[]))
+    monkeypatch.setattr(access_review_service, "get_group_ancestors", Mock())
+    monkeypatch.setattr(access_review_service, "get_group_role_mappings", Mock())
+
 
 def test_resolve_user_client_role_sources_inherits_parent_group_role(monkeypatch):
     """
@@ -792,4 +812,78 @@ def test_resolve_user_client_role_sources_rejects_malformed_keycloak_payload(
             client_secret="fake-secret",
             user_id="user-123",
             target_client_name="employee-portal",
+        )
+
+
+def test_resolve_user_client_role_sources_reports_untraceable_role_with_stable_code(
+    monkeypatch,
+):
+    """
+    Verify that an effective role with no traceable grant is refused with a stable code.
+    """
+    _patch_direct_finance_role_and_untraced_role(monkeypatch)
+
+    with pytest.raises(ValueError, match="^role_source_untraceable$"):
+        access_review_service.resolve_user_client_role_sources(
+            admin_api_url="https://keycloak.test/admin/realms/novasecure",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="fake-secret",
+            user_id="user-123",
+            target_client_name="employee-portal",
+        )
+
+
+def test_resolve_user_client_role_sources_skips_roles_outside_the_requested_ids(
+    monkeypatch,
+):
+    """
+    Verify that roles outside the requested IDs are skipped before tracing, so an untraced one cannot fail the lookup.
+    """
+    _patch_direct_finance_role_and_untraced_role(monkeypatch)
+
+    resolved = access_review_service.resolve_user_client_role_sources(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="user-123",
+        target_client_name="employee-portal",
+        role_ids={"finance-role-id"},
+    )
+
+    assert resolved == [
+        {
+            "role_id": "finance-role-id",
+            "role_name": "finance-data-viewer",
+            "assignment_source": "direct",
+            "grant_sources": [
+                {
+                    "type": "user",
+                    "user_id": "user-123",
+                    "assigned_role_id": "finance-role-id",
+                    "composite_path": [],
+                }
+            ],
+        }
+    ]
+
+
+def test_resolve_user_client_role_sources_reports_requested_untraceable_role(
+    monkeypatch,
+):
+    """
+    Verify that a requested role with no traceable grant is refused with a stable code.
+    """
+    _patch_direct_finance_role_and_untraced_role(monkeypatch)
+
+    with pytest.raises(ValueError, match="^role_source_untraceable$"):
+        access_review_service.resolve_user_client_role_sources(
+            admin_api_url="https://keycloak.test/admin/realms/novasecure",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="fake-secret",
+            user_id="user-123",
+            target_client_name="employee-portal",
+            role_ids={"audit-role-id"},
         )
