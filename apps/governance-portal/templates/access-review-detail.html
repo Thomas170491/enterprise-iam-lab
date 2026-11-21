@@ -171,6 +171,18 @@
                         {% if item.decision_comment %}
                             <div>Comment: {{ item.decision_comment }}</div>
                         {% endif %}
+                        {% if (manager_view | default(false))
+                            and review.status == "open"
+                            and item.decision == "revoke"
+                            and item.remediation_status == "pending" %}
+                            <form
+                                method="POST"
+                                action="{{ url_for('governance.remediate_access_review_item', review_id=review.id, item_id=item.id) }}"
+                            >
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit">Remediate</button>
+                            </form>
+                        {% endif %}
                     {% endif %}
                 </td>
             </tr>

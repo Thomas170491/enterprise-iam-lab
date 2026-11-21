@@ -48,6 +48,7 @@ from services.identity_service import (
     get_identity_access,
     search_identities,
 )
+from services.remediation_service import remediate_access_review_item_with_audit
 from services.role_service import (
     assign_identity_client_role,
     get_managed_roles,
@@ -811,6 +812,89 @@ def cancel_access_review(review_id):
         ),
         303,
     )
+
+@bp_governance.post(
+    "/access-reviews/manage/<int:review_id>/items/<int:item_id>/remediate"
+)
+@login_required
+@client_role_required(ACCESS_REVIEW_MANAGER)
+def remediate_access_review_item(review_id: int, item_id: int):
+    """
+    Remediate a revoked item of a campaign owned by the authenticated manager.
+    """
+    log_context = {"target_id": str(item_id), "review_id": str(review_id)}
+    denial_statuses = {
+        "access_review_not_found": 404,
+        "access_review_item_not_found": 404,
+        "access_review_not_open": 409,
+        "access_review_item_not_pending_remediation": 409,
+        "role_source_untraceable": 409,
+    }
+
+    try:
+        remediate_access_review_item_with_audit(
+            review_id=review_id,
+            item_id=item_id,
+            manager_user_id=current_user.get_id(),
+            actor_username=current_user.username,
+            admin_api_url=current_app.config["KEYCLOAK_ADMIN_API_URL"],
+            token_url=current_app.config["KEYCLOAK_TOKEN_URL"],
+            client_id=current_app.config["KEYCLOAK_SERVICE_CLIENT_ID"],
+            client_secret=current_app.config["KEYCLOAK_SERVICE_CLIENT_SECRET"],
+        )
+
+    except RoleAdministrationPolicyError as exc:
+        # The snapshot no longer matches what Keycloak would change (for example a
+        # renamed role or one removed from the managed catalogue): a state conflict.
+        _log_governance_event(
+            level=30,
+            event="access_review.remediation",
+            outcome="denied",
+            reason=exc.reason,
+            **log_context,
+        )
+        abort(409)
+
+    except ValueError as exc:
+        if str(exc) not in denial_statuses:
+            abort(400)
+
+        _log_governance_event(
+            level=30,
+            event="access_review.remediation",
+            outcome="denied",
+            reason=str(exc),
+            **log_context,
+        )
+        abort(denial_statuses[str(exc)])
+
+    except KeycloakAdminAPIError as exc:
+        _log_governance_event(
+            level=40,
+            event="access_review.remediation",
+            outcome="failure",
+            reason="remediation_keycloak_failed",
+            exc=exc,
+            **log_context,
+        )
+        abort(503)
+
+    except (AuditPersistenceError, SQLAlchemyError) as exc:
+        _log_governance_event(
+            level=40,
+            event="access_review.remediation",
+            outcome="failure",
+            reason="remediation_persistence_failed",
+            exc=exc,
+            **log_context,
+        )
+        abort(503)
+
+    return redirect(
+        url_for("governance.manage_access_review_detail", review_id=review_id),
+        303,
+    )
+
 
 @bp_governance.post("/access-reviews/<int:review_id>/items/<int:item_id>/decision")
 @login_required
