@@ -1016,3 +1016,60 @@ def test_assign_identity_client_role_rejects_non_uuid_user_id_before_keycloak(
     assert excinfo.value.reason == "invalid_user_id"
     fake_get_roles.assert_not_called()
 
+
+
+def test_remove_identity_client_role_refuses_role_with_unexpected_id(monkeypatch):
+    """
+    Verify that removal is refused before any audit or Keycloak write when the named role has another ID.
+    """
+    _patch_role_resolution(monkeypatch, _fake_role())
+
+    fake_remove = Mock()
+    fake_audit = Mock()
+    monkeypatch.setattr(role_service, "remove_client_role", fake_remove)
+    monkeypatch.setattr(role_service, "record_audit_event", fake_audit)
+
+    with pytest.raises(RoleAdministrationPolicyError) as excinfo:
+        role_service.remove_identity_client_role(
+            admin_api_url="https://keycloak.test/admin/realms/novasecure",
+            token_url="https://keycloak.test/token",
+            client_id="iam-governance-service",
+            client_secret="fake-secret",
+            user_id="9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d",
+            target_client_name="employee-portal",
+            role_name="finance-data-viewer",
+            actor_user_id="leo-sub-123",
+            actor_username="e1004",
+            expected_role_id="other-role-uuid",
+        )
+
+    assert excinfo.value.reason == "role_id_mismatch"
+    fake_audit.assert_not_called()
+    fake_remove.assert_not_called()
+
+
+def test_remove_identity_client_role_removes_role_with_expected_id(monkeypatch):
+    """
+    Verify that removal proceeds when the named role has the expected ID.
+    """
+    _patch_role_resolution(monkeypatch, _fake_role())
+
+    fake_remove = Mock()
+    monkeypatch.setattr(role_service, "remove_client_role", fake_remove)
+    monkeypatch.setattr(role_service, "record_audit_event", Mock())
+
+    result = role_service.remove_identity_client_role(
+        admin_api_url="https://keycloak.test/admin/realms/novasecure",
+        token_url="https://keycloak.test/token",
+        client_id="iam-governance-service",
+        client_secret="fake-secret",
+        user_id="9b8a7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d",
+        target_client_name="employee-portal",
+        role_name="finance-data-viewer",
+        actor_user_id="leo-sub-123",
+        actor_username="e1004",
+        expected_role_id="role-uuid-123",
+    )
+
+    fake_remove.assert_called_once()
+    assert result["role_id"] == "role-uuid-123"

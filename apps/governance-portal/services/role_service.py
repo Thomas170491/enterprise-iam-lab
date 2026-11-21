@@ -364,6 +364,7 @@ def remove_identity_client_role(
     role_name: str,
     actor_user_id: str,
     actor_username: str,
+    expected_role_id: str | None = None,
 ) -> dict[str, str]:
     """
     Remove a managed client role from an identity.
@@ -373,6 +374,9 @@ def remove_identity_client_role(
 
     Privileged mutations are fail-closed if the initial
     audit event cannot be persisted.
+
+    With expected_role_id, the role Keycloak resolves by name must have that ID;
+    otherwise removal is refused with role_id_mismatch before anything is written.
     """
 
     # ---------------------------------------------------------
@@ -409,6 +413,10 @@ def remove_identity_client_role(
         client_uuid=client_uuid,
         role_name=role_name,
     )
+
+    # A renamed or recreated role must not be removed in place of the expected one.
+    if expected_role_id is not None and role["id"] != expected_role_id:
+        raise RoleAdministrationPolicyError("role_id_mismatch")
 
     # ---------------------------------------------------------
     # 4. Record mutation attempt
