@@ -1,7 +1,9 @@
 import json
+from urllib.parse import urlsplit
 from unittest.mock import ANY, Mock
 
 import pytest
+from flask import url_for
 from sqlalchemy.exc import SQLAlchemyError
 
 from auth.permissions import ACCESS_REVIEW_MANAGER, ACCESS_REVIEWER
@@ -125,6 +127,11 @@ def test_remediation_redirects_anonymous_user_to_login(client, monkeypatch):
     response = client.post(_remediate_url(review_id, item_id))
 
     assert response.status_code == 302
+
+    with client.application.test_request_context():
+        login_url = url_for("auth.login")
+
+    assert urlsplit(response.headers["Location"]).path == login_url
     fake_service.assert_not_called()
 
 
@@ -143,6 +150,8 @@ def test_remediation_redirects_anonymous_user_to_login(client, monkeypatch):
         (ValueError("role_source_untraceable"), 409, "denied", "role_source_untraceable"),
         (RoleAdministrationPolicyError("role_id_mismatch"), 409, "denied", "role_id_mismatch"),
         (RoleAdministrationPolicyError("unmanaged_role"), 409, "denied", "unmanaged_role"),
+        (RoleAdministrationPolicyError("unmanaged_client"), 409, "denied", "unmanaged_client"),
+        (RoleAdministrationPolicyError("invalid_user_id"), 409, "denied", "invalid_user_id"),
         (KeycloakAdminAPIError("Keycloak unavailable"), 503, "failure", "remediation_keycloak_failed"),
         (AuditPersistenceError("audit unavailable"), 503, "failure", "remediation_persistence_failed"),
         (SQLAlchemyError("database unavailable"), 503, "failure", "remediation_persistence_failed"),
@@ -155,6 +164,8 @@ def test_remediation_redirects_anonymous_user_to_login(client, monkeypatch):
         "untraceable",
         "role_id_mismatch",
         "unmanaged_role",
+        "unmanaged_client",
+        "invalid_user_id",
         "keycloak_failure",
         "audit_failure",
         "database_failure",
@@ -224,16 +235,18 @@ def test_manager_view_offers_remediation_for_pending_revoked_item(client):
     assert "Remediate" in html
 
 
-@pytest.mark.parametrize("decision", ["retain"])
-def test_manager_view_hides_remediation_for_retained_item(client, decision):
+def test_manager_view_hides_remediation_for_retained_item(client):
     """
     Verify that a retained item offers no remediation form.
     """
     _login_user(client, [ACCESS_REVIEW_MANAGER])
-    review_id, item_id = _manager_campaign_with_decided_item(decision=decision)
+    review_id, item_id = _manager_campaign_with_decided_item(decision="retain")
 
-    html = client.get(f"/access-reviews/manage/{review_id}").get_data(as_text=True)
+    response = client.get(f"/access-reviews/manage/{review_id}")
+    html = response.get_data(as_text=True)
 
+    assert response.status_code == 200
+    assert "alice" in html
     assert _remediate_url(review_id, item_id) not in html
 
 
@@ -250,8 +263,11 @@ def test_manager_view_hides_remediation_once_item_is_remediated(client):
     )
     db.session.commit()
 
-    html = client.get(f"/access-reviews/manage/{review_id}").get_data(as_text=True)
+    response = client.get(f"/access-reviews/manage/{review_id}")
+    html = response.get_data(as_text=True)
 
+    assert response.status_code == 200
+    assert "alice" in html
     assert _remediate_url(review_id, item_id) not in html
     assert "Remediation: Completed" in html
 
@@ -265,8 +281,11 @@ def test_manager_view_hides_remediation_for_cancelled_campaign(client):
     access_review_service.cancel_access_review(review_id)
     db.session.commit()
 
-    html = client.get(f"/access-reviews/manage/{review_id}").get_data(as_text=True)
+    response = client.get(f"/access-reviews/manage/{review_id}")
+    html = response.get_data(as_text=True)
 
+    assert response.status_code == 200
+    assert "alice" in html
     assert _remediate_url(review_id, item_id) not in html
 
 
@@ -277,8 +296,11 @@ def test_reviewer_view_never_offers_remediation(client):
     review_id, item_id = _manager_campaign_with_decided_item()
     _login_user(client, [ACCESS_REVIEWER], sub=REVIEWER_ID)
 
-    html = client.get(f"/access-reviews/{review_id}").get_data(as_text=True)
+    response = client.get(f"/access-reviews/{review_id}")
+    html = response.get_data(as_text=True)
 
+    assert response.status_code == 200
+    assert "alice" in html
     assert _remediate_url(review_id, item_id) not in html
 
 
