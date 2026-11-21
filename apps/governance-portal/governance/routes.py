@@ -657,6 +657,16 @@ def populate_access_review(review_id):
             )
             abort(409)
 
+        elif str(exc) == "role_source_untraceable":
+            _log_governance_event(
+                event="access_review.populate",
+                outcome="denied",
+                level=30,
+                reason=str(exc),
+                target_id=str(review_id),
+            )
+            abort(409)
+
         else:
             abort(400)
 

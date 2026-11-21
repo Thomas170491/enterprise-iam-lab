@@ -1,3 +1,4 @@
+import json
 from unittest.mock import Mock
 
 import pytest
@@ -371,3 +372,43 @@ def test_populate_access_review_returns_503_on_service_token_failure(
     assert response.status_code == 503
     fake_post.assert_called_once()
     assert db.session.execute(db.select(AccessReviewItem)).scalars().all() == []
+
+
+def test_populate_access_review_returns_409_and_logs_untraceable_role(
+    client, monkeypatch, caplog
+):
+    """
+    Verify that an untraceable role source answers 409 and logs one denial without exception text.
+    """
+    _login_user(client, [ACCESS_REVIEW_MANAGER])
+
+    campaign = access_review_service.create_access_review(
+        "Test campaign",
+        "test-subject",
+        "test-reviewer",
+    )
+    monkeypatch.setattr(
+        governance_routes,
+        "populate_access_review_with_audit",
+        Mock(side_effect=ValueError("role_source_untraceable")),
+    )
+
+    with caplog.at_level("WARNING"):
+        response = client.post(
+            f"/access-reviews/manage/{campaign.id}/populate",
+            data={"user_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"},
+        )
+
+    assert response.status_code == 409
+
+    events = [
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if record.getMessage().startswith("{")
+    ]
+
+    assert len(events) == 1
+    assert events[0]["event"] == "access_review.populate"
+    assert events[0]["outcome"] == "denied"
+    assert events[0]["reason"] == "role_source_untraceable"
+    assert events[0]["target_id"] == str(campaign.id)
